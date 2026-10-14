@@ -16,6 +16,7 @@
  * vollständig aus.
  */
 import type { BatteryCatalogCategory } from './battery-catalog-loader'
+import { resolveDynamicTariff, type DynamicSupplierTariff } from './tariff-pricing'
 import {
   SUBSIDY_PROGRAM_LABEL_MAX,
   SUBSIDY_PROGRAMS_MAX,
@@ -211,6 +212,33 @@ export function readDraftTaxFields(
         ? years
         : undefined,
   }
+}
+
+/** Entwurfsschlüssel der Konditionen des dynamischen Tarifs (netto). */
+export const DYNAMIC_TARIFF_DRAFT_KEYS = {
+  supplier: 'dynamicSupplierName',
+  markupCtPerKwh: 'dynamicMarkupCtPerKwh',
+  baseFeeEurPerMonth: 'dynamicBaseFeeEurPerMonth',
+} as const
+
+export const DEFAULT_DYNAMIC_SUPPLIER_NAME = 'Spot-Tarif'
+
+/**
+ * Die Konditionen des dynamischen Tarifs aus dem Entwurf. Fehlt eine der beiden Zahlen oder ist sie
+ * nicht endlich und >= 0, kommt `null` — es wird nichts ergänzt oder geraten.
+ */
+export function readDraftDynamicTariff(draft: Record<string, unknown>): DynamicSupplierTariff | null {
+  const keys = DYNAMIC_TARIFF_DRAFT_KEYS
+  const name = draft[keys.supplier]
+  return (
+    resolveDynamicTariff({
+      dynamicTariff: {
+        supplier: typeof name === 'string' && name.trim() !== '' ? name.trim() : DEFAULT_DYNAMIC_SUPPLIER_NAME,
+        markupCtPerKwh: draft[keys.markupCtPerKwh] as number,
+        baseFeeEurPerMonth: draft[keys.baseFeeEurPerMonth] as number,
+      },
+    }) ?? null
+  )
 }
 
 /**

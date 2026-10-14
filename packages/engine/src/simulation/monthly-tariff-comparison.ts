@@ -1,4 +1,4 @@
-import { AWATTAR_BASE_FEE, findLevyPeriod } from 'shared'
+import { AWATTAR_BASE_FEE, findLevyPeriod, resolveDynamicTariff } from 'shared'
 import type {
   GridTariffRowInput,
   LevyPeriodInput,
@@ -237,7 +237,11 @@ export function buildMonthlyTariffComparison(
    * bewertet, statt den Stand des ersten Tages über den ganzen Lastgang zu ziehen.
    */
   const supplierFeeEurPerMonth = tariffParams.supplierBaseFeeEurPerMonth ?? 0
-  const awattarFeeEurPerMonth = AWATTAR_BASE_FEE.eurPerMonth
+  // `null` kann hier nicht vorkommen: `combinedIntervalPrices` hat den Vergleich dann schon verweigert.
+  const dynamicTariff = resolveDynamicTariff(pricing)
+  const awattarFeeEurPerMonth = dynamicTariff
+    ? dynamicTariff.baseFeeEurPerMonth
+    : AWATTAR_BASE_FEE.eurPerMonth
   const networkFix = new Array<number>(12).fill(0)
   const meteringFix = new Array<number>(12).fill(0)
   const eagFlatFix = new Array<number>(12).fill(0)

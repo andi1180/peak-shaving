@@ -26,6 +26,7 @@ import 'server-only'
 import {
   DEFAULT_COUNTRY,
   buildLevySchedule,
+  readDraftDynamicTariff,
   spotPriceProviderFor,
   type LevyContext,
   type SpotPriceProvider,
@@ -308,6 +309,7 @@ export async function readTariffPricingForAnalysis(
     intervalMinutes: number
   },
   levyContext: LevyContext,
+  draft: Record<string, unknown>,
 ): Promise<TariffPricingInputs> {
   const { operatorId, netzebene, meteringVariant, window, intervalMinutes } = request
 
@@ -350,5 +352,12 @@ export async function readTariffPricingForAnalysis(
             levyContext,
           )
         : null,
+    /*
+     * Konditionen des dynamischen Tarifs: nur für DE aus dem Entwurf (fehlend/ungültig ⇒ `null` ⇒ der
+     * Vergleich wird verweigert). Für AT bleibt der Schlüssel WEG — der bisherige Weg gilt unverändert.
+     */
+    ...((levyContext.country ?? DEFAULT_COUNTRY) === 'DE'
+      ? { dynamicTariff: readDraftDynamicTariff(draft) }
+      : {}),
   }
 }

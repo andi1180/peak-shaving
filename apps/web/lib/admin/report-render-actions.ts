@@ -187,7 +187,7 @@ export async function createReportRenderRequestAction(
           category,
           postalCode: project.postal_code,
           country: project.country,
-        })
+        }, point.draft)
         gridTariffRows = pricing.gridTariffRows
         return pricing
       },
