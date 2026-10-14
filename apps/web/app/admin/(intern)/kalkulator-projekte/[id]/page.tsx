@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
+import { ProjectLocationForm } from '@/components/admin/project-location-form'
 import { EnergyAdvisorDialog } from '@/components/admin/energy-advisor-dialog'
 import { ActionButton } from '@/components/admin/action-button'
 import { createReportRenderRequestAction } from '@/lib/admin/report-render-actions'
@@ -12,6 +13,7 @@ import {
   REPORT_OPTIONAL_SECTIONS_MARKER,
   type ReportOptionalSection,
 } from 'shared'
+import { COUNTRY_LABELS } from 'shared/country'
 import { readMeteringPointList } from '@/lib/admin/metering-points'
 import {
   PROJECTS_HREF,
@@ -126,6 +128,7 @@ export default async function AdminProjectDetailPage({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {/* Ohne Segment steht hier nichts — NULL heisst „noch nicht bestimmt", nicht „Privat". */}
           {segment && <Pill tone="neutral">{segment}</Pill>}
+          <Pill tone="neutral">{project.country}</Pill>
           {project.industry && <Pill tone="neutral">{project.industry}</Pill>}
           {project.account_id === null && <Pill tone="neutral">ohne Kundenkonto</Pill>}
         </div>
@@ -153,6 +156,13 @@ export default async function AdminProjectDetailPage({
             >
               {project.industry ?? '—'}
             </Angabe>
+            <Angabe label="Land">{COUNTRY_LABELS[project.country]}</Angabe>
+            <Angabe
+              label="Postleitzahl"
+              hint={project.postal_code ? undefined : 'Noch nicht erfasst.'}
+            >
+              {project.postal_code ?? '—'}
+            </Angabe>
             <Angabe label="Angelegt">{formatDateTime(project.created_at)}</Angabe>
             <Angabe label="Zuletzt geändert">{formatDateTime(project.updated_at)}</Angabe>
             <Angabe
@@ -166,6 +176,11 @@ export default async function AdminProjectDetailPage({
               {project.created_by_email ?? '—'}
             </Angabe>
           </dl>
+          <ProjectLocationForm
+            projectId={project.id}
+            country={project.country}
+            postalCode={project.postal_code}
+          />
         </AdminPanel>
 
         <p className="mt-4 text-small text-text-muted">

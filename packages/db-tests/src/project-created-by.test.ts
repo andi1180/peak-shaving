@@ -168,7 +168,7 @@ describe('B24-Nachtrag — die Spalte selbst', () => {
   it('das `create or replace` hat die Rechtefläche NICHT verschoben', async () => {
     for (const sig of [
       'public.create_my_project(text)',
-      'public.admin_create_project(text, uuid)',
+      'public.admin_create_project(text, uuid, text, text)',
       'public.admin_list_projects(integer, integer, uuid)',
       'public.admin_get_project(uuid)',
     ]) {

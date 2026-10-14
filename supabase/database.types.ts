@@ -2163,7 +2163,12 @@ export type Database = {
         Returns: Json
       }
       admin_create_project: {
-        Args: { p_account_id?: string; p_customer_label: string }
+        Args: {
+          p_account_id?: string
+          p_country?: string
+          p_customer_label: string
+          p_postal_code?: string
+        }
         Returns: Json
       }
       admin_create_question_catalog_entry: {

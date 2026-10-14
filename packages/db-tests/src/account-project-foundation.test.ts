@@ -71,7 +71,7 @@ const WRAPPER_SIGNATURES: Record<(typeof B24_WRAPPERS)[number], string> = {
   create_my_project: 'public.create_my_project(text)',
   list_my_projects: 'public.list_my_projects()',
   get_my_project: 'public.get_my_project(uuid)',
-  admin_create_project: 'public.admin_create_project(text, uuid)',
+  admin_create_project: 'public.admin_create_project(text, uuid, text, text)',
   admin_list_projects: 'public.admin_list_projects(integer, integer, uuid)',
   admin_get_project: 'public.admin_get_project(uuid)',
 }
