@@ -10,6 +10,7 @@ import {
 } from './tariff-draft'
 import {
   ANALYSIS_ASSUMPTION_DRAFT_KEYS,
+  DYNAMIC_TARIFF_DRAFT_KEYS,
   ANALYSIS_HORIZON_YEARS_MAX,
   ANALYSIS_HORIZON_YEARS_MIN,
   DEPRECIATION_YEARS_MAX,
@@ -21,6 +22,8 @@ import {
   subsidyProgramDraftKeys,
 } from 'shared'
 import { isSubsidyMode, parseAmountInput } from './analysis-assumptions-draft'
+import { readAdminProject } from './projects'
+import { createClient } from '@/lib/supabase/server'
 import type { AdminState } from './schema'
 import {
   GENERIC,
@@ -160,6 +163,102 @@ export async function deleteMeteringPointTariffComparisonAction(
   if (failure) return failure
 
   return { success: 'Vergleichstarif gelöscht.' }
+}
+
+const DYNAMIC_TARIFF_KEYS: readonly string[] = Object.values(DYNAMIC_TARIFF_DRAFT_KEYS)
+const DYNAMIC_SUPPLIER_NAME_MAX = 80
+
+/**
+ * Konditionen des dynamischen Tarifs (Spotvertrag), netto — NUR für Projekte in Deutschland: in AT
+ * rechnet der Spot-Vergleich mit aWATTar-Preisen und braucht keine Konditionen.
+ *
+ * Das Land wird hier serverseitig aus dem Projekt gelesen, nicht aus dem Formular: eine Action ist
+ * ein direkt adressierbarer Endpunkt. Beide Zahlen oder keine; ein leerer Name lässt den Schlüssel
+ * weg (der Leser setzt dann „Spot-Tarif"). Gesetzt und entfernt wird in EINEM Schreibvorgang.
+ */
+export async function saveMeteringPointDynamicTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const supabase = await createClient()
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+  if (projectRes.error) {
+    console.error('[admin/dateneingabe] admin_get_project (Dynamischer Tarif):', projectRes.error)
+    return { formError: GENERIC }
+  }
+  const project = readAdminProject(projectRes.data)
+  if (project === 'not_found') return { formError: UNKNOWN_PROJECT }
+  if (project === null) return { formError: GENERIC }
+  if (project.country !== 'DE') {
+    return { formError: 'Der dynamische Tarif wird nur für Projekte in Deutschland erfasst.' }
+  }
+
+  const supplierName = String(formData.get('supplierName') ?? '').trim()
+  const markupRaw = String(formData.get('markupCtPerKwh') ?? '')
+  const baseFeeRaw = String(formData.get('baseFeeEurPerMonth') ?? '')
+
+  const fieldErrors: Record<string, string> = {}
+  if (supplierName.length > DYNAMIC_SUPPLIER_NAME_MAX) {
+    fieldErrors.supplierName = `Höchstens ${DYNAMIC_SUPPLIER_NAME_MAX} Zeichen.`
+  }
+  const markup = parseAmountInput(markupRaw)
+  if (!(Number.isFinite(markup) && markup >= 0)) {
+    fieldErrors.markupCtPerKwh = 'Bitte den Aufschlag als Zahl (0 oder mehr) angeben.'
+  }
+  const baseFee = parseAmountInput(baseFeeRaw)
+  if (!(Number.isFinite(baseFee) && baseFee >= 0)) {
+    fieldErrors.baseFeeEurPerMonth = 'Bitte die Grundgebühr als Zahl (0 oder mehr) angeben.'
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      fieldErrors,
+      values: { supplierName, markupCtPerKwh: markupRaw, baseFeeEurPerMonth: baseFeeRaw },
+    }
+  }
+
+  const keys = DYNAMIC_TARIFF_DRAFT_KEYS
+  const failure = await replaceMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    [
+      ...(supplierName === '' ? [] : [{ field: keys.supplier, value: supplierName }]),
+      { field: keys.markupCtPerKwh, value: markup },
+      { field: keys.baseFeeEurPerMonth, value: baseFee },
+    ],
+    DYNAMIC_TARIFF_KEYS,
+    'Dynamischer Tarif',
+  )
+  if (failure) return failure
+
+  return { success: 'Konditionen des dynamischen Tarifs vermerkt.' }
+}
+
+/** Die drei Schlüssel des dynamischen Tarifs gemeinsam entfernen (sonst bliebe ein halber Eintrag). */
+export async function deleteMeteringPointDynamicTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const failure = await clearMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    DYNAMIC_TARIFF_KEYS,
+    'Dynamischer Tarif löschen',
+  )
+  if (failure) return failure
+
+  return { success: 'Konditionen des dynamischen Tarifs gelöscht.' }
 }
 
 type ParsedSubsidyProgram = {

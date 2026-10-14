@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { readDraftDynamicTariff } from 'shared'
 import {
   TARIFF_COMPARISON_BASE_FEE_KEY,
   TARIFF_COMPARISON_ENERGY_PRICE_KEY,
@@ -24,8 +25,12 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
 
-const { saveMeteringPointAnalysisAssumptionsAction, saveMeteringPointTariffComparisonAction } =
-  await import('./data-entry-actions-tarif')
+const {
+  deleteMeteringPointDynamicTariffAction,
+  saveMeteringPointAnalysisAssumptionsAction,
+  saveMeteringPointDynamicTariffAction,
+  saveMeteringPointTariffComparisonAction,
+} = await import('./data-entry-actions-tarif')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
@@ -34,12 +39,19 @@ const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
 const EXISTING = { energyPriceCtPerKwh: 24.5 }
 
 let draft: Record<string, unknown> = {}
+let projectCountry: 'AT' | 'DE' = 'AT'
 
 /** Der Entwurf-Fake ist zustandsbehaftet und ERSETZT — genau die Semantik des Wrappers. */
 function withDraftWrappers() {
   rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     if (fn === 'list_metering_points') {
       return { data: { status: 'ok', metering_points: [{ id: POINT_ID, draft }] }, error: null }
+    }
+    if (fn === 'admin_get_project') {
+      return {
+        data: { status: 'ok', project: { id: PROJECT_ID, country: projectCountry } },
+        error: null,
+      }
     }
     if (fn === 'update_metering_point_draft') {
       draft = args.p_draft as Record<string, unknown>
@@ -279,7 +291,11 @@ describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
         depreciationYears: '10',
       }),
     )
-    expect(draft).toMatchObject({ investitionsfreibetragPercent: 20, taxRatePercent: 23, depreciationYears: 10 })
+    expect(draft).toMatchObject({
+      investitionsfreibetragPercent: 20,
+      taxRatePercent: 23,
+      depreciationYears: 10,
+    })
 
     await saveMeteringPointAnalysisAssumptionsAction({}, assumptionsForm({ horizonYears: '12' }))
     expect(draft).toMatchObject({ horizonYears: 12, taxRatePercent: 23, depreciationYears: 10 })
@@ -289,5 +305,95 @@ describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
       assumptionsForm({ taxFields: '1', depreciationYears: '7,5' }),
     )
     expect(state.fieldErrors?.depreciationYears).toBeDefined()
+  })
+})
+
+describe('Tarif-Station — dynamischer Tarif (nur DE)', () => {
+  const KEYS = ['dynamicSupplierName', 'dynamicMarkupCtPerKwh', 'dynamicBaseFeeEurPerMonth']
+
+  function dynamicForm(fields: Record<string, string>): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const [key, value] of Object.entries(fields)) fd.set(key, value)
+    return fd
+  }
+
+  const VALID = {
+    supplierName: ' Beispiel Spot ',
+    markupCtPerKwh: '1,5',
+    baseFeeEurPerMonth: '4,90',
+  }
+
+  const writes = () => rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    draft = { energyPriceCtPerKwh: 24.5, [TARIFF_COMPARISON_PROVIDER_NAME_KEY]: 'Fremder Anbieter' }
+    projectCountry = 'DE'
+    withDraftWrappers()
+  })
+
+  it('speichert bei DE genau die drei Schlüssel (Komma, getrimmter Name) und lässt fremde unberührt', async () => {
+    const state = await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
+
+    expect(state.fieldErrors).toBeUndefined()
+    expect(state.formError).toBeUndefined()
+    expect(draft.dynamicSupplierName).toBe('Beispiel Spot')
+    expect(draft.dynamicMarkupCtPerKwh).toBe(1.5)
+    expect(draft.dynamicBaseFeeEurPerMonth).toBe(4.9)
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
+    expect(writes()).toHaveLength(1)
+  })
+
+  it('löscht genau die drei Schlüssel, fremde bleiben', async () => {
+    await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
+    const state = await deleteMeteringPointDynamicTariffAction({}, dynamicForm({}))
+
+    expect(state.formError).toBeUndefined()
+    for (const key of KEYS) expect(key in draft).toBe(false)
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
+  })
+
+  it('lehnt bei AT serverseitig ab — der Entwurf bleibt unverändert', async () => {
+    projectCountry = 'AT'
+    const before = structuredClone(draft)
+
+    const state = await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
+
+    expect(state.formError).toMatch(/Deutschland/)
+    expect(writes()).toHaveLength(0)
+    expect(draft).toEqual(before)
+  })
+
+  it.each([
+    ['nur ein Wert', { ...VALID, baseFeeEurPerMonth: '' }],
+    ['negativer Wert', { ...VALID, markupCtPerKwh: '-1' }],
+    ['Text statt Zahl', { ...VALID, markupCtPerKwh: 'abc' }],
+  ])('speichert nicht bei ungültiger Eingabe: %s', async (_name, fields) => {
+    const state = await saveMeteringPointDynamicTariffAction({}, dynamicForm(fields))
+
+    expect(Object.keys(state.fieldErrors ?? {}).length).toBeGreaterThan(0)
+    expect(writes()).toHaveLength(0)
+  })
+
+  it('Round-Trip: der Leser liest genau das Gespeicherte; leerer Name ergibt „Spot-Tarif"', async () => {
+    await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
+    expect(readDraftDynamicTariff(draft)).toEqual({
+      supplier: 'Beispiel Spot',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 4.9,
+    })
+
+    // Ein leerer Name entfernt einen früheren Namen, statt ihn stehen zu lassen.
+    await saveMeteringPointDynamicTariffAction({}, dynamicForm({ ...VALID, supplierName: '  ' }))
+    expect('dynamicSupplierName' in draft).toBe(false)
+    expect(readDraftDynamicTariff(draft)).toEqual({
+      supplier: 'Spot-Tarif',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 4.9,
+    })
   })
 })
