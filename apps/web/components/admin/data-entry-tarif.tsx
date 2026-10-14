@@ -19,7 +19,7 @@ import {
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
   type TariffComparisonPriceBasis,
 } from '@/lib/admin/tariff-draft'
-import { DYNAMIC_TARIFF_DRAFT_KEYS, readDraftDynamicTariff, type Country } from 'shared'
+import { DYNAMIC_TARIFF_DRAFT_KEYS, readDraftDynamicTariff } from 'shared'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
 import { DataEntryAssumptions } from './data-entry-assumptions'
@@ -153,7 +153,6 @@ export function DataEntryTarif({
   segment,
   hasKnownTariff,
   awattarAverageCtPerKwh,
-  country,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
@@ -193,8 +192,6 @@ export function DataEntryTarif({
   hasKnownTariff: boolean
   /** Der aWATTar-Durchschnitt der letzten 30 Tage in ct/kWh, oder `null` ohne Preisdaten. */
   awattarAverageCtPerKwh: number | null
-  /** Projektland — der Block „Dynamischer Tarif" erscheint nur bei `'DE'`. */
-  country: Country
 }) {
   const [comparisonState, comparisonAction, isSavingComparison] = useActionState(
     saveMeteringPointTariffComparisonAction,
@@ -445,9 +442,7 @@ export function DataEntryTarif({
         gehört dort abgefangen, wo über die Vollständigkeit entschieden wird (KI-Check,
         Abbruchprüfung), nicht an einem Link. Der Vergleichstarif ist ohnehin ausdrücklich optional.
       */}
-      {country === 'DE' && (
-        <DynamicTariffBlock projectId={projectId} meteringPoint={meteringPoint} />
-      )}
+      <DynamicTariffBlock projectId={projectId} meteringPoint={meteringPoint} />
 
       <DataEntryAssumptions projectId={projectId} meteringPoint={meteringPoint} segment={segment} />
 
@@ -463,7 +458,7 @@ export function DataEntryTarif({
 }
 
 /**
- * Konditionen des dynamischen Tarifs (Spotvertrag) — nur Deutschland. Gespeichert werden beide
+ * Konditionen des dynamischen Tarifs (Spotvertrag) — für alle Länder gleich. Gespeichert werden beide
  * Zahlen netto oder keine; angezeigt wird, was der Entwurf trägt (`readDraftDynamicTariff` — dieselbe
  * Lesung wie in der Berechnung, kein zweites Format).
  */
@@ -495,7 +490,7 @@ function DynamicTariffBlock({
     <AdminPanel>
       <h3 className="text-h4 text-ink">Dynamischer Tarif (Spotvertrag)</h3>
       <p className="mt-1 text-caption text-text-muted">
-        Werte netto. Ohne Angabe wird der Vergleich mit dem dynamischen Tarif nicht gerechnet.
+        Werte netto. Leer = kein Vergleich mit dem dynamischen Tarif; 0 = bewusst null.
       </p>
 
       {hasEntry && (

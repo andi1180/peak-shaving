@@ -308,7 +308,7 @@ describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
   })
 })
 
-describe('Tarif-Station — dynamischer Tarif (nur DE)', () => {
+describe('Tarif-Station — dynamischer Tarif (alle Länder)', () => {
   const KEYS = ['dynamicSupplierName', 'dynamicMarkupCtPerKwh', 'dynamicBaseFeeEurPerMonth']
 
   function dynamicForm(fields: Record<string, string>): FormData {
@@ -334,39 +334,33 @@ describe('Tarif-Station — dynamischer Tarif (nur DE)', () => {
     withDraftWrappers()
   })
 
-  it('speichert bei DE genau die drei Schlüssel (Komma, getrimmter Name) und lässt fremde unberührt', async () => {
-    const state = await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
+  it.each(['AT', 'DE'] as const)(
+    '%s: speichert genau die drei Schlüssel (Komma, getrimmter Name, 0 gültig), löscht sie, fremde bleiben',
+    async (country) => {
+      projectCountry = country
 
-    expect(state.fieldErrors).toBeUndefined()
-    expect(state.formError).toBeUndefined()
-    expect(draft.dynamicSupplierName).toBe('Beispiel Spot')
-    expect(draft.dynamicMarkupCtPerKwh).toBe(1.5)
-    expect(draft.dynamicBaseFeeEurPerMonth).toBe(4.9)
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
-    expect(writes()).toHaveLength(1)
-  })
+      const state = await saveMeteringPointDynamicTariffAction(
+        {},
+        dynamicForm({ ...VALID, baseFeeEurPerMonth: '0' }),
+      )
 
-  it('löscht genau die drei Schlüssel, fremde bleiben', async () => {
-    await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
-    const state = await deleteMeteringPointDynamicTariffAction({}, dynamicForm({}))
+      expect(state.fieldErrors).toBeUndefined()
+      expect(state.formError).toBeUndefined()
+      expect(draft.dynamicSupplierName).toBe('Beispiel Spot')
+      expect(draft.dynamicMarkupCtPerKwh).toBe(1.5)
+      expect(draft.dynamicBaseFeeEurPerMonth).toBe(0)
+      expect(draft.energyPriceCtPerKwh).toBe(24.5)
+      expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
+      expect(writes()).toHaveLength(1)
+      expect(rpc.mock.calls.some(([fn]) => fn === 'admin_get_project')).toBe(false)
 
-    expect(state.formError).toBeUndefined()
-    for (const key of KEYS) expect(key in draft).toBe(false)
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
-  })
-
-  it('lehnt bei AT serverseitig ab — der Entwurf bleibt unverändert', async () => {
-    projectCountry = 'AT'
-    const before = structuredClone(draft)
-
-    const state = await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
-
-    expect(state.formError).toMatch(/Deutschland/)
-    expect(writes()).toHaveLength(0)
-    expect(draft).toEqual(before)
-  })
+      const deleted = await deleteMeteringPointDynamicTariffAction({}, dynamicForm({}))
+      expect(deleted.formError).toBeUndefined()
+      for (const key of KEYS) expect(key in draft).toBe(false)
+      expect(draft.energyPriceCtPerKwh).toBe(24.5)
+      expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Fremder Anbieter')
+    },
+  )
 
   it.each([
     ['nur ein Wert', { ...VALID, baseFeeEurPerMonth: '' }],

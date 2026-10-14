@@ -28,7 +28,9 @@
  * mit welcher Gebühr sie gerechnet wurde (dieselbe Append-only-Haltung wie bei `consent_texts`).
  */
 
+import type { Country } from './country'
 import type { PriceBasis } from './tariff'
+import type { DynamicSupplierTariff } from './tariff-pricing'
 
 export type SupplierBaseFee = {
   /** Anzeigename des Lieferanten — er steht so im Report. */
@@ -59,4 +61,20 @@ export const AWATTAR_BASE_FEE: SupplierBaseFee = {
     'aWATTar HOURLY, Grundgebühr laut Endkunden-Preisangabe (5,75 € brutto/Monat = 4,79 € netto), ' +
     'im Repo festgehalten am 02.09.2026. Ändert sich der Satz, kommt ein ZWEITER Eintrag mit ' +
     'späterem validFrom hinzu — der bestehende wird nicht editiert.',
+}
+
+/**
+ * aWATTar HOURLY (AT) als Konditionen eines dynamischen Tarifs, netto. Quelle awattar.at/tariffs/hourly,
+ * Stand 14.10.2026: EPEX Spot AT + 1,5 ct/kWh Beschaffungskomponente netto, Grundgebühr 4,79 €/Monat netto.
+ */
+export const AWATTAR_HOURLY_AT_DYNAMIC: DynamicSupplierTariff = {
+  supplier: 'aWATTar HOURLY',
+  markupCtPerKwh: 1.5,
+  baseFeeEurPerMonth: AWATTAR_BASE_FEE.eurPerMonth,
+}
+
+/** Vorbelegung neuer Zählpunkte je Projektland; DE bleibt leer (für RLM-Gewerbe gibt es kein Standardprodukt). */
+export const DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY: Record<Country, DynamicSupplierTariff | null> = {
+  AT: AWATTAR_HOURLY_AT_DYNAMIC,
+  DE: null,
 }

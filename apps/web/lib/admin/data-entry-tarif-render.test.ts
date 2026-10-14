@@ -3,11 +3,13 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import { DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY, dynamicTariffDraftFields } from 'shared'
+
 import type { MeteringPointSummary } from './metering-points'
 
 /**
- * Der Block „Dynamischer Tarif (Spotvertrag)" erscheint nur bei Projektland DE; bei AT bleibt das
- * DOM der Station ohne ihn. Die Actions sind ersetzt — gerendert wird nur die Komponente.
+ * Der Block „Dynamischer Tarif (Spotvertrag)" erscheint für jedes Projektland — die Station bekommt
+ * gar kein Land mehr. Die Actions sind ersetzt — gerendert wird nur die Komponente.
  */
 vi.mock('@/lib/admin/data-entry-actions', () => ({
   deleteMeteringPointDynamicTariffAction: async () => ({}),
@@ -25,7 +27,7 @@ const { DataEntryTarif } = await import('@/components/admin/data-entry-tarif')
 const point = (draft: Record<string, unknown> = {}) =>
   ({ id: '66666666-7777-4888-8999-aaaaaaaaaaaa', draft }) as unknown as MeteringPointSummary
 
-function render(country: 'AT' | 'DE', draft: Record<string, unknown> = {}): string {
+function render(draft: Record<string, unknown> = {}): string {
   return renderToStaticMarkup(
     createElement(DataEntryTarif, {
       projectId: '11111111-2222-4333-8444-555555555555',
@@ -35,26 +37,28 @@ function render(country: 'AT' | 'DE', draft: Record<string, unknown> = {}): stri
       segment: 'betrieb',
       hasKnownTariff: false,
       awattarAverageCtPerKwh: null,
-      country,
     }),
   )
 }
 
 describe('Tarif-Station — Block „Dynamischer Tarif"', () => {
-  it('bei AT kein Block, bei DE mit Block', () => {
-    expect(render('AT')).not.toContain('Dynamischer Tarif')
-    expect(render('AT')).not.toContain('markupCtPerKwh')
+  it('Block ohne Länderbezug: leer mit Formular, mit AT-Vorbelegung die vermerkten Werte', () => {
+    const empty = render()
+    expect(empty).toContain('Dynamischer Tarif (Spotvertrag)')
+    expect(empty).toContain('name="markupCtPerKwh"')
+    expect(empty).toContain('Werte netto. Leer = kein Vergleich mit dem dynamischen Tarif; 0 = bewusst null.')
 
-    const de = render('DE')
-    expect(de).toContain('Dynamischer Tarif (Spotvertrag)')
-    expect(de).toContain('name="markupCtPerKwh"')
-    expect(de).toContain(
-      'Werte netto. Ohne Angabe wird der Vergleich mit dem dynamischen Tarif nicht gerechnet.',
+    const prefilled = render(
+      Object.fromEntries(
+        dynamicTariffDraftFields(DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY.AT!).map((f) => [f.field, f.value]),
+      ),
     )
+    expect(prefilled).toContain('Dynamischer Tarif (Spotvertrag)')
+    expect(prefilled).toContain('aWATTar HOURLY')
   })
 
   it('zeigt gespeicherte Werte nach dem Neuladen und statt des Formulars den Löschknopf', () => {
-    const de = render('DE', {
+    const de = render({
       dynamicSupplierName: 'Beispiel Spot',
       dynamicMarkupCtPerKwh: 1.5,
       dynamicBaseFeeEurPerMonth: 4.9,

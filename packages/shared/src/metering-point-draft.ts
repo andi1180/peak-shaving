@@ -223,6 +223,18 @@ export const DYNAMIC_TARIFF_DRAFT_KEYS = {
 
 export const DEFAULT_DYNAMIC_SUPPLIER_NAME = 'Spot-Tarif'
 
+/** Die drei Entwurfsfelder zu gegebenen Konditionen — Gegenstück zu `readDraftDynamicTariff`. */
+export function dynamicTariffDraftFields(
+  tariff: DynamicSupplierTariff,
+): { field: string; value: string | number }[] {
+  const keys = DYNAMIC_TARIFF_DRAFT_KEYS
+  return [
+    { field: keys.supplier, value: tariff.supplier },
+    { field: keys.markupCtPerKwh, value: tariff.markupCtPerKwh },
+    { field: keys.baseFeeEurPerMonth, value: tariff.baseFeeEurPerMonth },
+  ]
+}
+
 /**
  * Die Konditionen des dynamischen Tarifs aus dem Entwurf. Fehlt eine der beiden Zahlen oder ist sie
  * nicht endlich und >= 0, kommt `null` — es wird nichts ergänzt oder geraten.

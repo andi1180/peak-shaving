@@ -22,8 +22,6 @@ import {
   subsidyProgramDraftKeys,
 } from 'shared'
 import { isSubsidyMode, parseAmountInput } from './analysis-assumptions-draft'
-import { readAdminProject } from './projects'
-import { createClient } from '@/lib/supabase/server'
 import type { AdminState } from './schema'
 import {
   GENERIC,
@@ -169,12 +167,9 @@ const DYNAMIC_TARIFF_KEYS: readonly string[] = Object.values(DYNAMIC_TARIFF_DRAF
 const DYNAMIC_SUPPLIER_NAME_MAX = 80
 
 /**
- * Konditionen des dynamischen Tarifs (Spotvertrag), netto — NUR für Projekte in Deutschland: in AT
- * rechnet der Spot-Vergleich mit aWATTar-Preisen und braucht keine Konditionen.
- *
- * Das Land wird hier serverseitig aus dem Projekt gelesen, nicht aus dem Formular: eine Action ist
- * ein direkt adressierbarer Endpunkt. Beide Zahlen oder keine; ein leerer Name lässt den Schlüssel
- * weg (der Leser setzt dann „Spot-Tarif"). Gesetzt und entfernt wird in EINEM Schreibvorgang.
+ * Konditionen des dynamischen Tarifs (Spotvertrag), netto — für alle Länder gleich. Beide Zahlen
+ * oder keine, 0 ist gültig; ein leerer Name lässt den Schlüssel weg (der Leser setzt dann
+ * „Spot-Tarif"). Gesetzt und entfernt wird in EINEM Schreibvorgang.
  */
 export async function saveMeteringPointDynamicTariffAction(
   _prev: AdminState,
@@ -185,19 +180,6 @@ export async function saveMeteringPointDynamicTariffAction(
 
   const meteringPointId = String(formData.get('meteringPointId') ?? '')
   if (!UUID.test(meteringPointId)) return { formError: GENERIC }
-
-  const supabase = await createClient()
-  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
-  if (projectRes.error) {
-    console.error('[admin/dateneingabe] admin_get_project (Dynamischer Tarif):', projectRes.error)
-    return { formError: GENERIC }
-  }
-  const project = readAdminProject(projectRes.data)
-  if (project === 'not_found') return { formError: UNKNOWN_PROJECT }
-  if (project === null) return { formError: GENERIC }
-  if (project.country !== 'DE') {
-    return { formError: 'Der dynamische Tarif wird nur für Projekte in Deutschland erfasst.' }
-  }
 
   const supplierName = String(formData.get('supplierName') ?? '').trim()
   const markupRaw = String(formData.get('markupCtPerKwh') ?? '')

@@ -7,7 +7,9 @@ import {
   stationAfterSegment,
   stationHref,
 } from './data-entry-stations'
-import { PROJECT_SEGMENTS, type ProjectSegment } from './projects'
+import { DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY, dynamicTariffDraftFields } from 'shared'
+import { readMeteringPointList } from './metering-points'
+import { PROJECT_SEGMENTS, readAdminProject, type ProjectSegment } from './projects'
 import type { AdminState } from './schema'
 import {
   FORBIDDEN,
@@ -16,6 +18,7 @@ import {
   isForbidden,
   readProjectId,
   statusOf,
+  writeMeteringPointDraftFields,
 } from './data-entry-actions-shared'
 
 // ── Segment ──────────────────────────────────────────────────────────────────────────────────────
@@ -104,6 +107,7 @@ export async function setMeteringPointCountAction(
   }
 
   const supabase = await createClient()
+  const prefill = await readDynamicTariffPrefill(projectId)
   const { data, error } = await supabase.rpc('admin_set_metering_point_count', {
     p_project_id: projectId,
     p_count: count,
@@ -146,6 +150,54 @@ export async function setMeteringPointCountAction(
       return { formError: GENERIC, values }
   }
 
+  if (prefill !== null) await writeDynamicTariffPrefill(projectId, prefill)
+
   redirect(stationHref(projectId, stationAfterMeteringPointCount()))
+}
+
+type DynamicTariffPrefill = {
+  fields: ReturnType<typeof dynamicTariffDraftFields>
+  existingIds: ReadonlySet<string>
+}
+
+/**
+ * Landesvorgabe des dynamischen Tarifs samt den VOR dem Anlegen vorhandenen Zählpunkten — nur die
+ * danach neu entstandenen werden vorbelegt. Best effort: ein Lesefehler verhindert nur die Vorbelegung.
+ */
+async function readDynamicTariffPrefill(projectId: string): Promise<DynamicTariffPrefill | null> {
+  const supabase = await createClient()
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+  const project = projectRes.error ? null : readAdminProject(projectRes.data)
+  if (project === null || project === 'not_found') return null
+  const tariff = DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY[project.country]
+  if (tariff === null) return null
+
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  const points = listRes.error ? null : readMeteringPointList(listRes.data)
+  if (points === null) {
+    console.error('[admin/dateneingabe] Vorbelegung dynamischer Tarif: Zählpunkte nicht lesbar')
+    return null
+  }
+  return { fields: dynamicTariffDraftFields(tariff), existingIds: new Set(points.map((p) => p.id)) }
+}
+
+async function writeDynamicTariffPrefill(projectId: string, prefill: DynamicTariffPrefill) {
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  const points = listRes.error ? null : readMeteringPointList(listRes.data)
+  if (points === null) {
+    console.error('[admin/dateneingabe] Vorbelegung dynamischer Tarif: Zählpunkte nicht lesbar')
+    return
+  }
+  for (const point of points) {
+    if (prefill.existingIds.has(point.id)) continue
+    const failure = await writeMeteringPointDraftFields(
+      projectId,
+      point.id,
+      prefill.fields,
+      'Vorbelegung dynamischer Tarif',
+    )
+    if (failure) console.error('[admin/dateneingabe] Vorbelegung dynamischer Tarif fehlgeschlagen')
+  }
 }
 
