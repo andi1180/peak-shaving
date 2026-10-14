@@ -368,11 +368,16 @@ describe('readTariffPricingForAnalysis — Konditionen des dynamischen Tarifs', 
     )
   const values = { dynamicSupplierName: 'Testtarif', dynamicMarkupCtPerKwh: 1.5, dynamicBaseFeeEurPerMonth: 10 }
 
-  it('AT: der Schlüssel fehlt — auch wenn der Entwurf Werte trägt', async () => {
-    expect('dynamicTariff' in (await read('AT', values))).toBe(false)
+  it.each(['AT', 'DE'] as const)('%s: ohne Werte null, mit Werten das Objekt — kein Länderunterschied', async (country) => {
+    expect((await read(country, {})).dynamicTariff).toBeNull()
+    expect((await read(country, values)).dynamicTariff).toEqual({
+      supplier: 'Testtarif',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 10,
+    })
   })
 
-  it('DE: ohne Werte null, mit Werten das Objekt, mit ungültigem Wert null', async () => {
+  it('DE: ungültige Werte ergeben null, leerer Name den Vorgabenamen', async () => {
     expect((await read('DE', {})).dynamicTariff).toBeNull()
     expect((await read('DE', values)).dynamicTariff).toEqual({
       supplier: 'Testtarif',

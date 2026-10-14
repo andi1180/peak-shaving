@@ -1,6 +1,7 @@
 import { IMPORT_ONLY_WITHOUT_PV_WARNING, type PvOutageMonth } from 'engine'
 import {
   AWATTAR_BASE_FEE,
+  AWATTAR_HOURLY_AT_DYNAMIC,
   demandChargeKwPerYear,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
@@ -896,7 +897,8 @@ function supplierVintage(provenance: PdfReportTariffProvenance | undefined): str
   return (
     `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${AWATTAR_BASE_FEE.supplier}, ` +
     `gültig ab ${formatIsoDate(AWATTAR_BASE_FEE.validFrom) ?? AWATTAR_BASE_FEE.validFrom} — ` +
-    `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote}`
+    `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote} Aufschlag auf den Börsenpreis: ` +
+    `${AWATTAR_HOURLY_AT_DYNAMIC.markupCtPerKwh.toLocaleString('de-AT')} ct/kWh netto.`
   )
 }
 

@@ -15,6 +15,7 @@
  */
 import {
   analysisWindow,
+  AWATTAR_HOURLY_AT_DYNAMIC,
   buildLevySchedule,
   type LevyCustomerCategory,
   type LevySchedule,
@@ -73,7 +74,9 @@ export async function loadTariffPricing(
   postalCode: string | null,
 ): Promise<TariffPricingInputs> {
   const window = analysisWindow(loadProfile)
-  if (!window) return { gridTariffRows: null, spotPrices: null, levies: null }
+  if (!window) {
+    return { gridTariffRows: null, spotPrices: null, levies: null, dynamicTariff: AWATTAR_HOURLY_AT_DYNAMIC }
+  }
 
   const priceRange = analysisWindowToPriceRange(window, loadProfile.intervalMinutes)
 
@@ -88,6 +91,8 @@ export async function loadTariffPricing(
 
   return {
     gridTariffRows: gridResult?.ok ? gridResult.tariffs : null,
+    // Der öffentliche Rechner ist fest AT: aWATTar HOURLY mit Beschaffungskomponente.
+    dynamicTariff: AWATTAR_HOURLY_AT_DYNAMIC,
     /*
      * Die Abgaben kommen nicht aus der Datenbank, sondern aus der versionierten Code-Schicht
      * (`shared/levies.ts`) — sie sind Verordnungssätze, nicht Preisblattzeilen. Ohne Netzbetreiber
