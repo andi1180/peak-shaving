@@ -313,7 +313,7 @@ describe('B24 Admin-Leser — Signatur und Grants überstehen die Erweiterung', 
     for (const fn of [
       'public.admin_list_projects(integer, integer, uuid)',
       'public.admin_get_project(uuid)',
-      'public.admin_create_project(text, uuid)',
+      'public.admin_create_project(text, uuid, text, text)',
     ]) {
       const [row] = await sql<{ anon: boolean; auth: boolean; svc: boolean }>(
         `select has_function_privilege('anon',          $1, 'execute') as anon,

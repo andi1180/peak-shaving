@@ -147,6 +147,8 @@ Da der Zugang jetzt offen ist (§6), kann sich jederzeit jemand mit einer Strukt
 ### 3.6 Land am Projekt (Nachtrag 14.10.2026)
 Jedes Projekt trägt ein **Land** (`platform.projects.country`, `AT` oder `DE`, Vorgabe und Bestand `AT`) — Schritt 1 der Vorbereitung deutscher Projekte. Land und Postleitzahl werden im Wizard (PV-Station, Block „Standort") **gemeinsam** gespeichert, weil der CHECK `projects_postal_code_country_check` das PLZ-Format ans Land koppelt (AT vier, DE fünf Ziffern; `shared/country`). Die österreichische PLZ-Logik (Gebrauchsabgabe in `levies.ts`, PLZ-Koordinatentabelle für die PVGIS-Schätzung) greift **nur bei `AT`**; bei `DE` wird daraus nichts abgeleitet. **Es ändert sich keine Rechnung**: Preiszone, Spotpreise, USt, Abgaben und Netzentgelte für DE sind eigene Schritte, und die Preiszone wird nicht gespeichert, sondern später aus dem Land abgeleitet.
 
+**Nachtrag Schritt 1b (14.10.2026):** Das Land wird jetzt bei der Projektanlage im Admin als **Pflichtfeld ohne Vorauswahl** erfasst (Action und Formular lehnen ein fehlendes oder ungültiges Land ab; PLZ optional, Prüfung je Land), weil das Land künftig die Preisquelle bestimmt und ein vergessenes nicht still als AT rechnen darf. `admin_create_project` nimmt dafür `p_country`/`p_postal_code` entgegen (Vorgabe `null` → ältere Aufrufe bleiben gültig, Spaltenvorgabe `AT`). Die **einzige Pflegestelle** für Land und PLZ sind die Projekt-Stammdaten (`/admin/kalkulator-projekte/[id]`, beide gemeinsam gespeichert); die PV-Station zeigt den Standort nur noch an und verweist dorthin. Der Projektkopf trägt das Kürzel (AT/DE). Der Kundenweg `create_my_project` bleibt unverändert auf der Spaltenvorgabe `AT`.
+
 ---
 
 ## 4 — Teil 2: Admin-Frage-Guidelines

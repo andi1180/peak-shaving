@@ -14,10 +14,13 @@
  * `no-restricted-imports`-Erlaubnisliste wurde für diesen Pfad NICHT erweitert.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ES WIRD GENAU EIN FELD ERFASST — und das ist eine Entscheidung, keine Sparsamkeit
+ * ⚠ ERFASST WERDEN BEZEICHNUNG, LAND (PFLICHT, OHNE VORAUSWAHL) UND PLZ (OPTIONAL)
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * `admin_create_project(p_customer_label, p_account_id)` nimmt zwar zwei Parameter; erfasst wird
- * hier nur der erste.
+ * `admin_create_project(p_customer_label, p_account_id, p_country, p_postal_code)`: das Land
+ * bestimmt später die Preisquelle, ein vergessenes darf nicht still als AT rechnen — die Action
+ * lehnt ein fehlendes oder ungültiges Land ab (der Wrapper selbst fällt bei NULL auf die
+ * Spaltenvorgabe zurück, damit ältere Aufrufe gültig bleiben). Von den vier Parametern bleibt
+ * `p_account_id` ungenutzt:
  *
  *   * `p_account_id` bleibt weg. Ein Projekt, das ein Admin anlegt, ist per Delta §2.2 ein
  *     admin-geführtes (`account_id is null`) — entweder ein eigenes COOLiN-Projekt oder eines
@@ -34,8 +37,11 @@ import { projectDocumentPath } from 'shared'
 import { createClient } from '@/lib/supabase/server'
 import { loadProjectDocuments } from '@/lib/project-chat/supabase-ports'
 import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
+import { COUNTRY_LABELS } from 'shared/country'
 import type { AdminState } from './schema'
-import { PROJECTS_HREF } from './projects'
+import { PROJECTS_HREF, projectHref } from './projects'
+import { parseProjectLocation } from './project-location'
+import { COUNTRY_REQUIRED, postalCodeFormatError } from './project-country'
 
 const FORBIDDEN = 'Keine Berechtigung. Bitte laden Sie die Seite neu.'
 const GENERIC = 'Das hat nicht geklappt. Bitte versuchen Sie es erneut.'
@@ -57,25 +63,26 @@ export async function createAdminProjectAction(
   formData: FormData,
 ): Promise<AdminState> {
   const customerLabel = String(formData.get('customerLabel') ?? '')
-  const values = { customerLabel }
+  const countryRaw = String(formData.get('country') ?? '')
+  const postalCodeRaw = String(formData.get('postalCode') ?? '')
+  const values = { customerLabel, country: countryRaw, postalCode: postalCodeRaw }
 
   /*
    * Die Leerprüfung steht hier UND im Wrapper (`invalid_label`), und das ist keine Verdopplung:
    * der Wrapper ist die harte Grenze (er sieht auch Aufrufe an diesem Formular vorbei, und der
    * CHECK `projects_customer_label_not_blank` dahinter noch einmal), die Prüfung hier liefert die
    * Meldung AM FELD statt eines Status nach dem Roundtrip — und erspart einen Schreibversuch, der
-   * ohnehin nichts anlegen könnte.
+   * ohnehin nichts anlegen könnte. Dasselbe gilt für Land und PLZ.
    */
+  const fieldErrors: Record<string, string> = {}
   if (customerLabel.trim() === '') {
-    return {
-      fieldErrors: {
-        customerLabel:
-          'Bitte eine Bezeichnung angeben. Sie ist die einzige Angabe, an der dieses Projekt ' +
-          'später in der Liste wiederzuerkennen ist.',
-      },
-      values,
-    }
+    fieldErrors.customerLabel =
+      'Bitte eine Bezeichnung angeben. Sie ist die einzige Angabe, an der dieses Projekt ' +
+      'später in der Liste wiederzuerkennen ist.'
   }
+  const location = parseProjectLocation(countryRaw, postalCodeRaw)
+  if (!location.ok) Object.assign(fieldErrors, location.fieldErrors)
+  if (Object.keys(fieldErrors).length > 0 || !location.ok) return { fieldErrors, values }
 
   const supabase = await createClient()
   const {
@@ -85,6 +92,8 @@ export async function createAdminProjectAction(
 
   const { data, error } = await supabase.rpc('admin_create_project', {
     p_customer_label: customerLabel,
+    p_country: location.country,
+    ...(location.postalCode !== null ? { p_postal_code: location.postalCode } : {}),
   })
 
   if (error) {
@@ -99,12 +108,16 @@ export async function createAdminProjectAction(
       revalidatePath(PROJECTS_HREF)
       return {
         success:
-          `Projekt „${customerLabel.trim()}" angelegt. Es steht jetzt in der Liste — Dateneingabe ` +
-          'und Report folgen in einem eigenen Schritt.',
+          `Projekt „${customerLabel.trim()}" angelegt (${COUNTRY_LABELS[location.country]}). Es ` +
+          'steht jetzt in der Liste — Dateneingabe und Report folgen in einem eigenen Schritt.',
       }
     case 'invalid_label':
       // Erreichbar nur an der Feldprüfung oben vorbei (Leerzeichen fängt sie bereits ab).
       return { fieldErrors: { customerLabel: 'Bitte eine Bezeichnung angeben.' }, values }
+    case 'invalid_country':
+      return { fieldErrors: { country: COUNTRY_REQUIRED }, values }
+    case 'invalid_postal_code':
+      return { fieldErrors: { postalCode: postalCodeFormatError(location.country) }, values }
     default:
       console.error('[admin/projects] unerwartete Antwort:', data)
       return { formError: GENERIC, values }
@@ -159,4 +172,70 @@ export async function deleteAdminProjectAction(
 
   revalidatePath(PROJECTS_HREF)
   return { success: 'Projekt gelöscht.' }
+}
+
+/**
+ * Stammdaten: Land und PLZ eines bestehenden Projekts ändern — die EINZIGE Pflegestelle (die
+ * PV-Station zeigt den Standort nur noch an). Beide werden gemeinsam gespeichert, weil der CHECK
+ * `projects_postal_code_country_check` das PLZ-Format ans Land koppelt.
+ *
+ * Eine leere PLZ heisst „unverändert" (Wrapper-Lesart `null`): ein Land-Wechsel bei bestehender,
+ * nicht passender PLZ scheitert dann mit `invalid_postal_code` und wird als Feldfehler gemeldet.
+ */
+export async function updateProjectLocationAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = String(formData.get('projectId') ?? '').trim()
+  if (projectId === '') return { formError: GENERIC }
+
+  const countryRaw = String(formData.get('country') ?? '')
+  const postalCodeRaw = String(formData.get('postalCode') ?? '')
+  const values = { country: countryRaw, postalCode: postalCodeRaw }
+
+  const location = parseProjectLocation(countryRaw, postalCodeRaw)
+  if (!location.ok) return { fieldErrors: location.fieldErrors, values }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { formError: FORBIDDEN, values }
+
+  const { data, error } = await supabase.rpc('update_project_postal_code', {
+    p_id: projectId,
+    p_country: location.country,
+    ...(location.postalCode !== null ? { p_postal_code: location.postalCode } : {}),
+  })
+  if (error) {
+    if (isForbidden(error)) return { formError: FORBIDDEN, values }
+    console.error('[admin/projects] update_project_postal_code:', error)
+    return { formError: GENERIC, values }
+  }
+
+  const status = (data as { status?: unknown } | null)?.status
+  switch (status) {
+    case 'ok':
+      revalidatePath(projectHref(projectId))
+      revalidatePath(`${projectHref(projectId)}/dateneingabe`)
+      return {
+        success: `Standort gespeichert: ${COUNTRY_LABELS[location.country]}${
+          location.postalCode ? `, ${location.postalCode}` : ''
+        }.`,
+      }
+    case 'not_found':
+      return { formError: 'Dieses Projekt gibt es nicht mehr. Bitte laden Sie die Seite neu.' }
+    case 'invalid_country':
+      return { fieldErrors: { country: COUNTRY_REQUIRED }, values }
+    case 'invalid_postal_code':
+      return {
+        fieldErrors: {
+          postalCode: `Die hinterlegte Postleitzahl passt nicht zu diesem Land. ${postalCodeFormatError(location.country)}`,
+        },
+        values,
+      }
+    default:
+      console.error('[admin/projects] unerwartete Antwort (Standort):', data)
+      return { formError: GENERIC, values }
+  }
 }

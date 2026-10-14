@@ -56,13 +56,7 @@ import { useActionState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 
-import {
-  COUNTRIES,
-  COUNTRY_LABELS,
-  isCountry,
-  normalizePostalCodeFor,
-  type Country,
-} from 'shared/country'
+import { COUNTRY_LABELS, type Country } from 'shared/country'
 
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
@@ -70,27 +64,22 @@ import {
   deleteMeteringPointPvAction,
   generatePvProfileAction,
   saveMeteringPointPvChoiceAction,
-  saveProjectPostalCodeAction,
   uploadMeteringPointPvProfileAction,
 } from '@/lib/admin/data-entry-actions'
 import { formatDateTime, formatKwh, formatPercent } from '@/lib/admin/format'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { readPvArraysDraft } from '@/lib/admin/pv-array-draft'
 import { PV_PRESENT_KEY, readPvDraft } from '@/lib/admin/pv-draft'
+import { projectHref } from '@/lib/admin/projects'
 import { splitPvArrayDesigns } from '@/lib/admin/pv-estimate'
 import {
   hasPvProfile,
   readPvProfileDraft,
   type PvProfileDraftSummary,
 } from '@/lib/admin/pv-profile-draft'
-import {
-  postalCodeFormatError,
-  postalCodeHint,
-  postalCodeMaxLength,
-} from '@/lib/admin/project-country'
 import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import { COMPANY } from '@/lib/nav'
-import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
+import { AdminError, AdminSuccess } from './ui'
 import { DataEntryPvArray } from './data-entry-pv-array'
 
 const FIELD_ID = 'dateneingabe-pv-erzeugung-datei'
@@ -190,22 +179,6 @@ export function DataEntryPv({
   )
 
   /*
-   * ⚠ DRITTER Zustand, und er gehört einer ANDEREN Ebene: die PLZ hängt am PROJEKT, nicht am
-   * Zählpunkt. Eigener `useActionState` statt eines geteilten — eine Meldung zum Standort
-   * überschriebe sonst die eines laufenden Uploads und umgekehrt (dieselbe Lehre wie beim
-   * Entfernen-Weg der Rechnung-Station).
-   */
-  const [postalState, postalAction, isSavingPostal] = useActionState(
-    saveProjectPostalCodeAction,
-    ADMIN_INITIAL_STATE,
-  )
-  /*
-   * Rein lokale Weiche „ich will die gespeicherte PLZ ändern" — sie ist keine Angabe über das
-   * Projekt und hat deshalb bewusst keine Spalte (dieselbe Überlegung wie bei der Ja/Nein-Frage
-   * der Lastgang-Station). Nach erfolgreichem Speichern schliesst sie sich selbst: der Server
-   * liefert den neuen Wert, das Formular hätte danach nichts mehr zu tun.
-   */
-  /*
    * ⚠ VIERTER Zustand, und wieder ein eigener. Ein Fehlschlag der Schätzung (etwa eine
    * unvollständig erfasste Fläche) überschriebe sonst die Meldung eines laufenden Uploads —
    * dieselbe Lehre wie beim Entfernen-Weg der Rechnung-Station. Er sitzt ausserdem auf
@@ -228,11 +201,6 @@ export function DataEntryPv({
     deleteMeteringPointPvAction,
     ADMIN_INITIAL_STATE,
   )
-
-  const [isEditingPostal, setIsEditingPostal] = React.useState(false)
-  React.useEffect(() => {
-    if (postalState.success) setIsEditingPostal(false)
-  }, [postalState.success])
 
   const { hasPv, pvStage } = readPvDraft(meteringPoint.draft)
   const pvProfile = readPvProfileDraft(meteringPoint.draft)
@@ -477,22 +445,14 @@ export function DataEntryPv({
                 maxBytes={designMaxBytes}
               />
 
-              <ProjectPostalCode
-                projectId={projectId}
-                postalCode={postalCode}
-                country={country}
-                action={postalAction}
-                state={postalState}
-                isPending={isSavingPostal}
-                isEditing={isEditingPostal}
-                onEdit={() => setIsEditingPostal(true)}
-              />
+              <ProjectLocationNote projectId={projectId} postalCode={postalCode} country={country} />
 
               {/*
                 ⚠ DER SCHÄTZ-KNOPF STEHT ZULETZT, und das ist keine Anordnungsfrage: er setzt
-                Flächen UND Standort voraus, und beide werden direkt darüber erfasst. Weiter oben
-                stünde er über seinen eigenen Vorbedingungen und wäre im Regelfall — beim ersten
-                Betreten der Station — ein unbenutzbarer Knopf.
+                Flächen UND Standort voraus; die Flächen werden darüber erfasst, der Standort steht
+                darüber (in den Stammdaten gepflegt). Weiter oben stünde er über seinen eigenen
+                Vorbedingungen und wäre im Regelfall — beim ersten Betreten der Station — ein
+                unbenutzbarer Knopf.
               */}
               <PvEstimateForm
                 projectId={projectId}
@@ -769,125 +729,41 @@ function PvProfileSummary({
 }
 
 /**
- * Der Standort des PROJEKTS — die Grundlage, aus der sich die Erzeugung einer Anlage schätzen
- * liesse (PVGIS; eigener, folgender Auftrag).
- *
- * ⚠ ZWEI ZUSTÄNDE, KEIN DRITTER: ist keine PLZ hinterlegt, steht hier ein Eingabefeld; ist eine
- * hinterlegt, steht sie als Angabe da und lässt sich über „Ändern" wieder öffnen. Ein dauerhaft
- * sichtbares, vorbelegtes Feld wäre die dritte Möglichkeit und die schlechteste: eine geprüfte
- * Angabe sähe aus wie ein Entwurf, den noch jemand bestätigen muss.
+ * Der Standort des PROJEKTS — nur Anzeige. Land und PLZ werden ausschliesslich in den Stammdaten
+ * gepflegt; die PVGIS-Schätzung liest weiterhin die Projektwerte.
  */
-function ProjectPostalCode({
+function ProjectLocationNote({
   projectId,
   postalCode,
   country,
-  action,
-  state,
-  isPending,
-  isEditing,
-  onEdit,
 }: {
   projectId: string
   postalCode: string | null
   country: Country
-  action: (formData: FormData) => void
-  state: AdminState
-  isPending: boolean
-  isEditing: boolean
-  onEdit: () => void
 }) {
-  const showForm = postalCode === null || isEditing
-  const [selectedCountry, setSelectedCountry] = React.useState<Country>(country)
-  const [clientError, setClientError] = React.useState<string | undefined>()
-  React.useEffect(() => setSelectedCountry(country), [country])
-
-  // Dieselbe Regel wie Server Action und Datenbank-CHECK; die Action bleibt die wirksame Grenze.
-  function validateBeforeSubmit(event: React.FormEvent<HTMLFormElement>) {
-    const plz = String(new FormData(event.currentTarget).get('postalCode') ?? '').trim()
-    if (plz === '' || normalizePostalCodeFor(selectedCountry, plz) === null) {
-      event.preventDefault()
-      setClientError(
-        plz === '' ? 'Bitte eine Postleitzahl eintragen.' : postalCodeFormatError(selectedCountry),
-      )
-      return
-    }
-    setClientError(undefined)
-  }
-
+  const hasPostalCode = postalCode !== null && postalCode.trim() !== ''
   return (
-    <div className="flex flex-col gap-3 border-t border-line pt-6">
+    <div className="flex flex-col gap-1 border-t border-line pt-6">
       <h3 className="text-small font-semibold text-ink">Standort</h3>
-
-      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
-      {state.formError && <AdminError>{state.formError}</AdminError>}
-
-      {showForm ? (
-        <form action={action} onSubmit={validateBeforeSubmit} className="flex flex-col gap-3">
-          <input type="hidden" name="projectId" value={projectId} />
-
-          <div className="max-w-xs">
-            <AdminSelect
-              id="dateneingabe-projekt-land"
-              name="country"
-              label="Land"
-              value={selectedCountry}
-              onValueChange={(value) => {
-                if (isCountry(value)) {
-                  setSelectedCountry(value)
-                  setClientError(undefined)
-                }
-              }}
-              error={state.fieldErrors?.country}
-            >
-              {COUNTRIES.map((code) => (
-                <option key={code} value={code}>
-                  {COUNTRY_LABELS[code]}
-                </option>
-              ))}
-            </AdminSelect>
-          </div>
-
-          <div className="max-w-xs">
-            <AdminField
-              id="dateneingabe-projekt-plz"
-              name="postalCode"
-              label="Postleitzahl"
-              inputMode="numeric"
-              maxLength={postalCodeMaxLength(selectedCountry)}
-              defaultValue={postalCode ?? ''}
-              error={clientError ?? state.fieldErrors?.postalCode}
-              hint={postalCodeHint(selectedCountry)}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={isPending}>
-              {isPending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              Standort speichern
-            </Button>
-            <span role="status" aria-live="polite" className="sr-only">
-              {isPending ? 'Wird gespeichert …' : ''}
-            </span>
-          </div>
-        </form>
-      ) : (
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-body text-ink">
-            Land: <span className="font-medium">{COUNTRY_LABELS[country]}</span> · Postleitzahl:{' '}
-            <span className="font-medium tabular-nums">{postalCode}</span>
-          </p>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="text-small text-accent underline underline-offset-2 hover:text-accent-hover"
-          >
-            Ändern
-          </button>
-        </div>
-      )}
-
+      <p className="text-body text-ink">
+        Standort:{' '}
+        <span className="font-medium">
+          {COUNTRY_LABELS[country]},{' '}
+          {hasPostalCode ? (
+            <span className="tabular-nums">{postalCode}</span>
+          ) : (
+            'keine PLZ'
+          )}
+        </span>{' '}
+        <Link
+          href={`${projectHref(projectId)}#stammdaten`}
+          className="text-small text-accent underline underline-offset-2 hover:text-accent-hover"
+        >
+          In den Stammdaten ändern
+        </Link>
+      </p>
       <FieldHint>
-        Aus der Postleitzahl entsteht später die Erzeugungsschätzung für eine geplante Anlage. Ein
+        Aus der Postleitzahl entsteht die Erzeugungsschätzung für eine geplante Anlage. Ein
         hochgeladenes Erzeugungsprofil schlägt sie in jedem Fall — es ist gemessen.
       </FieldHint>
     </div>

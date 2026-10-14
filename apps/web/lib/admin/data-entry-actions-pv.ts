@@ -19,8 +19,6 @@ import {
   type PvDesignArrayPrefill,
   type PvStage,
 } from 'shared'
-import { COUNTRY_LABELS, isCountry, normalizePostalCodeFor } from 'shared/country'
-import { postalCodeFormatError } from './project-country'
 import { readProjectDocument, uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
@@ -1164,80 +1162,6 @@ export async function deleteMeteringPointPvArrayAction(
   revalidatePath(projectDataEntryHref(projectId))
 
   return { success: 'Modulfläche gelöscht.' }
-}
-
-// ── Standort ─────────────────────────────────────────────────────────────────────────────────────
-/**
- * B24, Teil 1 — die PLZ des Projekts, Grundlage für den PVGIS-Generator (eigener, folgender
- * Auftrag). Projektweit, deshalb ein Wrapper auf `platform.projects` — Vorbild:
- * `setProjectSegmentAction`.
- *
- * Land und PLZ werden zusammen gespeichert (der CHECK koppelt das PLZ-Format ans Land).
- *
- * ⚠ DIE SEMANTISCHE PRÜFUNG LIEGT HIER, NICHT IM WRAPPER: `lookupPostalCodeCentroid` ist eine
- * TypeScript-Funktion über einer generierten Tabelle, in SQL nicht verfügbar. Der Wrapper prüft nur
- * das Format (AT vier, DE fünf Ziffern); ob die PLZ eine ECHTE österreichische ist, entscheidet diese Action —
- * „wir raten keine Koordinate", dieselbe Haltung wie auf der Website.
- */
-export async function saveProjectPostalCodeAction(
-  _prev: AdminState,
-  formData: FormData,
-): Promise<AdminState> {
-  const projectId = readProjectId(formData)
-  if (projectId === null) return { formError: UNKNOWN_PROJECT }
-
-  const countryRaw = String(formData.get('country') ?? '').trim()
-  if (!isCountry(countryRaw)) {
-    return { fieldErrors: { country: 'Bitte ein Land wählen.' } }
-  }
-  const country = countryRaw
-
-  const raw = String(formData.get('postalCode') ?? '').trim()
-  if (raw === '') {
-    return { fieldErrors: { postalCode: 'Bitte eine Postleitzahl eintragen.' } }
-  }
-
-  const normalized = normalizePostalCodeFor(country, raw)
-  if (normalized === null) {
-    return { fieldErrors: { postalCode: postalCodeFormatError(country) } }
-  }
-
-  // Die PLZ-Koordinatentabelle (GeoNames) gibt es nur für Österreich — nur dort wird gegen sie geprüft.
-  let placeName: string | null = null
-  if (country === 'AT') {
-    const centroid = lookupPostalCodeCentroid(normalized)
-    if (!centroid) {
-      return {
-        fieldErrors: { postalCode: 'Diese Postleitzahl kennen wir nicht — bitte prüfen.' },
-      }
-    }
-    placeName = centroid.name
-  }
-
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('update_project_postal_code', {
-    p_id: projectId,
-    p_postal_code: normalized,
-    p_country: country,
-  })
-
-  if (error) {
-    if (isForbidden(error)) return { formError: FORBIDDEN }
-    console.error('[admin/dateneingabe] update_project_postal_code:', error)
-    return { formError: GENERIC }
-  }
-
-  const status = statusOf(data)
-  if (status === 'not_found') return { formError: UNKNOWN_PROJECT }
-  if (status !== 'ok') {
-    console.error('[admin/dateneingabe] unerwartete Antwort (PLZ):', data)
-    return { formError: GENERIC }
-  }
-
-  revalidatePath(projectDataEntryHref(projectId))
-  return {
-    success: `Standort gespeichert: ${placeName ? `${placeName} (${normalized})` : `${COUNTRY_LABELS[country]}, ${normalized}`}.`,
-  }
 }
 
 // ── PV-Erzeugung schätzen (PVGIS) ────────────────────────────────────────────────────────────────

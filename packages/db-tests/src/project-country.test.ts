@@ -39,6 +39,13 @@ async function newProject(): Promise<{ user: TestUser; projectId: string }> {
   return { user, projectId: out.project_id }
 }
 
+async function newAdmin(): Promise<TestUser> {
+  const user = await createUser()
+  createdUsers.push(user.id)
+  await sql(`insert into platform.user_roles (user_id, role) values ($1, 'admin')`, [user.id])
+  return user
+}
+
 async function row(id: string) {
   const [r] = await sql<{ country: string; postal_code: string | null }>(
     `select country, postal_code from platform.projects where id = $1`,
@@ -103,5 +110,47 @@ describe('Land am Projekt', () => {
       [projectId],
     )
     expect(out.project).toMatchObject({ country: 'DE', postal_code: '10115' })
+  })
+
+  it('admin_create_project: Land und PLZ beim Anlegen, bisherige Aufrufe bleiben gültig', async () => {
+    const admin = await newAdmin()
+    const create = async (country: string | null, plz: string | null) => {
+      const out = await callAs<{ status: string; project_id?: string }>(
+        admin,
+        'public.admin_create_project($1, null, $2, $3)',
+        [`Anlage ${randomUUID()}`, country, plz],
+      )
+      if (out.project_id) createdProjects.push(out.project_id)
+      return out
+    }
+
+    const de = await create('DE', '10115')
+    expect(de.status).toBe('ok')
+    expect(await row(de.project_id!)).toEqual({ country: 'DE', postal_code: '10115' })
+
+    const atWithoutPlz = await create('AT', null)
+    expect(await row(atWithoutPlz.project_id!)).toEqual({ country: 'AT', postal_code: null })
+
+    expect((await create('DE', '1010')).status).toBe('invalid_postal_code')
+    expect((await create('AT', '10115')).status).toBe('invalid_postal_code')
+    expect((await create('FR', null)).status).toBe('invalid_country')
+
+    // Ein Aufruf mit nur dem Label (bisherige Form) legt wie bisher ein AT-Projekt an.
+    const legacy = await callAs<{ status: string; project_id: string }>(
+      admin,
+      'public.admin_create_project($1)',
+      [`Alt ${randomUUID()}`],
+    )
+    createdProjects.push(legacy.project_id)
+    expect(await row(legacy.project_id)).toEqual({ country: 'AT', postal_code: null })
+
+    const [fn] = await sql<{ n: string; anon: boolean; auth: boolean; svc: boolean }>(
+      `select (select count(*) from pg_proc where proname = 'admin_create_project')::text as n,
+              has_function_privilege('anon',          $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as auth,
+              has_function_privilege('service_role',  $1, 'execute') as svc`,
+      ['public.admin_create_project(text, uuid, text, text)'],
+    )
+    expect(fn).toEqual({ n: '1', anon: false, auth: true, svc: false })
   })
 })

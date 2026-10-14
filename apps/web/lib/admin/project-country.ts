@@ -7,6 +7,8 @@
 
 import { POSTAL_CODE_LENGTH, type Country } from 'shared/country'
 
+export const COUNTRY_REQUIRED = 'Bitte ein Land wählen.'
+
 export function postalCodeFormatError(country: Country): string {
   return country === 'AT'
     ? 'Eine österreichische Postleitzahl hat genau vier Ziffern.'
