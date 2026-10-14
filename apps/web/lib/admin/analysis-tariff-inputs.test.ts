@@ -300,7 +300,7 @@ describe('readTariffPricingForAnalysis', () => {
       meteringVariant: 'mit_leistungsmessung',
       window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
       intervalMinutes: 15,
-    }, { category: 'gewerbe', postalCode: null })
+    }, { category: 'gewerbe', postalCode: null }, {})
 
     // Die eine Seite fällt aus (⇒ Hebel nicht berechenbar), die andere steht — kein Wurf.
     expect(pricing.gridTariffRows).toBeNull()
@@ -322,7 +322,7 @@ describe('readTariffPricingForAnalysis', () => {
       meteringVariant: null,
       window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
       intervalMinutes: 15,
-    }, { category: 'gewerbe', postalCode: null })
+    }, { category: 'gewerbe', postalCode: null }, {})
 
     expect(pricing.gridTariffRows).toBeNull()
     expect(pricing.spotPrices).not.toBeNull()
@@ -341,6 +341,7 @@ describe('readSpotPricesForAnalysis — Anbieter nach Projektland', () => {
       at.supabase,
       { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 },
       { category: 'gewerbe', postalCode: null, country: 'AT' },
+      {},
     )
     expect(providerFilter(at.calls)).toBe('awattar_at')
 
@@ -349,7 +350,37 @@ describe('readSpotPricesForAnalysis — Anbieter nach Projektland', () => {
       de.supabase,
       { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 },
       { category: 'gewerbe', postalCode: null, country: 'DE' },
+      {},
     )
     expect(providerFilter(de.calls)).toBe('awattar_de')
+  })
+})
+
+describe('readTariffPricingForAnalysis — Konditionen des dynamischen Tarifs', () => {
+  const window = { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T01:45:00.000Z' }
+  const request = { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 }
+  const read = async (country: 'AT' | 'DE', draft: Record<string, unknown>) =>
+    readTariffPricingForAnalysis(
+      stubClient([{ data: [], error: null }]).supabase,
+      request,
+      { category: 'gewerbe', postalCode: null, country },
+      draft,
+    )
+  const values = { dynamicSupplierName: 'Testtarif', dynamicMarkupCtPerKwh: 1.5, dynamicBaseFeeEurPerMonth: 10 }
+
+  it('AT: der Schlüssel fehlt — auch wenn der Entwurf Werte trägt', async () => {
+    expect('dynamicTariff' in (await read('AT', values))).toBe(false)
+  })
+
+  it('DE: ohne Werte null, mit Werten das Objekt, mit ungültigem Wert null', async () => {
+    expect((await read('DE', {})).dynamicTariff).toBeNull()
+    expect((await read('DE', values)).dynamicTariff).toEqual({
+      supplier: 'Testtarif',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 10,
+    })
+    expect((await read('DE', { ...values, dynamicMarkupCtPerKwh: -1 })).dynamicTariff).toBeNull()
+    expect((await read('DE', { ...values, dynamicBaseFeeEurPerMonth: 'zehn' })).dynamicTariff).toBeNull()
+    expect((await read('DE', { ...values, dynamicSupplierName: undefined })).dynamicTariff?.supplier).toBe('Spot-Tarif')
   })
 })

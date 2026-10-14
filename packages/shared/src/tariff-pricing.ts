@@ -146,6 +146,36 @@ export type TariffPricingInputs = {
    * Plan, kein Nullsatz.
    */
   levies: LevySchedule | null
+  /**
+   * Die Konditionen des dynamischen Tarifs (Aufschlag und Grundgebühr, beide netto).
+   *
+   * Drei Zustände, drei Antworten: fehlt das Feld, gilt der bisherige Weg (Rohpreis der Börse,
+   * `AWATTAR_BASE_FEE`); `null` heisst „verlangt, aber nicht angegeben" und verweigert den
+   * Börsenpreis-Vergleich; ein Objekt wird verwendet. Ein Objekt mit ungültigen Zahlen gilt wie `null`
+   * (`resolveDynamicTariff`).
+   */
+  dynamicTariff?: DynamicSupplierTariff | null
+}
+
+/** Aufschlag und Grundgebühr eines dynamischen Stromtarifs, beide NETTO. Gültig = endlich und >= 0. */
+export type DynamicSupplierTariff = {
+  supplier: string
+  markupCtPerKwh: number
+  baseFeeEurPerMonth: number
+}
+
+/**
+ * Das Feld `dynamicTariff` als eine von drei Antworten: `undefined` = bisheriger Weg, `null` = verlangt,
+ * aber nicht (gültig) angegeben, sonst die geprüften Konditionen.
+ */
+export function resolveDynamicTariff(
+  pricing: Pick<TariffPricingInputs, 'dynamicTariff'>,
+): DynamicSupplierTariff | null | undefined {
+  const tariff = pricing.dynamicTariff
+  if (tariff === undefined) return undefined
+  if (tariff === null) return null
+  const valid = (n: unknown): boolean => typeof n === 'number' && Number.isFinite(n) && n >= 0
+  return valid(tariff.markupCtPerKwh) && valid(tariff.baseFeeEurPerMonth) ? tariff : null
 }
 
 /**
@@ -157,8 +187,8 @@ export type TariffPricingInputs = {
  * Meldung parsen zu müssen.
  */
 export type TariffOptimizationBlocker = {
-  /** Netzentgelt-, Spotpreis- oder Abgabenseite. */
-  side: 'grid_tariff' | 'spot_price' | 'levy'
+  /** Netzentgelt-, Spotpreis-, Abgaben- oder Konditionen-Seite des dynamischen Tarifs. */
+  side: 'grid_tariff' | 'spot_price' | 'levy' | 'dynamic_tariff'
   /**
    * `gap`         — Daten vorhanden, decken den Zeitraum aber nicht vollständig ab.
    * `unavailable` — gar nicht lesbar (fehlende Auswahl, fehlende Umgebung, Abfrage gescheitert).

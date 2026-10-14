@@ -29,6 +29,7 @@ const BLOCKER_SIDE_LABEL: Record<TariffOptimizationBlocker['side'], string> = {
   grid_tariff: 'Netzentgelt',
   spot_price: 'Spotpreise',
   levy: 'Abgaben',
+  dynamic_tariff: 'Konditionen dynamischer Tarif',
 }
 
 function refusalMessage(refusal: AnalysisRefusal): string {

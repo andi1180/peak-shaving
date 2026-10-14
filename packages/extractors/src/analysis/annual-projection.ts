@@ -245,6 +245,8 @@ export async function projectAnnualTariffComparison(
      * (`buildLevySchedule`) — auf das Messfenster beschnitten fiele die Hochrechnung hier weg.
      */
     levies: pricing.levies,
+    // Die Konditionen des dynamischen Tarifs gelten für die hochgerechneten Tage genauso; fehlt das Feld, bleibt der Schlüssel weg.
+    ...(pricing.dynamicTariff !== undefined ? { dynamicTariff: pricing.dynamicTariff } : {}),
   }
 
   const projected = buildMonthlyTariffComparison(gapProfile, tariffParams, gapPricing, [])

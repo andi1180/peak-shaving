@@ -8,7 +8,7 @@ import type {
   TariffPricingInputs,
   TimeOfUseWindow,
 } from 'shared'
-import { findLevyPeriod } from 'shared'
+import { findLevyPeriod, resolveDynamicTariff } from 'shared'
 
 import { AnalysisRefusedError } from '../refusal'
 
@@ -261,6 +261,25 @@ export function combinedIntervalPrices(
     }
   }
 
+  /*
+   * Konditionen des dynamischen Tarifs: nur der Börsenpreis-Zweig braucht sie. `undefined` = bisheriger
+   * Weg; `null` (oder ungültige Zahlen) = verlangt, aber nicht angegeben — dann gibt es keine Zahl.
+   */
+  const dynamicTariff = energyPriceCtPerKwh === undefined ? resolveDynamicTariff(pricing) : undefined
+  if (dynamicTariff === null) {
+    return {
+      blocker: {
+        computable: false,
+        side: 'dynamic_tariff',
+        kind: 'unavailable',
+        ranges: [],
+        message:
+          'Tarifoptimierung nicht berechenbar: Für den dynamischen Tarif fehlen die Konditionen ' +
+          '(Aufschlag und Grundgebühr). Peak Shaving und Eigenverbrauch sind davon nicht betroffen.',
+      },
+    }
+  }
+
   const startMs = spotPrices.prices.map((p) => Date.parse(p.tsStart))
   const intervalMs = loadProfile.intervalMinutes * 60 * 1000
   const prices: number[] = new Array(loadProfile.readings.length)
@@ -291,7 +310,10 @@ export function combinedIntervalPrices(
       spotGaps.push({ fromIso: reading.ts, toIso: new Date(ms + intervalMs).toISOString() })
     }
     // Die Energiepreis-Komponente: der übergebene Festpreis, sonst der Börsenpreis der Stunde.
-    const energyCt = energyPriceCtPerKwh ?? spot?.ctPerKwh ?? null
+    const energyCt =
+      energyPriceCtPerKwh ??
+      (dynamicTariff && spot ? spot.ctPerKwh + dynamicTariff.markupCtPerKwh : spot?.ctPerKwh) ??
+      null
     prices[i] =
       row && window && levy && energyCt != null
         ? levyOnWorkPrice(energyCt, window.ctPerKwh + row.netzverlustCtPerKwh, levy)
