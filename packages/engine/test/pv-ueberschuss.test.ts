@@ -63,7 +63,7 @@ describe('Überschuss-Gate über die bestehenden Golden-Fälle', () => {
  *
  * Gewerbe-Lastgang 2025 ohne PV (anonymisiert) mit derselben Preis-Fixture, abzüglich der synthetischen
  * 30-kWp-Erzeugungsreihe der Demo-Bäckerei, skaliert auf 14,1 kWp; Speicher 20 kWh / 10 kW / η 0,88,
- * Einspeisevergütung 11,0352 ct/kWh. Kein Netzzugriff.
+ * Einspeisevergütung 11,0352 ct/kWh, aWATTar HOURLY mit 1,5 ct/kWh Aufschlag (Fixture). Kein Netzzugriff.
  */
 describe('Fahrplan bei PV-Überschuss plant den Überschuss ein', () => {
   const consumption = loadProfileOf(`${GEWERBE_DIR}/lastgang.csv`)
@@ -179,11 +179,11 @@ describe('Fahrplan bei PV-Überschuss plant den Überschuss ein', () => {
       einspeisungKwh: r6(feedIn),
       anteilNetzladungAnUeberschusstagen: r6(gridChargeOnSurplusDays / gridCharge),
     }).toEqual({
-      awattarOhneSteuerungEur: -28.284337,
-      awattarMitLadesteuerungEur: -589.881183,
-      netzladungKwh: 912.864336,
-      pvLadungKwh: 5174.052183,
-      einspeisungKwh: 11246.971767,
+      awattarOhneSteuerungEur: 82.666608,
+      awattarMitLadesteuerungEur: -555.220791,
+      netzladungKwh: 472.793422,
+      pvLadungKwh: 5591.52066,
+      einspeisungKwh: 10829.50329,
       // Die synthetische Erzeugungsreihe hat an jedem Tag Überschuss.
       anteilNetzladungAnUeberschusstagen: 1,
     })

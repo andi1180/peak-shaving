@@ -82,16 +82,16 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 
 
 
-€ 1.204                                                         € 69 – € 316
+€ 1.204                                                         € 234
 Ihre Stromkosten heute                                          Mögliche Ersparnis
-über 209 gemessene Tage, inkl. 20 % USt                         je nach gewähltem Weg, im selben Zeitraum
+über 209 gemessene Tage, inkl. 20 % USt                         mit gezielter Ladesteuerung, im selben Zeitraum
 
 
 
-Sie haben bereits eine Batterie (19,2 kWh) und eine PV-Anlage (10,2 kWp). Es gibt zwei unterschiedlich
-aufwändige Wege, Ihre Stromkosten zu senken: ein einfacher Tarifwechsel ohne jede Umstellung oder ein
-Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung Ihres Speichers — alle weiter
-hinten im Detail erklärt.
+Sie haben bereits eine Batterie (19,2 kWh) und eine PV-Anlage (10,2 kWp). Es gibt genau einen Weg, Ihre
+Stromkosten zu senken: ein Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung
+Ihres Speichers — weiter hinten im Detail erklärt. Ein reiner Tarifwechsel ohne Steuerung käme Sie in Ihrem
+Fall teurer als Ihr heutiger Tarif.
 
 Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten
 aller Wege gleichermassen — an der Tarifwahl ändert sie nichts. Zu ihrer Erzeugung gibt es ausserdem einen
@@ -109,7 +109,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 16
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 3 von 16
     COOLiN ENERGY          Referenzfall Privat
 
 
@@ -213,14 +213,14 @@ gegen ihn also nicht steuern: dieser Weg ist unabhängig davon, ob Sie einen Spe
 aWATTar ohne Steuerung
 Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar statt
 zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die 209 gemessenen
-Tage hätte das € 69 weniger gekostet.
+Tage hätte das € 8 mehr gekostet als Ihr heutiger Tarif, nicht weniger.
 
 aWATTar mit Ladesteuerung
 Zusätzlich zum Tarifwechsel wird mit Ihrem Speicher gezielt geladen: in den günstigen Viertelstunden lädt
 der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben Tages zurückhält —
 der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel
-und Ladesteuerung zusammen, € 316 gespart. Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar
-ohne Steuerung", beträgt € 247. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant
+und Ladesteuerung zusammen, € 234 gespart. Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar
+ohne Steuerung", beträgt € 242. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant
 seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren
 eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch
 von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
@@ -279,9 +279,9 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
  Ihr Tarif heute                                                                                            € 1.204
 
- aWATTar ohne Steuerung                                                                                      € 1.135
+ aWATTar ohne Steuerung                                                                                     € 1.212
 
- aWATTar mit Ladesteuerung                                                                                    € 888
+ aWATTar mit Ladesteuerung                                                                                    € 970
 
 Summen über die 8 gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden
 Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben
@@ -328,9 +328,9 @@ Unterschiede, die aus der Last stammen und nicht aus der Steuerung.
 
 
 Zu welchem Preis wird geladen?
- Geladen zu                                                              15,71 ct/kWh · 2 551,4 kWh bezogen
+ Geladen zu                                                              17,63 ct/kWh · 2 551,4 kWh bezogen
 
- Entladen zu                                                         28,32 ct/kWh · 2 286,7 kWh abgegeben
+ Entladen zu                                                         30,24 ct/kWh · 2 286,7 kWh abgegeben
 
  Unter dem Monatsdurchschnitt                                                in 8 von 8 gemessenen Monaten
 
@@ -357,7 +357,7 @@ Lohnt sich ein zusätzlicher Speicher?
 
 Nein
 Keines der 27 geprüften Batteriegeräte würde sich neben Ihrer bestehenden Anlage innerhalb von 10 Jahren
-finanziell rechnen. Das am besten abschneidende Gerät bliebe über 10 Jahre gerechnet € 1.935 im Minus.
+finanziell rechnen. Das am besten abschneidende Gerät bliebe über 10 Jahre gerechnet € 1.945 im Minus.
 Eine zusätzliche Ersparnis kann dabei durchaus herauskommen — über den Betrachtungszeitraum gerechnet
 bleibt sie nur unter dem, was das Gerät kostet. Ihr Speicher deckt bei diesem Verbrauch bereits ab, was
 sich wirtschaftlich holen lässt; mehr Kapazität stünde einen grossen Teil der Zeit ungenutzt da. Das ist eine
@@ -384,19 +384,15 @@ Unser Vorschlag
 Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
-1     Wollen Sie es einfach halten
-      Wechseln Sie zu aWATTar, ohne sonst etwas zu ändern — € 69 weniger über die 209 gemessenen
-      Tage, ohne Umstellung an Speicher oder Verbrauch.
+1     Wollen Sie das Maximum
+      aWATTar mit Ladesteuerung — € 234 weniger über dieselben 209 Tage. Sprechen Sie uns an, wenn
+      Sie dabei Unterstützung möchten.
 
-2     Wollen Sie das Maximum
-      aWATTar mit Ladesteuerung — € 316 weniger über dieselben 209 Tage. Sprechen Sie uns an, wenn Sie
-      dabei Unterstützung möchten.
-
-3     Zusätzlicher Speicher
+2     Zusätzlicher Speicher
       Nicht nötig — das ist bereits geklärt: die Antwort samt Begründung steht im Kapitel „Speichergrösse
       und Gerätewahl".
 
-4     Für eine noch genauere Zahl
+3     Für eine noch genauere Zahl
       Reichen Sie uns einen Lastgang mit Einspeisedaten nach, sobald Ihr Netzbetreiber ihn bereitstellt. Was
       Ihre PV-Anlage beiträgt, ist heute rekonstruiert (Kapitel „Ihre PV-Anlage"); mit viertelstundengenauen
       Einspeisedaten liesse sich derselbe Beitrag direkt aus Messwerten rechnen.
@@ -441,7 +437,7 @@ Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen 
 Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen Verbrauch des
 Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, Amortisation und die Reihung der
 Geräte stammen aus genau diesem Fahrplan. Mit vollem Rückblick auf Ihren tatsächlichen Verbrauch wäre
-die Ladesteuerung über die 209 gemessenen Tage höchstens € 248 wert gewesen — die Obergrenze dieser
+die Ladesteuerung über die 209 gemessenen Tage höchstens € 243 wert gewesen — die Obergrenze dieser
 Rechnung, nicht ihr Ergebnis.
 
 Konstante Batterieeigenschaften über den Betrachtungszeitraum
@@ -550,7 +546,8 @@ Datenquellen
                                                                                festgehalten am 02.09.2026. Ändert sich
                                                                                der Satz, kommt ein ZWEITER Eintrag
                                                                                mit späterem validFrom hinzu — der
-                                                                               bestehende wird nicht editiert.
+                                                                               bestehende wird nicht editiert. Aufschlag
+                                                                               auf den Börsenpreis: 1,5 ct/kWh netto.
 
  Batterie
  Ihre Angabe Ihr Speicher        Nutzbare Kapazität, Lade-/Entladeleistung Ihr eigener Speicher — Kenndaten nach
@@ -580,7 +577,6 @@ verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau die
 Prognose und kein Durchschnittswert.
 aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
 gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen
-Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
 
 
 
@@ -590,6 +586,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
 Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
 noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit mitgeführtem Ladezustand
 und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang vor dem Preis. Eine Faustregel

@@ -83,7 +83,7 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 
 
 
-€ 2.698                                                         € 2.331
+€ 2.875                                                         € 2.523
 Stromkosten mit aWATTar ohne Steuerung                          Mit Speicher und Ladesteuerung
 über 365 gemessene Tage, netto                                  über 365 gemessene Tage, netto
                                                                 Speicher: Dyness Stack 100 30,72 kWh mit
@@ -184,24 +184,24 @@ Was Ihr Strom mit einem Börsenpreis-Tarif gekostet hätte — Ihren heutigen Ta
 
 aWATTar ohne Steuerung
 Der einfachste Weg mit Börsenpreis: Ihr gemessener Lastgang zum Börsenpreis von aWATTar, ohne jede
-Umstellung an Speicher oder Verbrauch. Über die 365 gemessenen Tage hätte das € 2.698 für Energie, Netz
+Umstellung an Speicher oder Verbrauch. Über die 365 gemessenen Tage hätte das € 2.875 für Energie, Netz
 und Abgaben gekostet. Ob das weniger ist als heute, zeigt erst der Vergleich mit Ihrer Stromrechnung.
 
 aWATTar mit Ladesteuerung
  Gesamtinvestition                                                                                       € 7.691
 
- Netto über 10 Jahre                                                                                  -€ 4.026
+ Netto über 10 Jahre                                                                                   -€ 4.174
 
 Zusätzlich zum Börsenpreis wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
-Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
-das € 2.331 gekostet — € 367 weniger als ohne Steuerung; das ist der Wert der Ladesteuerung. Gerechnet mit
-diesem Speicher: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro Jahr
-und amortisiert sich nach 21,0 Jahren — Netto-Ersparnis über 10 Jahre: -€ 4.026. Im Betrachtungszeitraum
-von 10 Jahren rechnet er sich damit nicht. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher
-plant seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung
-aus Ihren eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr
-Verbrauch von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
+Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum
+hätte das € 2.523 gekostet — € 352 weniger als ohne Steuerung; das ist der Wert der Ladesteuerung.
+Gerechnet mit diesem Speicher: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich
+€ 352 pro Jahr und amortisiert sich nach 21,9 Jahren — Netto-Ersparnis über 10 Jahre: -€ 4.174. Im
+Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht. Diese Zahl ist eine Vorausberechnung,
+keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und
+einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich
+bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
 
 
 
@@ -216,16 +216,16 @@ Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
 Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
-21 Jahre bis sich die Investition von € 7.691 bezahlt gemacht hat
+21,9 Jahre bis sich die Investition von € 7.691 bezahlt gemacht hat
     Speicher (15 kW / 29,2 kWh)                                                                        € 5.791
 
     Installationspauschale (Richtwert)                                                                 € 1.900
 
     Gesamtinvestition                                                                                   € 7.691
 
-    Ersparnis pro Jahr                                                                                   € 367
+    Ersparnis pro Jahr                                                                                   € 352
 
-    Netto über 10 Jahre                                                                              -€ 4.026
+    Netto über 10 Jahre                                                                               -€ 4.174
 
 1       Die wirtschaftlichste Option
         Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
@@ -250,7 +250,7 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
 
 
 Wert der Ladesteuerung unter aWATTar
-€ 367 über die 365 gemessenen Tage, netto
+€ 352 über die 365 gemessenen Tage, netto
 Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt und die Abgaben
 angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem Tagesplan in günstigen Stunden
 und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit weniger kostet als ohne Steuerung, Ladeverluste
@@ -294,9 +294,9 @@ Was Ihr Strom mit einem Börsenpreis-Tarif Monat für Monat gekostet hätte.
 
 
 Ihre Stromkosten mit aWATTar
- aWATTar ohne Steuerung                                                                                  € 2.698
+ aWATTar ohne Steuerung                                                                                   € 2.875
 
- aWATTar mit Ladesteuerung                                                                                € 2.331
+ aWATTar mit Ladesteuerung                                                                               € 2.523
 
 Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf
 den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
@@ -340,9 +340,9 @@ Unterschiede, die aus der Last stammen und nicht aus der Steuerung.
 
 
 Zu welchem Preis wird geladen?
- Geladen zu                                                             16,53 ct/kWh · 7 639,3 kWh bezogen
+ Geladen zu                                                              18,12 ct/kWh · 7 639,3 kWh bezogen
 
- Entladen zu                                                         24,29 ct/kWh · 6 707,9 kWh abgegeben
+ Entladen zu                                                         25,88 ct/kWh · 6 707,9 kWh abgegeben
 
  Unter dem Monatsdurchschnitt                                              in 12 von 12 gemessenen Monaten
 
@@ -387,16 +387,15 @@ enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim beste
  Gerät                      Grösse            Investition   Ersparnis/Jahr   Amortisation   Netto über     Abstand zum
                                                                                               10 Jahre     besten Gerät
 
- Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550            € 363      23,5 Jahre     -€ 4.917    € 892 weniger
- S                        kW                                                                               über 10 Jahre
+ Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550            € 348      24,5 Jahre     -€ 5.065    € 891 weniger
+ S                        kW                                                                              über 10 Jahre
 
- Dyness Stack 100       38,9 kWh / 20            € 9.099            € 371      24,5 Jahre     -€ 5.387 € 1.362 weniger
- 40,96 kWh mit Solinteg kW                                                                               über 10 Jahre
- MHT-20K-40
+ Dyness Stack 100       38,9 kWh / 20            € 9.099            € 356      25,5 Jahre     -€ 5.537          € 1.363
+ 40,96 kWh mit Solinteg kW                                                                                 weniger über
+ MHT-20K-40                                                                                                    10 Jahre
 
- Kostal & Dyness Retrofit 48,6 kWh /             € 11.000           € 371      29,7 Jahre     -€ 7.294          € 3.269
- M                        20,5 kW                                                                          weniger über
-                                                                                                               10 Jahre
+ Kostal & Dyness Retrofit 48,6 kWh /             € 11.000           € 356      30,9 Jahre     -€ 7.444 € 3.271 weniger
+ M                        20,5 kW                                                                        über 10 Jahre
 
 
 
@@ -460,7 +459,7 @@ Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen 
 Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen Verbrauch des
 Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, Amortisation und die Reihung der
 Geräte stammen aus genau diesem Fahrplan. Mit vollem Rückblick auf Ihren tatsächlichen Verbrauch wäre
-die Ladesteuerung über die 365 gemessenen Tage höchstens € 367 wert gewesen — die Obergrenze dieser
+die Ladesteuerung über die 365 gemessenen Tage höchstens € 352 wert gewesen — die Obergrenze dieser
 Rechnung, nicht ihr Ergebnis.
 
 Konstante Batterieeigenschaften über den Betrachtungszeitraum
@@ -556,7 +555,8 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                                                        festgehalten am 02.09.2026. Ändert sich
                                                                        der Satz, kommt ein ZWEITER Eintrag
                                                                        mit späterem validFrom hinzu — der
-                                                                       bestehende wird nicht editiert.
+                                                                       bestehende wird nicht editiert. Aufschlag
+                                                                       auf den Börsenpreis: 1,5 ct/kWh netto.
 
  Batterie
  Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026

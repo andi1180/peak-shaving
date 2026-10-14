@@ -52662,5 +52662,10 @@
   ],
   "complete": true,
   "missingRanges": []
+ },
+ "dynamicTariff": {
+  "supplier": "aWATTar HOURLY",
+  "markupCtPerKwh": 1.5,
+  "baseFeeEurPerMonth": 4.79
  }
 }
