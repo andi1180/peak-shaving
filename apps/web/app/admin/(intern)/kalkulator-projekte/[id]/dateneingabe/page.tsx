@@ -514,7 +514,6 @@ export default async function AdminProjectDataEntryPage({
               segment={currentSegment}
               hasKnownTariff={hasKnownTariff}
               awattarAverageCtPerKwh={awattarAverageCtPerKwh}
-              country={project.country}
             />
           )}
 
