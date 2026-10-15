@@ -1,5 +1,7 @@
 'use client'
 
+import { countryDisplay, type Country } from 'shared'
+
 import { formatKwh1 } from '@/lib/format'
 import { Num } from './num'
 import { CHART_COLORS, chartCellColor } from '@/lib/pdf-report/theme'
@@ -32,41 +34,6 @@ import { CHART_COLORS, chartCellColor } from '@/lib/pdf-report/theme'
  * ist bei einem Teiljahres-Lastgang die halbe Grafik.
  */
 
-/*
- * ⚠ DREI Buchstaben, nicht einer. Einbuchstabig ist die Spaltenreihe „J F M A M J J A S O N D" —
- * darin ist J dreimal und M und A je zweimal vergeben, und ein Leser kann die Spalte, auf die er
- * zeigt, nicht benennen. Am gerenderten Chart gemessen: bei zwölf Spalten über die halbe
- * Report-Breite trägt jede rund 35 px, „Jän" braucht bei 10 px Schrift etwa 20.
- */
-const MONTH_LABELS = [
-  'Jän',
-  'Feb',
-  'Mär',
-  'Apr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Dez',
-] as const
-const MONTH_FULL = [
-  'Jänner',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-] as const
-
 /** Farbe einer Zelle auf der divergierenden Skala; `null` bleibt die leere Zelle mit Strichrand. */
 function cellStyle(value: number | null, maxAbs: number): React.CSSProperties {
   if (value == null) {
@@ -78,11 +45,15 @@ function cellStyle(value: number | null, maxAbs: number): React.CSSProperties {
 export function BatteryFlowHeatmap({
   grid,
   batteryName,
+  country,
 }: {
   /** `[stunde 0..23][monat 0..11]` — Netto-kWh am Netz, + = laden, − = entladen. */
   grid: (number | null)[][]
   batteryName: string
+  /** Wählt die Monatsnamen; fehlt = Vorgabeland. */
+  country?: Country
 }) {
+  const { monthsShort: MONTH_LABELS, monthsLong: MONTH_FULL } = countryDisplay(country)
   const flat = grid.flat()
   const maxAbs = flat.reduce<number>((m, v) => (v == null ? m : Math.max(m, Math.abs(v))), 0)
   const coveredMonths = MONTH_FULL.map((_, m) => grid.some((row) => row[m] != null))

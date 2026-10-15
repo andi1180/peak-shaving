@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { MonthlyChargePrice } from 'shared'
+import { countryDisplay, type Country, type MonthlyChargePrice } from 'shared'
 
 import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import { Num } from './num'
@@ -36,21 +36,6 @@ import { vatNote } from '@/lib/report-copy'
  * Ein Monat mit 4 kWh Ladung und einem sehr guten Preis sagt wenig; die geladene Menge (netzseitig,
  * also die BEZAHLTE) steht deshalb im Tooltip und als Summe darunter.
  */
-
-const MONTH_LABELS = [
-  'Jän',
-  'Feb',
-  'Mär',
-  'Apr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Dez',
-] as const
 
 const CHARGE_COLOR = 'var(--color-accent)'
 const DISCHARGE_COLOR = CHART_COLORS.seriesFaint
@@ -105,8 +90,15 @@ function PriceTooltip({
   )
 }
 
-export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
-  const rows: Row[] = MONTH_LABELS.map((month, i) => ({
+export function ChargePriceChart({
+  price,
+  country,
+}: {
+  price: MonthlyChargePrice
+  /** Wählt die Monatsnamen; fehlt = Vorgabeland. */
+  country?: Country
+}) {
+  const rows: Row[] = countryDisplay(country).monthsShort.map((month, i) => ({
     month,
     // ⚠ `null`, nicht 0 — sonst behauptete ein Nullbalken einen Preis, den nie jemand bezahlt hat.
     charge: price.chargeCtPerKwh[i] ?? null,

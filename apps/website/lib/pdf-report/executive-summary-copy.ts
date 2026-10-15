@@ -1,3 +1,5 @@
+import { countryDisplay } from 'shared'
+
 import { formatEur } from '@/lib/format'
 import { aboutYears } from './break-even-band'
 import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
@@ -60,26 +62,12 @@ function wayLabel(way: ExecutiveSummaryWay): string {
 
 const comparisonTarget = (way: ExecutiveSummaryWay) => way.supplier ?? 'Ihrem gefundenen Tarif'
 
-const MONTH_NAMES = [
-  'Jänner',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-]
-
 /** „(März bis August)" aus dem ersten und letzten Tag des Lastgang-Diagramms; ohne Tage leer. */
 function measuredMonthsText(s: ExecutiveSummary): string {
   const peaks = s.load.dailyPeaks
   if (peaks.length === 0) return ''
-  const month = (day: string) => MONTH_NAMES[new Date(Date.parse(day)).getUTCMonth()]!
+  const names = countryDisplay(s.load.country).monthsLong
+  const month = (day: string) => names[new Date(Date.parse(day)).getUTCMonth()]!
   const first = month(peaks[0]!.day)
   const last = month(peaks.at(-1)!.day)
   return first === last ? ` (${first})` : ` (${first} bis ${last})`

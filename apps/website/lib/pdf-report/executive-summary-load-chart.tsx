@@ -1,4 +1,5 @@
 import { Circle, Line, Polyline, Rect, Svg, Text, View } from '@react-pdf/renderer'
+import { countryDisplay, type Country } from 'shared'
 
 import type { DailyPeak } from './daily-peaks'
 import { label, LINE_PT, textWidth } from './executive-summary-charts'
@@ -12,7 +13,12 @@ import { CHART_COLORS, PDF_COLORS } from './theme'
  */
 type Size = { width: number; height: number }
 
-export type LoadInput = { dailyPeaks: DailyPeak[]; capSegments: PeakShavingCapSegment[] | null }
+export type LoadInput = {
+  dailyPeaks: DailyPeak[]
+  capSegments: PeakShavingCapSegment[] | null
+  /** Wählt die Monatsnamen der Achse; fehlt = Vorgabeland. */
+  country?: Country
+}
 
 /** Teilt eine Tagesspitze an der Begrenzung; ohne Begrenzung bleibt alles Basis. */
 export function splitAtCap(value: number, cap: number | null): { base: number; above: number } {
@@ -21,7 +27,6 @@ export function splitAtCap(value: number, cap: number | null): { base: number; a
 }
 
 const DAY_MS = 86_400_000
-const MONTHS = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
 const dayMs = (day: string) => Date.parse(`${day}T00:00:00Z`)
 const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10)
@@ -174,7 +179,7 @@ export function loadChartOf(load: LoadInput, slot: Size): LoadChartLayout | null
       new Date(firstMs + (end + 1) * DAY_MS).getUTCMonth() === start.getUTCMonth()
     )
       end += 1
-    const text = MONTHS[start.getUTCMonth()]!
+    const text = countryDisplay(load.country).monthsShort[start.getUTCMonth()]!
     const width = textWidth(text)
     const center = (xOfIndex(i) + xOfIndex(end + 1)) / 2
     const x = Math.min(Math.max(center - width / 2, plot.left), plot.right - width)

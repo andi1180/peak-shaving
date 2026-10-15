@@ -2,10 +2,12 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
+  countryDisplay,
   displayedPriceBasis,
   sumCovered,
   tariffWayCosts,
   VAT_INCLUSIVE_LABEL,
+  type Country,
   type MonthlyTariffComparison,
 } from 'shared'
 
@@ -43,21 +45,6 @@ import { useId } from 'react'
  * einzeln, samt dem, was NICHT drin ist (Prinzip 5). Er steht im Druck mit da: auf einem
  * weitergereichten Blatt gibt es keinen Tooltip und keine Rückfragemöglichkeit.
  */
-
-const MONTH_LABELS = [
-  'Jän',
-  'Feb',
-  'Mär',
-  'Apr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Dez',
-] as const
 
 /*
  * Ein neutraler Grundton für den Ist-Zustand und zwei zunehmend kräftige Akzentstufen für die
@@ -121,7 +108,10 @@ type Row = {
  * Tooltip und Legende lesen dieselbe Auswahl, sonst beschriftete die Legende eine Säule, die
  * niemand zeichnet.
  */
-export function monthlyChartData(comparison: MonthlyTariffComparison): {
+export function monthlyChartData(
+  comparison: MonthlyTariffComparison,
+  country?: Country,
+): {
   rows: Row[]
   totals: Record<(typeof SERIES)[number]['key'], number>
   hasControlled: boolean
@@ -131,7 +121,7 @@ export function monthlyChartData(comparison: MonthlyTariffComparison): {
   const { controlVariant, controlledEur } = tariffWayCosts(comparison)
   const controlled = controlVariant !== null ? comparison.spotWithBatteryEur : undefined
 
-  const rows: Row[] = MONTH_LABELS.map((month, i) => ({
+  const rows: Row[] = countryDisplay(country).monthsShort.map((month, i) => ({
     month,
     // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
     // an dieser Stelle nichts — der Monat bleibt sichtbar leer, und das ist die Aussage.
@@ -206,6 +196,7 @@ export function MonthlyTariffChart({
   comparison,
   isExisting,
   storageNote = null,
+  country,
 }: {
   comparison: MonthlyTariffComparison
   /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
@@ -215,13 +206,15 @@ export function MonthlyTariffChart({
    * weg — dort steht er in der Bildunterschrift (`detail.ts`).
    */
   storageNote?: string | null
+  /** Wählt die Monatsnamen; fehlt = Vorgabeland. */
+  country?: Country
 }) {
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
   const gross = displayedPriceBasis(comparison) === 'gross'
   const fixed = comparison.fixedCosts
-  const { rows, totals, hasControlled, hasCurrent } = monthlyChartData(comparison)
+  const { rows, totals, hasControlled, hasCurrent } = monthlyChartData(comparison, country)
   const series = SERIES.filter(
     (s) =>
       (hasControlled || s.key !== 'controlledEur') && (hasCurrent || s.key !== 'currentTariffEur'),

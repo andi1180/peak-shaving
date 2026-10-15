@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { BatteryResultEntry } from 'shared'
+import type { BatteryResultEntry, Country } from 'shared'
 
 import {
   Select,
@@ -148,6 +148,7 @@ export function EnergyFlowChart({
   onSelectBattery,
   timeZone,
   disableAnimation = false,
+  country,
 }: {
   perBattery: Entry[]
   selectedBatteryId: string
@@ -157,6 +158,8 @@ export function EnergyFlowChart({
   timeZone: string
   /** Nur für die Off-Screen-Rasterung (PDF). Standard `false` = Bildschirmverhalten, unverändert. */
   disableAnimation?: boolean
+  /** Wählt den Monatsnamen der Tagesangabe; fehlt = Vorgabeland. */
+  country?: Country
 }) {
   const [preferredTab, setPreferredTab] = useState<DayLabel | null>(null)
 
@@ -278,7 +281,7 @@ export function EnergyFlowChart({
       {activeDay ? (
         <>
           <p className="text-xs text-text-muted">
-            {formatDayLabel(minMs, timeZone)}
+            {formatDayLabel(minMs, timeZone, country)}
             {activeLabel && <span className="hidden print:inline"> ({dayTabLabel[activeLabel]})</span>}
           </p>
           <div key={activeDay.date} className="h-64 w-full">

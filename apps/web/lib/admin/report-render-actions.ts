@@ -239,6 +239,8 @@ export async function createReportRenderRequestAction(
     customerLabel: project.customer_label,
     netzbetreiber: typeof netzbetreiber === 'string' ? netzbetreiber : null,
     ...(netzbetreiberName ? { netzbetreiberName } : {}),
+    // Land des Projekts — wählt im Report Locale, Monatsnamen, Netzebene-Label und Kopf.
+    country: project.country,
     // Für „Ihr Netzanschluss" (Voraussetzungen) — `tariffSource` bleibt hier der dritte Zustand.
     netzebene: parseNetzebeneDraftValue(point.draft.netzebene),
     // Mindestleistung fehlte und wurde mit 0 gerechnet — dieselbe Bedingung wie im Lauf; nur `true` wird vermerkt.

@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { reportSectionEnabled, type ReportOptionalSection } from 'shared'
+import { countryDisplay, reportSectionEnabled, type ReportOptionalSection } from 'shared'
 
 import { PRINT_COMPANY, REPORT_CONTACT } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
@@ -1156,6 +1156,7 @@ function NavyLockup() {
 function Cover({ input }: { input: PdfReportInput }) {
   const customer = input.customer
   const hasCustomer = Boolean(customer?.company || customer?.name || customer?.address)
+  const countryLabel = countryDisplay(input.country).reportLabel
 
   return (
     <>
@@ -1207,6 +1208,12 @@ function Cover({ input }: { input: PdfReportInput }) {
             <Text style={styles.coverMetaLabel}>Erstellt am</Text>
             <Text style={styles.coverMetaValue}>{input.printedAt}</Text>
           </View>
+          {countryLabel && (
+            <View style={styles.coverMetaRow}>
+              <Text style={styles.coverMetaLabel}>Land</Text>
+              <Text style={styles.coverMetaValue}>{countryLabel}</Text>
+            </View>
+          )}
         </View>
       </View>
     </>
@@ -2955,7 +2962,7 @@ export function ReportDocument({
       author={PRINT_COMPANY.name}
       creator={PRINT_COMPANY.name}
       producer={PRINT_COMPANY.name}
-      language="de-AT"
+      language={countryDisplay(input.country).locale}
     >
       {/*
         ⚠ `navyPage` statt `page`, und OHNE `PageFurniture` — s. den Kopf von `Cover`. Die

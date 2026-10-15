@@ -93,6 +93,7 @@ function writeRenderRequest(dir: string, profile: LoadProfile, result: AnalysisR
       netzbetreiber: 'netz_test',
       netzbetreiberName: 'Netz Test GmbH',
       netzebene: 7,
+      country: 'DE',
       supplierBaseFeeEurPerMonth: null,
       hasPv: false,
       pvStage: null,
