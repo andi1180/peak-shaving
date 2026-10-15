@@ -1,5 +1,5 @@
 import { estimateAnnualConsumption } from 'engine'
-import { LEVIES_NONE } from 'shared'
+import { LEVIES_NONE, buildLevySchedule } from 'shared'
 import type { LoadProfile, SpotPriceSeriesInput, TariffParams, TariffPricingInputs } from 'shared'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -83,5 +83,17 @@ describe('projectAnnualTariffComparison — dynamicTariff', () => {
     const dynamicTariff = { supplier: 'X', markupCtPerKwh: 1.5, baseFeeEurPerMonth: 10 }
     expect((await gapPricingOf({ ...base, dynamicTariff })).dynamicTariff).toEqual(dynamicTariff)
     expect('dynamicTariff' in (await gapPricingOf(base))).toBe(false)
+  })
+})
+
+describe('projectAnnualTariffComparison — Abgabenposten je kWh', () => {
+  it('reicht die Abgabenposten an die Lücken-Tage weiter', async () => {
+    const levies = buildLevySchedule('x', 7, '2025-01-01', '2025-01-30', null, {
+      category: 'gewerbe',
+      postalCode: '10115',
+      country: 'DE',
+    })
+    const gap = await gapPricingOf({ ...base, levies })
+    expect(gap.levies!.periods[0]!.perKwhComponents).toEqual(levies.periods[0]!.perKwhComponents)
   })
 })

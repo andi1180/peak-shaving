@@ -40,4 +40,15 @@ describe('pinRatesToDate', () => {
     )
     expect(pinned.gridTariffRows).toEqual([])
   })
+
+  it('die Abgabenposten je kWh reisen mit dem Stichtag-Zeitraum mit', () => {
+    const de = buildLevySchedule('x', 7, '2025-09-01', '2026-08-31', null, {
+      category: 'gewerbe',
+      postalCode: '10115',
+      country: 'DE',
+    })
+    const pinned = pinRatesToDate({ gridTariffRows: null, spotPrices: null, levies: de }, '2026-08-31', WINDOW)
+    const period = findLevyPeriod(pinned.levies!.periods, '2025-09-01')
+    expect(period?.perKwhComponents).toEqual(findLevyPeriod(de.periods, '2026-08-31')!.perKwhComponents)
+  })
 })

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { buildLevySchedule, findLevyPeriod } from './levies'
+import { buildLevySchedule, findLevyPeriod, perKwhComponentsCtPerKwh } from './levies'
 
 const HEIM = { category: 'heim', postalCode: null } as const
 const GEWERBE = { category: 'gewerbe', postalCode: null } as const
@@ -132,7 +132,7 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
 
     // Negativfall: DE mit 5-stelliger PLZ — weder Wien noch NÖ, und ohne PLZ wird auch nicht „Wien angenommen".
     for (const dePlan of [plan('10115', 'DE'), plan(null, 'DE')]) {
-      expect(dePlan.periods).toEqual([])
+      expect(findLevyPeriod(dePlan.periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0)
       expect(dePlan.locationAssumed).toBeUndefined()
     }
   })
@@ -221,5 +221,65 @@ describe('LEVIES_NONE erreicht keinen Rechenweg', () => {
         .map((f) => f.slice(ROOT.length + 1)),
     )
     expect(offenders).toEqual([])
+  })
+})
+
+describe('buildLevySchedule — Abgabenposten je kWh nach Land', () => {
+  const DE = { category: 'gewerbe', postalCode: '10115', country: 'DE' } as const
+  const AT_FIELDS_ZERO = {
+    elektrizitaetsabgabeCtPerKwh: 0,
+    eagFoerderbeitragCtPerKwh: 0,
+    eagFoerderbeitragGrundpreisAmount: 0,
+    eagPauschaleEurPerYear: 0,
+    gebrauchsabgabeRate: 0,
+  }
+
+  it('DE über den Jahreswechsel: zwei Zeiträume mit 4,811 bzw. 5,106 ct/kWh, alle AT-Felder 0', () => {
+    // Netzbetreiber/Netzebene/Variante mit österreichischen Sätzen: der DE-Plan darf sie nicht lesen.
+    const plan = buildLevySchedule('wiener_netze', 7, '2025-12-15', '2026-01-15', 'ohne_leistungsmessung', DE)
+
+    expect(plan.locationAssumed).toBeUndefined()
+    expect(plan.periods.map((p) => [p.validFrom, p.validUntil])).toEqual([
+      ['2025-01-01', '2025-12-31'],
+      ['2026-01-01', '2026-12-31'],
+    ])
+    expect(perKwhComponentsCtPerKwh(findLevyPeriod(plan.periods, '2025-12-31')!.perKwhComponents!)).toBeCloseTo(4.811, 10)
+    expect(perKwhComponentsCtPerKwh(findLevyPeriod(plan.periods, '2026-01-01')!.perKwhComponents!)).toBeCloseTo(5.106, 10)
+    for (const period of plan.periods) {
+      expect(period).toMatchObject(AT_FIELDS_ZERO)
+      expect(period.perKwhComponents!.map((c) => c.key)).toEqual([
+        'de_stromsteuer',
+        'de_kwkg',
+        'de_par19',
+        'de_offshore',
+        'de_konzession',
+      ])
+    }
+  })
+
+  it('Leck-Schutz: AT trägt nie perKwhComponents, ein unbekanntes Land bekommt keinen Plan', () => {
+    for (const country of [undefined, 'AT'] as const) {
+      const plan = buildLevySchedule('wiener_netze', 7, '2025-01-01', '2026-12-31', 'mit_leistungsmessung', {
+        ...GEWERBE,
+        country,
+      })
+      expect(plan.periods.length).toBeGreaterThan(0)
+      for (const period of plan.periods) expect('perKwhComponents' in period).toBe(false)
+    }
+    const unknown = buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-12-31', 'mit_leistungsmessung', {
+      ...GEWERBE,
+      country: 'CH' as unknown as 'AT',
+    })
+    expect(unknown.periods).toEqual([])
+  })
+
+  it('nach dem letzten belegten Satz entsteht wie bei AT kein Zeitraum (Verweigerung)', () => {
+    const at = buildLevySchedule('wiener_netze', 7, '2027-01-01', '2027-06-30', 'ohne_leistungsmessung', HEIM)
+    const de = buildLevySchedule('wiener_netze', 7, '2027-01-01', '2027-06-30', 'ohne_leistungsmessung', DE)
+    expect(at.periods).toEqual([])
+    expect(de.periods).toEqual([])
+    const spanning = buildLevySchedule('x', 7, '2026-06-01', '2027-03-31', null, DE)
+    expect(findLevyPeriod(spanning.periods, '2026-12-31')).not.toBeNull()
+    expect(findLevyPeriod(spanning.periods, '2027-01-01')).toBeNull()
   })
 })
