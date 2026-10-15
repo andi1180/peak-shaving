@@ -35,6 +35,8 @@ import {
   taxAssumptionLines,
   levyNamesOf,
   levySideLabel,
+  dynamicTariffOf,
+  type DynamicTariffView,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
@@ -814,6 +816,7 @@ function loadProfileRows(
 function tariffRows(
   source: PdfReportTariffSource,
   provenance: PdfReportTariffProvenance | undefined,
+  dynamicTariff: DynamicTariffView,
 ): ReportTableRow[] {
   return [
     groupRow('group_tariff', 'Tarif'),
@@ -825,7 +828,7 @@ function tariffRows(
     dataRow('tariff_supplier', [
       'Lieferanten-Tarif',
       'Arbeitspreis, Grundgebühr und Einspeisevergütung der Energieseite.',
-      supplierVintage(provenance),
+      supplierVintage(provenance, dynamicTariff),
     ]),
   ]
 }
@@ -895,7 +898,10 @@ function gridTariffVintage(
  * (`AWATTAR_BASE_FEE.sourceNote`). Sie steht als Fundstelle der Grundgebühr da und behauptet nicht,
  * der Kunde habe diesen Tarif — deshalb der Zusatz „Vergleichstarif".
  */
-function supplierVintage(provenance: PdfReportTariffProvenance | undefined): string {
+function supplierVintage(
+  provenance: PdfReportTariffProvenance | undefined,
+  dynamicTariff: DynamicTariffView,
+): string {
   const periods = distinctInvoicePeriods(provenance?.invoicePeriods ?? [])
   if (periods.length === 1) return formatInvoicePeriod(periods[0]!)
   if (periods.length > 1) {
@@ -905,11 +911,21 @@ function supplierVintage(provenance: PdfReportTariffProvenance | undefined): str
     )
   }
 
+  const markup = `${dynamicTariff.markupCtPerKwh.toLocaleString('de-AT')} ct/kWh netto`
+  // Gültigkeit und Fundstelle belegen die hinterlegte Vorbelegung — nur bei genau deren Konditionen.
+  const isPreset =
+    dynamicTariff.markupCtPerKwh === AWATTAR_HOURLY_AT_DYNAMIC.markupCtPerKwh &&
+    dynamicTariff.baseFeeEurPerMonth === AWATTAR_HOURLY_AT_DYNAMIC.baseFeeEurPerMonth
+  if (!isPreset) {
+    return (
+      `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${dynamicTariff.name} — Aufschlag auf den ` +
+      `Börsenpreis: ${markup}, Grundgebühr ${formatEur2(dynamicTariff.baseFeeEurPerMonth)}/Monat netto.`
+    )
+  }
   return (
-    `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${AWATTAR_BASE_FEE.supplier}, ` +
+    `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${dynamicTariff.name}, ` +
     `gültig ab ${formatIsoDate(AWATTAR_BASE_FEE.validFrom) ?? AWATTAR_BASE_FEE.validFrom} — ` +
-    `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote} Aufschlag auf den Börsenpreis: ` +
-    `${AWATTAR_HOURLY_AT_DYNAMIC.markupCtPerKwh.toLocaleString('de-AT')} ct/kWh netto.`
+    `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote} Aufschlag auf den Börsenpreis: ${markup}.`
   )
 }
 
@@ -1037,7 +1053,7 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
         input.analysis.dataQuality.coveredDays,
         input.estimatedPv,
       ),
-      ...tariffRows(input.tariffSource, input.tariffProvenance),
+      ...tariffRows(input.tariffSource, input.tariffProvenance, dynamicTariffOf(input.analysis)),
       ...batteryRowsForSources(input.analysis, input.batteryCatalogMeta),
     ],
   }

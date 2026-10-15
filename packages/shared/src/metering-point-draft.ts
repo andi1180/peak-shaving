@@ -221,7 +221,7 @@ export const DYNAMIC_TARIFF_DRAFT_KEYS = {
   baseFeeEurPerMonth: 'dynamicBaseFeeEurPerMonth',
 } as const
 
-export const DEFAULT_DYNAMIC_SUPPLIER_NAME = 'Spot-Tarif'
+export const DEFAULT_DYNAMIC_SUPPLIER_NAME = 'Börsentarif'
 
 /** Die drei Entwurfsfelder zu gegebenen Konditionen — Gegenstück zu `readDraftDynamicTariff`. */
 export function dynamicTariffDraftFields(

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { analysisForDisplay, type AnalysisResult, type BatteryRoiEntry } from 'shared'
+import { analysisForDisplay, readDraftDynamicTariff, type AnalysisResult, type BatteryRoiEntry } from 'shared'
 
 import {
   batteryNoteTexts,
   dynamicTariffHintKind,
+  dynamicTariffOf,
   levyNamesOf,
   levySideLabel,
   recommendationRationaleText,
@@ -108,5 +109,26 @@ describe('levyNamesOf — Abgaben-Namen aus dem Ergebnis', () => {
     // Gesetzesverweise („§ 19") sind Teil des Namens, keine Zahl zum Posten.
     const text = levyNamesOf({ levyComponents: DE_COMPONENTS })!.text.replace(/§ \d+/g, '')
     expect(text).not.toMatch(/\d|€|\bct\b/)
+  })
+})
+
+describe('dynamicTariffOf — Name und Konditionen des dynamischen Tarifs', () => {
+  it('Feld fehlt → bisheriger fester Name und Konditionen', () => {
+    expect(dynamicTariffOf({ assumptions: {} })).toEqual({
+      name: 'aWATTar',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 4.79,
+    })
+    expect(dynamicTariffOf(undefined).name).toBe('aWATTar')
+  })
+
+  it('Feld vorhanden → genau dessen Werte', () => {
+    const dynamicTariff = { name: 'dynamischer Börsentarif', markupCtPerKwh: 0.9, baseFeeEurPerMonth: 25 }
+    expect(dynamicTariffOf({ assumptions: { dynamicTariff } })).toEqual(dynamicTariff)
+  })
+
+  it('leerer Entwurfsname → Standardname „Börsentarif"', () => {
+    const draft = { dynamicSupplierName: '   ', dynamicMarkupCtPerKwh: 0.9, dynamicBaseFeeEurPerMonth: 25 }
+    expect(readDraftDynamicTariff(draft)?.supplier).toBe('Börsentarif')
   })
 })

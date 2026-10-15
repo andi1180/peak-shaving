@@ -30,6 +30,8 @@ import {
   recommendationRationaleText,
   storageJudgementText,
   storagePaysOff,
+  dynamicTariffOf,
+  uncontrolledWayLabel,
 } from '@/lib/report-copy'
 import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
 import type { ReportBuildContext } from './context'
@@ -378,7 +380,7 @@ export function buildUnknownTariffKpis(
     {
       id: 'cost_awattar',
       value: formatEur(ways.uncontrolledEur),
-      caption: ['Stromkosten mit aWATTar ohne Steuerung', basis],
+      caption: [`Stromkosten mit ${uncontrolledWayLabel(dynamicTariffOf(analysis).name)}`, basis],
       tone: 'ink',
     },
   ]
@@ -640,7 +642,7 @@ function unknownTariffOverview(analysis: PdfReportAnalysis, ways: UnknownTariffW
       ? t` ${verdict}${ref(block('recommendation'), ` Die Einzelheiten zum Gerät stehen ${REF_PLACE}.`, '')}`
       : ''
 
-  return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar)${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${storage}${peakPart}`
+  return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (${dynamicTariffOf(analysis).name})${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${storage}${peakPart}`
 }
 
 /** Subjekt des Weg-5-Satzes — mit Netzentgelt-Stufen umfasst die Zahl Leistung UND Stufe. */

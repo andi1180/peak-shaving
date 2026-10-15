@@ -9,6 +9,7 @@ import {
   hasEnteredSubsidy,
   storageJudgementText,
   storagePaysOff,
+  dynamicTariffOf,
 } from '@/lib/report-copy'
 import { annualScenarioSavingsOf } from './annual-scenario'
 import { dailyPeaksOf } from './daily-peaks'
@@ -98,6 +99,8 @@ export type ExecutiveSummary = {
   hasLeistungspreis: boolean
   /** Wählt den Satz, welche Spitze die Gebühr bestimmt; fehlt = Monatsmodell (Satz wie bisher). */
   billingModel?: BillingModel
+  /** Name des dynamischen Tarifs (`dynamicTariffOf`); fehlt = Fallback-Name. */
+  tariffName?: string
   storage: ExecutiveSummaryStorage | null
   /** Bewertung des Katalog-Speichers, wenn er sich nicht rechnet. */
   storageVerdict: { name: string; savingPerYearEur: number; judgement: string } | null
@@ -315,6 +318,7 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     todayCostPerYearEur: yearly.todayEur,
     hasLeistungspreis: hasDemandChargeComponent(analysis.current),
     billingModel: effectiveBillingModel(analysis.assumptions.billingModel),
+    tariffName: dynamicTariffOf(analysis).name,
     storage,
     storageVerdict:
       variant === 'speicher-lohnt-nicht' && headline

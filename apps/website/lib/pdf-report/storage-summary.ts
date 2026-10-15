@@ -1,7 +1,7 @@
 import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
-import { dynamicTariffHintKind, loadControlValueOf } from '@/lib/report-copy'
+import { dynamicTariffHintKind, dynamicTariffOf, loadControlValueOf } from '@/lib/report-copy'
 import { totalInvestmentRow } from './investment-rows'
 import type { ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf, summaryWaysOf } from './summary'
@@ -66,7 +66,7 @@ export function buildStorageSummary(
     amount: null,
     rows: [
       row(entry.battery.name, totalInvestmentRow(entry).value, { hint: 'Gesamtinvestition' }),
-      row('Ladesteuerung (aWATTar)', formatEur(headline.ladesteuerungEur), {
+      row(`Ladesteuerung (${dynamicTariffOf(analysis).name})`, formatEur(headline.ladesteuerungEur), {
         ...(annualized
           ? {
               hint: `hochgerechnet aus ${days} gemessenen Tagen; gemessen ${formatEur(control.overCoveredDaysEur)}`,

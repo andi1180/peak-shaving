@@ -5,7 +5,8 @@ import {
   ANNUALIZED_LABEL,
   catalogStorageEntry,
   catalogStorageNote,
-  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
+  dynamicTariffOf,
   hasEnteredSubsidy,
   isAnnualized,
   storagePaysOff,
@@ -104,7 +105,7 @@ function simpleWay(ways: SummaryWays): SummaryWay | null {
   return candidates.reduce((best, way) => (way.eur > best.eur ? way : best))
 }
 
-function simplePoint(ways: SummaryWays, way: SummaryWay, days: string): ReportPoint {
+function simplePoint(ways: SummaryWays, way: SummaryWay, days: string, tariffName: string): ReportPoint {
   /* ⚠ Der Weg wird BENANNT und nicht bloss beziffert: stehen beide zur Wahl, sagt der Punkt, von
      welchem der genannte Betrag stammt — sonst suchte der Leser ihn beim falschen Balken. */
   const what =
@@ -112,7 +113,7 @@ function simplePoint(ways: SummaryWays, way: SummaryWay, days: string): ReportPo
       ? ways.comparisonSupplier
         ? `Wechseln Sie zu dem Tarif, den Sie selbst gefunden haben (${ways.comparisonSupplier})`
         : 'Wechseln Sie zu dem Vergleichstarif, den Sie uns genannt haben'
-      : 'Wechseln Sie zu aWATTar, ohne sonst etwas zu ändern'
+      : `Wechseln Sie zu ${tariffName}, ohne sonst etwas zu ändern`
 
   return {
     title: 'Wollen Sie es einfach halten',
@@ -136,6 +137,7 @@ function simplePoint(ways: SummaryWays, way: SummaryWay, days: string): ReportPo
  * Bestandsspeicher ist bezahlt.
  */
 function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): ReportPoint {
+  const controlledLabel = controlledWayLabel(dynamicTariffOf(input.analysis).name)
   const storage = catalogStorageNote(input.analysis)
   /* Rechnet sich das Katalog-Gerät nicht, ist der Punkt eine Feststellung und kein Rat. */
   const entry = catalogStorageEntry(input.analysis)
@@ -148,7 +150,7 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
     return {
       title: 'Wollen Sie das Maximum',
       text:
-        `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage. ` +
+        `${controlledLabel} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage. ` +
         `Dazu kommt die Kappung Ihrer Lastspitzen mit dem Speicher (${recommended.battery.name}, ` +
         `Investition ${formatEur(recommended.totalInvestment)}): ` +
         `${formatEur(headline.spitzenEur)} pro Jahr, unabhängig vom Stromvertrag ` +
@@ -161,7 +163,7 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
   return {
     title: neutral ? 'Mit Speicher und Ladesteuerung' : 'Wollen Sie das Maximum',
     text:
-      `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage.` +
+      `${controlledLabel} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage.` +
       (storage ? ` ${storage}` : '') +
       (neutral ? '' : ' Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.'),
   }
@@ -290,7 +292,7 @@ export function buildProposal(input: PdfReportInput): ReportStatement | null {
   if (ways) {
     const days = String(ways.coveredDays)
     const simple = simpleWay(ways)
-    if (simple) points.push(simplePoint(ways, simple, days))
+    if (simple) points.push(simplePoint(ways, simple, days, dynamicTariffOf(input.analysis).name))
 
     /*
      * ⚠ DER PUNKT STEHT NUR, WENN ER DEN EINFACHEN WEG ÜBERTRIFFT. Ohne Punkt 1 ist die Schwelle

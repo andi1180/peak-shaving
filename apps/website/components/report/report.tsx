@@ -38,6 +38,7 @@ import {
   hasEnteredSubsidy,
   isAnnualized,
   recommendationRationaleText,
+  dynamicTariffOf,
 } from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import { hasNegativeAddonVerdict } from '@/lib/pdf-report/comparison'
@@ -500,6 +501,7 @@ export function Report({
    * Kostenverlauf ist das Bild dazu. Er steht über beiden Kästen, weil er die volle Breite braucht
    * (s. unten) — dieselbe Stellung wie im Bestandsfall.
    */
+  const tariffName = dynamicTariffOf(result).name
   const monthlyComparison =
     result.tariffOptimization?.computable === true
       ? result.tariffOptimization.monthlyComparison
@@ -527,6 +529,7 @@ export function Report({
         storageNote={catalogStorageNote(result)}
         country={country}
         levyComponents={result.assumptions.levyComponents}
+        tariffName={tariffName}
       />
     </div>
   ) : null
@@ -648,6 +651,7 @@ export function Report({
             <div className="grid gap-4 pt-2 sm:grid-cols-2">
               {alternatives.map((entry) => (
                 <RecommendationCard
+                  tariffName={tariffName}
                   key={entry.battery.id}
                   entry={entry}
                   catalogMeta={batteryCatalogMeta[entry.battery.id]}
@@ -742,6 +746,7 @@ export function Report({
               <div className="grid gap-4 pt-2 sm:grid-cols-2">
                 {positiveAddons.map((scenario) => (
                   <RecommendationCard
+                    tariffName={tariffName}
                     key={scenario.battery.id}
                     entry={scenario}
                     variant="addon"
@@ -880,6 +885,7 @@ export function Report({
           */}
           {existingAnalysis ? (
             <RecommendationCard
+              tariffName={tariffName}
               entry={existingAnalysis.entry}
               primary
               variant="existing"
@@ -904,6 +910,7 @@ export function Report({
               </Alert>
             ) : (
               <RecommendationCard
+                tariffName={tariffName}
                 entry={recommended}
                 primary
                 dispatchNote={dispatchNote}
@@ -931,6 +938,7 @@ export function Report({
             timeZone={loadProfile.timezoneMeta}
             isExisting={isExisting}
             levyComponents={result.assumptions.levyComponents}
+            tariffName={tariffName}
           />
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">

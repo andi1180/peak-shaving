@@ -13,7 +13,15 @@ import {
 } from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, levyNamesOf, monthlyBatteryRef, vatNote } from '@/lib/report-copy'
+import {
+  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
+  FALLBACK_DYNAMIC_TARIFF,
+  levyNamesOf,
+  monthlyBatteryRef,
+  uncontrolledWayLabel,
+  vatNote,
+} from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { useId } from 'react'
@@ -158,7 +166,7 @@ function MonthTooltip({
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number | null }>
   label?: string
-  series?: readonly (typeof SERIES)[number][]
+  series?: readonly { key: (typeof SERIES)[number]['key']; label: string }[]
 }) {
   if (!active || !payload || payload.length === 0 || !series) return null
   return (
@@ -199,6 +207,7 @@ export function MonthlyTariffChart({
   storageNote = null,
   country,
   levyComponents,
+  tariffName = FALLBACK_DYNAMIC_TARIFF.name,
 }: {
   comparison: MonthlyTariffComparison
   /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
@@ -212,6 +221,8 @@ export function MonthlyTariffChart({
   country?: Country
   /** `assumptions.levyComponents`; fehlt = bisheriger Wortlaut der Abgaben-Zeile. */
   levyComponents?: readonly LevyComponentLabel[]
+  /** Name des dynamischen Tarifs (`dynamicTariffOf`); fehlt = Fallback-Name. */
+  tariffName?: string
 }) {
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
@@ -223,17 +234,25 @@ export function MonthlyTariffChart({
   const series = SERIES.filter(
     (s) =>
       (hasControlled || s.key !== 'controlledEur') && (hasCurrent || s.key !== 'currentTariffEur'),
-  )
+  ).map((s) => ({
+    ...s,
+    label:
+      s.key === 'spotWithoutControlEur'
+        ? uncontrolledWayLabel(tariffName)
+        : s.key === 'controlledEur'
+          ? controlledWayLabel(tariffName)
+          : s.label,
+  }))
 
   return (
     <div
       className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid"
       data-testid="monatsvergleich-awattar"
     >
-      <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
+      <p className="mb-1 text-sm font-medium text-ink">{`Das zahlen Sie jetzt vs. mit ${tariffName}`}</p>
       <p className="mb-3 text-xs text-text-muted">
-        Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
-        Steuerung und {CONTROLLED_WAY_LABEL}. Alle Beträge {vatNote(comparison)}.
+        {`Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, ${uncontrolledWayLabel(tariffName)} und `}
+        {controlledWayLabel(tariffName)}. Alle Beträge {vatNote(comparison)}.
       </p>
 
       <div className="h-64 w-full">
@@ -327,8 +346,8 @@ export function MonthlyTariffChart({
         <p className="mb-2 font-medium text-ink">Was hier eingerechnet ist</p>
         <ul className="flex list-disc flex-col gap-1 pl-4">
           <li>
-            <strong>Arbeitspreis</strong> je Viertelstunde — im Ist-Tarif Ihr fester Satz, bei
-            aWATTar der tatsächliche Börsenpreis jener Stunde.
+            <strong>Arbeitspreis</strong>
+            {` je Viertelstunde — im Ist-Tarif Ihr fester Satz, bei ${tariffName} der tatsächliche Börsenpreis jener Stunde.`}
           </li>
           <li>
             <strong>Netz-Arbeitspreis</strong> Ihres Netzbetreibers samt Netzverlustentgelt — in
@@ -384,11 +403,11 @@ export function MonthlyTariffChart({
             )}
           </li>
           <li>
-            <strong>Grundgebühr aWATTar</strong>:{' '}
+            <strong>{`Grundgebühr ${tariffName}`}</strong>:{' '}
             <Num className="text-ink">{formatEur2(fixed.awattarFeeEurPerMonth)}</Num>/Monat (
             {gross ? VAT_INCLUSIVE_LABEL : 'netto'}), anteilig{' '}
-            <Num className="text-ink">{formatEur2(fixed.awattarBaseFeeEur)}</Num> — nur in den
-            beiden aWATTar-Reihen.
+            <Num className="text-ink">{formatEur2(fixed.awattarBaseFeeEur)}</Num>
+            {` — nur in den beiden ${tariffName}-Reihen.`}
           </li>
           <li>
             <strong>Nicht</strong> eingerechnet: der Leistungspreis (€/kW·Jahr) — er bleibt die

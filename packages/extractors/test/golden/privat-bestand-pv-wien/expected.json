@@ -13022,7 +13022,12 @@
    "horizonYears": 10,
    "billingModel": "monthly_max_sum",
    "energyPriceCtPerKwh": 13.080848434773992,
-   "einspeiseverguetungCtPerKwh": 4.56
+   "einspeiseverguetungCtPerKwh": 4.56,
+   "dynamicTariff": {
+    "name": "aWATTar HOURLY",
+    "markupCtPerKwh": 1.5,
+    "baseFeeEurPerMonth": 4.79
+   }
   },
   "tariffOptimization": {
    "computable": true,

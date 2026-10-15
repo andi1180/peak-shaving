@@ -1,6 +1,7 @@
 import { countryDisplay, type BillingModel } from 'shared'
 
 import { formatEur } from '@/lib/format'
+import { FALLBACK_DYNAMIC_TARIFF } from '@/lib/report-copy'
 import { aboutYears } from './break-even-band'
 import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
 import { aboutDuration, totalAmortizationOf } from './total-amortization'
@@ -37,7 +38,8 @@ export type ExecutiveSummaryCopy = {
 export const EXECUTIVE_SUMMARY_FOOTER =
   'Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.'
 
-const SPOT_NAME = 'aWATTar'
+/** Name des dynamischen Tarifs der Vorderseite; ohne Angabe der bisherige feste Name. */
+const spotName = (s: ExecutiveSummary): string => s.tariffName ?? FALLBACK_DYNAMIC_TARIFF.name
 
 /** „Text **fett** Text" → Textstücke. */
 function runs(template: string): CopyRun[] {
@@ -47,16 +49,16 @@ function runs(template: string): CopyRun[] {
     .filter((run) => run.text !== '')
 }
 
-function wayLabel(way: ExecutiveSummaryWay): string {
+function wayLabel(way: ExecutiveSummaryWay, spot: string): string {
   switch (way.id) {
     case 'today':
       return 'Ihr Tarif heute'
     case 'comparison':
       return way.supplier ? `${way.supplier} (Ihr gefundener Tarif)` : 'Ihr gefundener Tarif'
     case 'spot':
-      return `${SPOT_NAME} (Börsenpreis)`
+      return `${spot} (Börsenpreis)`
     case 'spot-storage':
-      return `${SPOT_NAME} mit Speicher, der günstig lädt`
+      return `${spot} mit Speicher, der günstig lädt`
   }
 }
 
@@ -81,7 +83,7 @@ function basisText(s: ExecutiveSummary): string {
 
 function tariffTarget(s: ExecutiveSummary): string {
   const recommended = s.ways.find((way) => way.isRecommended)!
-  return recommended.id === 'comparison' ? comparisonTarget(recommended) : SPOT_NAME
+  return recommended.id === 'comparison' ? comparisonTarget(recommended) : spotName(s)
 }
 
 const UNKNOWN_TARIFF_NOTE =
@@ -113,7 +115,7 @@ function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
     switchShare !== null
       ? `davon ${formatEur(switchShare)} ohne Investition (Tarifwechsel)`
       : s.variant === 'tarif-unbekannt'
-      ? `durch einen Speicher gegenüber ${SPOT_NAME} ohne Speicher`
+      ? `durch einen Speicher gegenüber ${spotName(s)} ohne Speicher`
       : s.storage
         ? 'Tarifwechsel plus Speicher'
         : `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`
@@ -176,8 +178,8 @@ function waysSentence(s: ExecutiveSummary): string {
   const recommended = s.ways.find((way) => way.isRecommended)!
   const subject =
     recommended.id === 'spot-storage'
-      ? `Mit ${SPOT_NAME} und einem Speicher, der günstig lädt,`
-      : `Mit dem Wechsel zu ${recommended.id === 'comparison' ? comparisonTarget(recommended) : SPOT_NAME}`
+      ? `Mit ${spotName(s)} und einem Speicher, der günstig lädt,`
+      : `Mit dem Wechsel zu ${recommended.id === 'comparison' ? comparisonTarget(recommended) : spotName(s)}`
   const fee = s.hasLeistungspreis ? ' — ohne Spitzengebühr' : ''
   const peak = s.storage?.upperBound
     ? `; deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu`
@@ -185,7 +187,7 @@ function waysSentence(s: ExecutiveSummary): string {
   if (s.todayCostPerYearEur === null) {
     const spot = s.ways.find((way) => way.id === 'spot')!
     return (
-      `Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei ${SPOT_NAME} von rund ` +
+      `Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei ${spotName(s)} von rund ` +
       `${formatEur(spot.costPerYearEur)} auf rund ${formatEur(recommended.costPerYearEur)}${fee}${peak}.`
     )
   }
@@ -224,7 +226,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     totalBox: totalBox(s),
     basisLine:
       s.variant === 'tarif-unbekannt' ? `${basisText(s)} · ${UNKNOWN_TARIFF_NOTE}` : basisText(s),
-    wayLabels: s.ways.map(wayLabel),
+    wayLabels: s.ways.map((way) => wayLabel(way, spotName(s))),
     loadSentence: loadSentence(s),
     waysSentence: waysSentence(s),
     storageSaving:

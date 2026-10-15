@@ -134,7 +134,7 @@ Voraussetzungen für diese Auswertung
    Ihr Anschluss hat keinen Leistungspreis-Bestandteil (eine Zusatzgebühr für hohe Verbrauchsspitzen,
    vor allem bei Gewerbekunden üblich). Ihre Batterie kann bei Ihnen deshalb keine Ersparnis durchs
    „Kappen von Spitzen" bringen. Die gesamte Ersparnis in dieser Auswertung kommt aus zwei anderen
-   Quellen: dem gewählten Tarif und, falls aWATTar, der gezielten Steuerung der Batterie.
+   Quellen: dem gewählten Tarif und, falls aWATTar HOURLY, der gezielten Steuerung der Batterie.
 
 
 Ihr Verbrauch heute
@@ -213,20 +213,20 @@ Ihr heutiger Vertrag; getauscht sind ausschliesslich der Arbeitspreis und die Gr
 € 64 mehr gekostet als Ihr heutiger Tarif. Ein Festpreistarif bewegt sich über den Tag nicht, Ihr Speicher kann
 gegen ihn also nicht steuern: dieser Weg ist unabhängig davon, ob Sie einen Speicher haben.
 
-aWATTar ohne Steuerung
-Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar statt
-zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die 209 gemessenen
-Tage hätte das € 8 mehr gekostet als Ihr heutiger Tarif, nicht weniger.
+aWATTar HOURLY ohne Steuerung
+Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar
+HOURLY statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die
+209 gemessenen Tage hätte das € 8 mehr gekostet als Ihr heutiger Tarif, nicht weniger.
 
-aWATTar mit Ladesteuerung
+aWATTar HOURLY mit Ladesteuerung
 Zusätzlich zum Tarifwechsel wird mit Ihrem Speicher gezielt geladen: in den günstigen Viertelstunden lädt
 der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben Tages zurückhält —
 der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel
 und Ladesteuerung zusammen, € 234 gespart. Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar
-ohne Steuerung", beträgt € 242. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant
-seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren
-eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch
-von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
+HOURLY ohne Steuerung", beträgt € 242. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher
+plant seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung
+aus Ihren eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr
+Verbrauch von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
 
 
 
@@ -330,23 +330,23 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-Wert der Ladesteuerung unter aWATTar
+Wert der Ladesteuerung unter aWATTar HOURLY
 € 422 pro Jahr, auf ein Jahr hochgerechnet, inkl. 20 % USt
- Gemessen, über die 209 gemessenen Tage                                                                  € 242
+ Gemessen, über die 209 gemessenen Tage                                                                € 242
 
 Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt und die Abgaben
 angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem Tagesplan in günstigen Stunden
 und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit weniger kostet als ohne Steuerung, Ladeverluste
-eingeschlossen. Das ist genau der Abstand der Wege „aWATTar ohne Steuerung" und „aWATTar mit
-Ladesteuerung" über die 209 gemessenen Tage. Er ist der Energie-Anteil der Gesamtersparnis dieses
-Speichers und steckt dort bereits mit drin. Die Preise sind die tatsächlichen Ihres Zeitraums; ein Versprechen
-für die Zukunft ist die Zahl nicht. Ihr Lastgang deckt 209 von 365 Tagen ab; die Zahl oben ist daraus auf ein
-Jahr hochgerechnet.
+eingeschlossen. Das ist genau der Abstand der Wege „aWATTar HOURLY ohne Steuerung" und „aWATTar
+HOURLY mit Ladesteuerung" über die 209 gemessenen Tage. Er ist der Energie-Anteil der Gesamtersparnis
+dieses Speichers und steckt dort bereits mit drin. Die Preise sind die tatsächlichen Ihres Zeitraums; ein
+Versprechen für die Zukunft ist die Zahl nicht. Ihr Lastgang deckt 209 von 365 Tagen ab; die Zahl oben ist
+daraus auf ein Jahr hochgerechnet.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 9 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 9 von 18
     COOLiN ENERGY          Referenzfall Privat
 
 
@@ -361,17 +361,17 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 
 
 
-Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
+Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar HOURLY
  Ihr Tarif heute                                                                                             € 1.204
 
- aWATTar ohne Steuerung                                                                                      € 1.212
+ aWATTar HOURLY ohne Steuerung                                                                               € 1.212
 
- aWATTar mit Ladesteuerung                                                                                     € 970
+ aWATTar HOURLY mit Ladesteuerung                                                                              € 970
 
 Summen über die 8 gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden
 Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben
 auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
-Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (Ihr Lieferant € 4,20/Monat · aWATTar
+Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (Ihr Lieferant € 4,20/Monat · aWATTar HOURLY
 € 5,75/Monat). Hier stehen die drei Summen absolut.
 
 
@@ -482,8 +482,8 @@ Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
 1     Wollen Sie das Maximum
-      aWATTar mit Ladesteuerung — € 234 weniger über dieselben 209 Tage. Sprechen Sie uns an, wenn
-      Sie dabei Unterstützung möchten.
+      aWATTar HOURLY mit Ladesteuerung — € 234 weniger über dieselben 209 Tage. Sprechen Sie uns an,
+      wenn Sie dabei Unterstützung möchten.
 
 2     Zusätzlicher Speicher
       Ja — E3/DC one 12 mit Backup bringt über 10 Jahre € 301 inkl. 20 % USt nach der von Ihnen
@@ -646,8 +646,8 @@ Datenquellen
                                  je Zeitfenster.                               Fundstelle des Blatts: nicht erfasst.
 
  Lieferanten-Tarif               Arbeitspreis, Grundgebühr und                 Kundenrechnung: nicht erfasst.
-                                 Einspeisevergütung der Energieseite.          Vergleichstarif aWATTar, gültig
-                                                                               ab 01.01.2025 — Fundstelle:
+                                 Einspeisevergütung der Energieseite.          Vergleichstarif aWATTar HOURLY,
+                                                                               gültig ab 01.01.2025 — Fundstelle:
                                                                                aWATTar HOURLY, Grundgebühr
                                                                                laut Endkunden-Preisangabe (5,75 €
                                                                                brutto/Monat = 4,79 € netto), im Repo
@@ -687,15 +687,15 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 Ihr Vergleichstarif (gogreenenergy) — getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten;
 Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
-aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
-Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
-bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
-verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — keine
-Prognose und kein Durchschnittswert.
-aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
-gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen
-Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
-Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
+aWATTar HOURLY ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen
+Stunde, statt Ihrer Grundgebühr die von aWATTar HOURLY. Die Netzseite hängt am Anschluss und nicht
+am Lieferanten und bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts
+gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses
+Zeitraums — keine Prognose und kein Durchschnittswert.
+aWATTar HOURLY mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine
+Viertelstunde gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres
+eigenen Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis
+zum Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
 noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit mitgeführtem Ladezustand
 und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang vor dem Preis. Eine Faustregel
 je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge sieht dabei nicht Ihren
@@ -724,7 +724,7 @@ genommen nichts über die Anlage aussagt.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 17 von 18
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

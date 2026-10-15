@@ -1,4 +1,6 @@
 import {
+  AWATTAR_BASE_FEE,
+  AWATTAR_HOURLY_AT_DYNAMIC,
   controlValueOf,
   displayedPriceBasis,
   sumCovered,
@@ -220,6 +222,33 @@ export function monthlyBatteryRef(isExisting: boolean): string {
  * empfohlene Batterie) und braucht die Fallunterscheidung gar nicht erst.
  */
 export const CONTROLLED_WAY_LABEL = 'aWATTar mit Ladesteuerung'
+
+/** Weg 4 mit dem Namen des dynamischen Tarifs (`dynamicTariffOf`); `CONTROLLED_WAY_LABEL` ist der Fallback. */
+export function controlledWayLabel(name: string): string {
+  return `${name} mit Ladesteuerung`
+}
+
+/** Weg 3 mit dem Namen des dynamischen Tarifs. */
+export function uncontrolledWayLabel(name: string): string {
+  return `${name} ohne Steuerung`
+}
+
+/** Name und Konditionen (netto) des dynamischen Tarifs, wie der Report sie nennt. */
+export type DynamicTariffView = { name: string; markupCtPerKwh: number; baseFeeEurPerMonth: number }
+
+/** Was der Report ohne `assumptions.dynamicTariff` nennt (Ergebnisse vor Fassung 20). */
+export const FALLBACK_DYNAMIC_TARIFF: DynamicTariffView = {
+  name: AWATTAR_BASE_FEE.supplier,
+  markupCtPerKwh: AWATTAR_HOURLY_AT_DYNAMIC.markupCtPerKwh,
+  baseFeeEurPerMonth: AWATTAR_BASE_FEE.eurPerMonth,
+}
+
+/** Der dynamische Tarif aus dem Ergebnis; fehlt das Feld, der bisherige feste Wortlaut. */
+export function dynamicTariffOf(
+  analysis: { assumptions: Pick<AnalysisResult['assumptions'], 'dynamicTariff'> } | null | undefined,
+): DynamicTariffView {
+  return analysis?.assumptions.dynamicTariff ?? FALLBACK_DYNAMIC_TARIFF
+}
 
 /**
  * K3d — Herkunft des angezeigten Wirkungsgrads eines Katalog-Geräts, am Bildschirm-Druck und im

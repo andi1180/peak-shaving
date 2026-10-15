@@ -79,6 +79,9 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   averageCtPerKwh: 'price',
   awattarBaseFeeEur: 'money',
   awattarFeeEurPerMonth: 'money',
+  // Konditionen des dynamischen Tarifs: im Report ausdrücklich netto genannt, nie umgerechnet.
+  baseFeeEurPerMonth: 'other',
+  markupCtPerKwh: 'other',
   batteryFlowByHourMonth: 'other',
   batteryPowerKw: 'other',
   billedKw: 'other',

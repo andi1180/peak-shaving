@@ -37593,7 +37593,12 @@
   "billingModel": "monthly_max_sum",
   "energyPriceCtPerKwh": 9.5,
   "einspeiseverguetungCtPerKwh": 0,
-  "levyLocationAssumed": "vienna"
+  "levyLocationAssumed": "vienna",
+  "dynamicTariff": {
+   "name": "aWATTar HOURLY",
+   "markupCtPerKwh": 1.5,
+   "baseFeeEurPerMonth": 4.79
+  }
  },
  "tariffOptimization": {
   "computable": true,

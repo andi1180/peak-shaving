@@ -28,7 +28,9 @@ import {
   demandSavingShown,
   ANNUALIZED_LABEL,
   batteryNoteTexts,
-  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
+  FALLBACK_DYNAMIC_TARIFF,
+  uncontrolledWayLabel,
   ENERGY_PRICE_ONLY_NOTE,
   hasEnergyPriceOnlyBasis,
   displayedInvestmentOf,
@@ -169,10 +171,13 @@ type RecommendationCardProps = (
   installationNote?: string | null
   /** Die Förderprogramme „€ pro kWh" (`assumptions.subsidyPrograms`) für die Förderzeilen. */
   subsidyPrograms?: readonly AnalysisSubsidyProgram[]
+  /** Name des dynamischen Tarifs (`dynamicTariffOf`); fehlt = Fallback-Name. */
+  tariffName?: string
 }
 
 export function RecommendationCard(props: RecommendationCardProps) {
   const { entry, primary = false, dispatchNote, installationNote } = props
+  const tariffName = props.tariffName ?? FALLBACK_DYNAMIC_TARIFF.name
   const isExisting = props.variant === 'existing'
   const noteTexts = batteryNoteTexts(entry)
   // Narrowing über die Union: beide Nicht-`existing`-Zweige tragen die ROI-Felder.
@@ -273,7 +278,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 das Vorzeichen die Information (s. `DeltaRow`).
               */}
               <p className="text-xs uppercase tracking-wide text-text-muted">
-                {real.totalEur < 0 ? 'Mehrkosten mit aWATTar' : 'Ersparnis mit aWATTar'}
+                {real.totalEur < 0 ? `Mehrkosten mit ${tariffName}` : `Ersparnis mit ${tariffName}`}
               </p>
               <Num
                 className={
@@ -344,12 +349,12 @@ export function RecommendationCard(props: RecommendationCardProps) {
             */}
             <DeltaRow
               label="Reiner Tarifwechsel"
-              hint="Ihr Tarif heute gegenüber aWATTar ohne jede Steuerung"
+              hint={`Ihr Tarif heute gegenüber ${tariffName} ohne jede Steuerung`}
               value={real.tariffSwitchEur}
             />
             <DeltaRow
               label="Wert der Ladesteuerung"
-              hint={`aWATTar ohne Steuerung gegenüber ${CONTROLLED_WAY_LABEL}`}
+              hint={`${uncontrolledWayLabel(tariffName)} gegenüber ${controlledWayLabel(tariffName)}`}
               value={real.controlValueEur}
             />
             <div className="flex items-center justify-between border-t-2 border-border py-2 text-sm font-semibold">
@@ -366,8 +371,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
             )}
             <div className="mt-2 rounded-md bg-surface-alt p-3 text-xs text-text-muted print:break-inside-avoid">
               <p>
-                Beide Beträge stammen aus dem Monatsvergleich „Das zahlen Sie jetzt vs. mit
-                aWATTar" — dieselben Summen über dieselben{' '}
+                {`Beide Beträge stammen aus dem Monatsvergleich „Das zahlen Sie jetzt vs. mit ${tariffName}" — dieselben Summen über dieselben`}{' '}
                 <Num>{comparison.coveredMonths}</Num> gemessenen Monate.{' '}
                 <strong className="text-ink">Nicht auf ein Jahr hochgerechnet:</strong> die
                 fehlenden Monate liegen nicht gleichmässig über das Jahr verteilt, und eine daraus

@@ -56,19 +56,19 @@ Ihre Stromkosten pro Jahr
 Ihr Tarif heute
                                                                                                                           € 58.244
 
-aWATTar (Börsenpreis)
+Spot-Test (Börsenpreis)
                                                                                      € 41.191
 
-aWATTar mit Speicher, der günstig lädt
+Spot-Test mit Speicher, der günstig lädt
                                                                                      € 40.982
 
 
-Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 58.244 auf rund
+Mit Spot-Test und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 58.244 auf rund
 € 40.982 — ohne Spitzengebühr; deren Einsparung (bis zu € 634) kommt hinzu.
 
 
    Ihr Speicher                                                         Woher die Ersparnis kommt
-   Ersparnis durch den Speicher: bis zu € 843                                                         Wechsel zu aWATTar
+   Ersparnis durch den Speicher: bis zu € 843                                                         Wechsel zu Spot-Test
    pro Jahr.                                                                                          € 17.053
        Mit Stromspitzen (Höchstwert)                                            bis zu                Speicher lädt günstig
        Nur günstiges Laden                                                                            € 209
@@ -172,7 +172,7 @@ Was der empfohlene Speicher zusätzlich bringt
  Testspeicher mittel                                                                                         € 5.000
  Gesamtinvestition
 
- Ladesteuerung (aWATTar)                                                                                        € 209
+ Ladesteuerung (Spot-Test)                                                                                      € 209
 
  Kappung der Lastspitzen                                                                                        € 634
 
@@ -281,12 +281,12 @@ Die Bezugsgrösse für alles Weitere: mit Ihrem heutigen Vertrag haben Sie über
 € 58.244 für Energie, Netz und Abgaben gezahlt. Jeder der folgenden Wege wird gegen genau diesen Betrag
 gerechnet — mit demselben Lastgang, denselben Netzentgelten und denselben gesetzlichen Abgaben.
 
-aWATTar ohne Steuerung
-Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar statt
+Spot-Test ohne Steuerung
+Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von Spot-Test statt
 zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die 365 gemessenen
 Tage hätte das € 17.053 weniger gekostet.
 
-aWATTar mit Ladesteuerung
+Spot-Test mit Ladesteuerung
  Gesamtinvestition                                                                                         € 5.000
 
  Netto über 10 Jahre                                                                                       € 3.429
@@ -295,7 +295,7 @@ Zusätzlich zum Tarifwechsel wird mit der empfohlenen Batterie gezielt geladen: 
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
 das, Tarifwechsel und Ladesteuerung zusammen, € 17.261 gespart. Der Wert der Ladesteuerung allein, der
-Abstand zu „aWATTar ohne Steuerung", beträgt € 209. Gerechnet mit diesem Speicher: Testspeicher mittel
+Abstand zu „Spot-Test ohne Steuerung", beträgt € 209. Gerechnet mit diesem Speicher: Testspeicher mittel
 spart voraussichtlich € 843 pro Jahr und amortisiert sich nach 5,9 Jahren — Netto-Ersparnis über 10 Jahre:
 € 3.429. Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit. Diese Zahl ist eine Vorausberechnung,
 keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und
@@ -368,12 +368,12 @@ Jahren.
      Kappung ist leistungs-, nicht energiebegrenzt.
 
 
-Wert der Ladesteuerung unter aWATTar
+Wert der Ladesteuerung unter Spot-Test
 € 209 über die 365 gemessenen Tage, netto
 Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt und die Abgaben
 angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem Tagesplan in günstigen Stunden
 und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit weniger kostet als ohne Steuerung, Ladeverluste
-eingeschlossen. Das ist genau der Abstand der Wege „aWATTar ohne Steuerung" und „aWATTar mit
+eingeschlossen. Das ist genau der Abstand der Wege „Spot-Test ohne Steuerung" und „Spot-Test mit
 Ladesteuerung" über die 365 gemessenen Tage. Er ist der Energie-Anteil der Gesamtersparnis dieses
 Speichers und steckt dort bereits mit drin. Die Preise sind die tatsächlichen Ihres Zeitraums; ein Versprechen
 für die Zukunft ist die Zahl nicht.
@@ -418,17 +418,17 @@ Was Sie heute zahlen — und was es mit einem Börsenpreis-Tarif gewesen wäre.
 
 
 
-Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
+Das zahlen Sie jetzt — und das zahlten Sie mit Spot-Test
  Ihr Tarif heute                                                                                        € 58.244
 
- aWATTar ohne Steuerung                                                                                   € 41.191
+ Spot-Test ohne Steuerung                                                                                 € 41.191
 
- aWATTar mit Ladesteuerung                                                                              € 40.982
+ Spot-Test mit Ladesteuerung                                                                            € 40.982
 
 Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die
 Abgaben auf den Bezug (Stromsteuer, KWKG-Aufschlag, Aufschlag für besondere Netznutzung (§ 19
 StromNEV), Offshore-Netzumlage und Konzessionsabgabe (Sondervertrag)) und die anteiligen Fixkosten
-— Netz-Grundpreis, Messpreis und Grundgebühren (aWATTar € 9,90/Monat). Nicht enthalten ist das
+— Netz-Grundpreis, Messpreis und Grundgebühren (Spot-Test € 9,90/Monat). Nicht enthalten ist das
 Netzentgelt aus Leistung und Stufe — es gilt je Abrechnungsjahr, und es auf Monate zu verteilen verlangte
 eine Aufteilungsregel, die es nicht gibt. Hier stehen die drei Summen absolut.
 
@@ -531,12 +531,12 @@ Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
 1     Wollen Sie es einfach halten
-      Wechseln Sie zu aWATTar, ohne sonst etwas zu ändern — € 17.053 weniger über die 365 gemessenen
+      Wechseln Sie zu Spot-Test, ohne sonst etwas zu ändern — € 17.053 weniger über die 365 gemessenen
       Tage, ohne Umstellung an Speicher oder Verbrauch.
 
 2     Wollen Sie das Maximum
-      aWATTar mit Ladesteuerung — € 17.261 weniger über dieselben 365 Tage. Dazu kommt die Kappung
-      Ihrer Lastspitzen mit dem Speicher (Testspeicher mittel, Investition € 5.000): € 634 pro Jahr,
+      Spot-Test mit Ladesteuerung — € 17.261 weniger über dieselben 365 Tage. Dazu kommt die
+      Kappung Ihrer Lastspitzen mit dem Speicher (Testspeicher mittel, Investition € 5.000): € 634 pro Jahr,
       unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt
       das € 843 pro Jahr und eine Amortisation von 5,9 Jahren — eine Vorausberechnung, keine Zusage.
       Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.
@@ -548,7 +548,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 13 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 13 von 18
     COOLiN ENERGY          Referenzfall DE Gewerbe
 
 
@@ -678,16 +678,9 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                 je Zeitfenster.                               Fundstelle des Blatts: nicht erfasst.
 
  Lieferanten-Tarif              Arbeitspreis, Grundgebühr und                 Kundenrechnung: nicht erfasst.
-                                Einspeisevergütung der Energieseite.          Vergleichstarif aWATTar, gültig
-                                                                              ab 01.01.2025 — Fundstelle:
-                                                                              aWATTar HOURLY, Grundgebühr
-                                                                              laut Endkunden-Preisangabe (5,75 €
-                                                                              brutto/Monat = 4,79 € netto), im Repo
-                                                                              festgehalten am 02.09.2026. Ändert sich
-                                                                              der Satz, kommt ein ZWEITER Eintrag
-                                                                              mit späterem validFrom hinzu — der
-                                                                              bestehende wird nicht editiert. Aufschlag
-                                                                              auf den Börsenpreis: 1,5 ct/kWh netto.
+                                Einspeisevergütung der Energieseite.          Vergleichstarif Spot-Test — Aufschlag
+                                                                              auf den Börsenpreis: 1,2 ct/kWh netto,
+                                                                              Grundgebühr € 9,90/Monat netto.
 
  Batterie
  Testspeicher mittel            Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand nicht übergeben —
@@ -710,12 +703,12 @@ Weg nur noch, was an ihm anders ist.
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.
-aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
-Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
+Spot-Test ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
+Ihrer Grundgebühr die von Spot-Test. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
 bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
 verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — keine
 Prognose und kein Durchschnittswert.
-aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
+Spot-Test mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
 gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen
 Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
 Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
@@ -725,16 +718,6 @@ je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge 
 gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
 der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
 aus einem Rückblick.
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 16 von 18
-    COOLiN ENERGY          Referenzfall DE Gewerbe
-
-
-
-
 Netzentgelt-Ersparnis (Leistung und Stufe)
 Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Das Netzentgelt Ihres Anschlusses
 hat zwei Preisstufen, je nach Benutzungsdauer — der Jahresmenge geteilt durch die abgerechnete
@@ -742,6 +725,13 @@ Jahreshöchstleistung. Gerechnet wird ohne und mit Speicher jeweils die günstig
 Speicher senkt die Spitze; dadurch steigt die Benutzungsdauer, und die Stufe kann wechseln. Die Zahl enthält
 deshalb den Leistungs- und den Arbeitspreisanteil des Netzentgelts und wird pro JAHR verrechnet; als
 Jahresgrösse gehört sie zu keinem der Beträge darüber dazu.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 16 von 18
+    COOLiN ENERGY          Referenzfall DE Gewerbe
+
 
 
 
@@ -759,7 +749,7 @@ Jahresgrösse gehört sie zu keinem der Beträge darüber dazu.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 17 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

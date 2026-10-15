@@ -1,6 +1,6 @@
 import type { ReportOptionalSection } from 'shared'
 
-import { dynamicTariffHintKind, levyNamesOf } from '@/lib/report-copy'
+import { dynamicTariffHintKind, dynamicTariffOf, levyNamesOf } from '@/lib/report-copy'
 
 import {
   DATA_SOURCES_TABLE_ID,
@@ -354,8 +354,13 @@ export function buildReportRegistry(
         if (analysis.existingBatteryAnalysis) {
           const cost = context.detailPlan.cost
           return cost?.kind === 'monthly'
-            ? buildMonthly(cost.comparison, analysis.current, null, levyNamesOf(analysis.assumptions))
-                .statement
+            ? buildMonthly(
+                cost.comparison,
+                analysis.current,
+                null,
+                levyNamesOf(analysis.assumptions),
+                dynamicTariffOf(analysis).name,
+              ).statement
             : null
         }
         return buildMonthlyChapter(analysis)?.statement ?? null

@@ -21,6 +21,7 @@ import {
   SavingsDonutChart,
 } from '@/components/report/savings-donut-chart'
 import { TariffWaysChart } from '@/components/report/tariff-ways-chart'
+import { dynamicTariffOf } from '@/lib/report-copy'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
 import { comparisonChartPlan } from './comparison'
@@ -495,6 +496,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
                 comparison={costPlan.comparison}
                 isExisting
                 country={input.country}
+                tariffName={dynamicTariffOf(input.analysis).name}
               />
             ) : (
               <CostChart
@@ -618,6 +620,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
               comparison={monthlyChapterComparison}
               isExisting={false}
               country={input.country}
+              tariffName={dynamicTariffOf(input.analysis).name}
             />,
             { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
           ),
