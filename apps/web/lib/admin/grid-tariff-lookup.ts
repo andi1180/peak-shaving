@@ -34,7 +34,7 @@
  */
 import 'server-only'
 
-import { findGridTariffRow } from 'shared'
+import { findGridTariffRow, type Country } from 'shared'
 
 import type { createClient } from '@/lib/supabase/server'
 
@@ -53,6 +53,8 @@ export type GridTariffLookupParams = {
   netzebene: number
   /** `null` bei Netzebenen ohne Varianten (NE 3–6) — s. `unique nulls not distinct`, B21-1. */
   meteringVariant: string | null
+  /** Projektland — dieselbe Einschränkung wie `readGridTariffRowsForAnalysis`, sonst schlüge ein DE-Projekt einen AT-Satz vor. */
+  country: Country
   /** Kalendertag als 'YYYY-MM-DD' in ORTSZEIT (Europe/Vienna), nicht UTC. */
   stichtag: string
 }
@@ -75,13 +77,14 @@ const GRID_TARIFF_SELECT = 'grundpreis_amount, grundpreis_unit, valid_from, vali
  */
 export async function lookupGridTariffDefaults(
   supabase: AdminClient,
-  { operatorId, netzebene, meteringVariant, stichtag }: GridTariffLookupParams,
+  { operatorId, netzebene, meteringVariant, country, stichtag }: GridTariffLookupParams,
 ): Promise<GridTariffDefaults | null> {
   let query = supabase
     .from('grid_tariffs')
     .select(GRID_TARIFF_SELECT)
     .eq('operator_id', operatorId)
     .eq('netzebene', netzebene)
+    .eq('country', country)
 
   /*
    * ⚠ `.is(..., null)` statt `.eq(..., null)`: SQL vergleicht NULL nie per `=`. Ein `.eq` lieferte

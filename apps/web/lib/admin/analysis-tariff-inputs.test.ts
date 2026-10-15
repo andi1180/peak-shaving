@@ -18,6 +18,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
+const { buildLevySchedule } = await import('shared')
+
 const { readGridTariffRowsForAnalysis, readSpotPricesForAnalysis, readTariffPricingForAnalysis } =
   await import('./analysis-tariff-inputs')
 
@@ -438,6 +440,39 @@ describe('readTariffPricingForAnalysis', () => {
     expect(pricing.gridTariffRows).toBeNull()
     expect(pricing.spotPrices).not.toBeNull()
     expect(calls).not.toContainEqual({ method: 'from', args: ['grid_tariffs'] })
+  })
+})
+
+describe('readTariffPricingForAnalysis — Abgabenplan nach Land', () => {
+  const window = { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T01:45:00.000Z' }
+  const withoutGrid = { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 }
+  const read = (request: typeof withoutGrid | Record<string, unknown>, country: 'AT' | 'DE') =>
+    readTariffPricingForAnalysis(
+      stubClient([{ data: [], error: null }]).supabase,
+      request as typeof withoutGrid,
+      { category: 'gewerbe', postalCode: '1100', country },
+      {},
+    )
+
+  it('DE ohne Netzbetreiber und Netzebene: der Plan entsteht mit den DE-Posten', async () => {
+    const { levies } = await read(withoutGrid, 'DE')
+    expect(levies?.periods.length).toBeGreaterThan(0)
+    expect(levies?.periods.every((period) => (period.perKwhComponents?.length ?? 0) > 0)).toBe(true)
+  })
+
+  it('AT ohne Netzbetreiber oder Netzebene: kein Plan; mit beiden derselbe Plan wie direkt gebaut', async () => {
+    expect((await read(withoutGrid, 'AT')).levies).toBeNull()
+    expect((await read({ ...withoutGrid, operatorId: 'wiener_netze' }, 'AT')).levies).toBeNull()
+    expect((await read({ ...withoutGrid, netzebene: 7 }, 'AT')).levies).toBeNull()
+
+    const full = { ...withoutGrid, operatorId: 'wiener_netze', netzebene: 7, meteringVariant: 'mit_leistungsmessung' }
+    expect((await read(full, 'AT')).levies).toEqual(
+      buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-01-01', 'mit_leistungsmessung', {
+        category: 'gewerbe',
+        postalCode: '1100',
+        country: 'AT',
+      }),
+    )
   })
 })
 
