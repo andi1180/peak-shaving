@@ -729,7 +729,7 @@ describe('B21-2e — die Funktion ist so verschlossen wie ihre Geschwister', () 
     expect(rows[0]).toEqual({ anon: false, auth: false, svc: true })
   })
 
-  it('die drei optionalen Parameter stehen am ENDE, alle übrigen sind pflichtig', async () => {
+  it('die optionalen Parameter stehen am ENDE, alle übrigen sind pflichtig', async () => {
     /*
      * PostgreSQL verlangt, dass alle Parameter NACH einem mit Vorgabewert ebenfalls einen tragen.
      * Rutschte einer nach vorn, müssten auch `p_valid_from` und `p_windows` optional werden — ein
@@ -755,8 +755,10 @@ describe('B21-2e — die Funktion ist so verschlossen wie ihre Geschwister', () 
       'p_metering_variant',
       'p_messpreis_amount',
       'p_messpreis_unit',
+      // 20261015090000: das Land, hinten angehängt (SQL-Vorgabe 'AT' nur für Rückwärtskompatibilität).
+      'p_country',
     ])
-    expect(Number(rows[0]?.defaults)).toBe(3)
+    expect(Number(rows[0]?.defaults)).toBe(4)
   })
 
   it('KEIN neues Tabellenrecht — die Rechtefläche ist unverändert die aus B21-2b/2c', async () => {

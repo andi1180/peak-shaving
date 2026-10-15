@@ -187,6 +187,7 @@ function createForm(overrides: Record<string, string> = {}): FormData {
     operatorSelect: 'wiener_netze',
     operatorId: 'wiener_netze',
     operatorName: 'Wiener Netze GmbH',
+    country: 'AT',
     netzebene: '5',
     grundpreisAmount: '44.8',
     grundpreisUnit: 'eur_per_kw_year',
@@ -204,6 +205,29 @@ function createForm(overrides: Record<string, string> = {}): FormData {
   for (const [k, v] of Object.entries(base)) fd.set(k, v)
   return fd
 }
+
+describe('createGridTariffAction — das Land', () => {
+  it('verlangt das Land und weist eine Katalog-Kennung im fremden Land ab, ohne Aufruf', async () => {
+    const ohne = await createGridTariffAction({}, createForm({ country: '' }))
+    expect(ohne.fieldErrors?.country).toMatch(/Land/)
+    const fremd = await createGridTariffAction({}, createForm({ country: 'DE' }))
+    expect(fremd.fieldErrors?.country).toMatch(/Österreich/)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('reicht das Land an create_grid_tariff durch', async () => {
+    rpc.mockResolvedValue({
+      data: { status: 'created', window_count: 1, closed_count: 0 },
+      error: null,
+    })
+    await createGridTariffAction(
+      {},
+      createForm({ operatorSelect: '__andere__', operatorId: 'stromnetz_berlin', country: 'DE' }),
+    )
+    const [, args] = rpc.mock.calls[0] as [string, Record<string, unknown>]
+    expect(args.p_country).toBe('DE')
+  })
+})
 
 describe('createGridTariffAction — der Erfolgsfall trägt die Eingaben zurück', () => {
   beforeEach(() => {
@@ -306,6 +330,7 @@ describe('backfillGridTariffAction — der Nachtrag ist ein eigener Weg, kein So
     const fd = new FormData()
     const base: Record<string, string> = {
       operatorId: 'wiener_netze',
+      country: 'AT',
       netzebene: '5',
       grundpreisAmount: '38.52',
       grundpreisUnit: 'eur_per_kw_year',
@@ -354,6 +379,7 @@ describe('backfillGridTariffAction — der Nachtrag ist ein eigener Weg, kein So
     expect(fn).toBe('backfill_grid_tariff')
     expect(args).not.toHaveProperty('p_operator_name')
     expect(args.p_operator_id).toBe('wiener_netze')
+    expect(args.p_country).toBe('AT')
     expect(args.p_netzebene).toBe(5)
     expect(args.p_valid_from).toBe('2025-01-01')
     expect(args.p_windows).toEqual([

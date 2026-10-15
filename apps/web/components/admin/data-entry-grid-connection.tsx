@@ -14,10 +14,11 @@ import {
   INVOICE_MERGE_FIELD_LABELS,
   METERING_VARIANTS,
   METERING_VARIANT_LABELS,
-  NETZBETREIBER_IDS,
-  NETZBETREIBER_LABELS,
   NETZEBENEN,
   hasMeteringVariant,
+  netzebeneLabel,
+  type Country,
+  type GridOperatorOption,
 } from 'shared'
 
 import { AdminSelect } from './ui'
@@ -39,12 +40,18 @@ export const GRID_CONNECTION_NOT_SET_LABEL = 'Nicht angeben'
 
 export function DataEntryGridConnectionFields({
   idPrefix,
+  country,
+  operators,
   value,
   onChange,
   fieldError,
 }: {
   /** Feld-IDs `${idPrefix}-operator` usw. */
   idPrefix: string
+  /** Projektland — bestimmt die Ebenen-Beschriftung; gespeichert wird weiterhin „NE n". */
+  country: Country
+  /** Betreiber des Projektlandes (`gridOperatorOptionsFor`), serverseitig gebildet. */
+  operators: readonly GridOperatorOption[]
   value: GridConnection
   onChange: (next: GridConnection) => void
   fieldError?: (key: string) => string | undefined
@@ -67,9 +74,9 @@ export function DataEntryGridConnectionFields({
           onValueChange={(operatorId) => onChange({ ...value, operatorId })}
         >
           <option value="">{GRID_CONNECTION_NOT_SET_LABEL}</option>
-          {NETZBETREIBER_IDS.map((id) => (
-            <option key={id} value={id}>
-              {NETZBETREIBER_LABELS[id]}
+          {operators.map((operator) => (
+            <option key={operator.id} value={operator.id}>
+              {operator.label}
             </option>
           ))}
         </AdminSelect>
@@ -85,7 +92,7 @@ export function DataEntryGridConnectionFields({
           <option value="">{GRID_CONNECTION_NOT_SET_LABEL}</option>
           {NETZEBENEN.map((level) => (
             <option key={level} value={String(level)}>
-              Netzebene {level}
+              {netzebeneLabel(country, level)}
             </option>
           ))}
         </AdminSelect>

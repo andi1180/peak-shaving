@@ -10,6 +10,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 
+import type { Country, GridOperatorOption } from 'shared'
 import { Button } from '@/components/ui/button'
 import type { AdminState } from '@/lib/admin/schema'
 import {
@@ -26,6 +27,8 @@ export const SKIP_INVOICE_PROMPT =
 export function DataEntryInvoiceSkip({
   projectId,
   meteringPointId,
+  country,
+  operators,
   initial,
   skipAction,
   skipState,
@@ -34,6 +37,8 @@ export function DataEntryInvoiceSkip({
 }: {
   projectId: string
   meteringPointId: string
+  country: Country
+  operators: readonly GridOperatorOption[]
   /** Der bereits erfasste Netzanschluss (`readManualTariffDraft`). */
   initial: GridConnection
   skipAction: (formData: FormData) => void
@@ -58,6 +63,8 @@ export function DataEntryInvoiceSkip({
         </p>
         <DataEntryGridConnectionFields
           idPrefix="skip"
+          country={country}
+          operators={operators}
           value={connection}
           onChange={(next) => {
             setConnection(next)

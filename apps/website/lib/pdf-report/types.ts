@@ -349,6 +349,11 @@ export type PdfReportInput = {
    */
   netzbetreiber?: NetzbetreiberId
   /**
+   * Anzeigename eines Netzbetreibers ausserhalb des AT-Katalogs (`grid_tariffs.operator_name`).
+   * Gesetzt nur, wenn `netzbetreiber` fehlt; Lesehelfer ist `operatorLabelOf` (`basis.ts`).
+   */
+  netzbetreiberName?: string
+  /**
    * Die Netzebene des Zählpunkts als ANGABE, wenn der Weg sie kennt (Wizard-Entwurf, 3–7).
    * `undefined` = keine Angabe. Ein gebauter `tariffSource` hat Vorrang (s. `prerequisites.ts`).
    */

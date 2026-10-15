@@ -37,6 +37,7 @@
 import * as React from 'react'
 import { useActionState } from 'react'
 import { Loader2, Plus, X } from 'lucide-react'
+import { COUNTRIES, COUNTRY_LABELS, isCountry, type Country } from 'shared'
 import { Button } from '@/components/ui/button'
 import { createGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
@@ -313,6 +314,7 @@ function windowPrefix(index: number): string {
 
 /** Reihenfolge, in der nach dem ersten Fehler fokussiert wird — von oben nach unten im Formular. */
 const FIELD_ORDER = [
+  'country',
   'operatorId',
   'operatorName',
   'netzebene',
@@ -341,6 +343,15 @@ function initialOperatorId(
   const matched = matchOperatorByName(prefill.operatorName, operators)
   if (matched) return matched.id
   return prefill.operatorName !== null ? OPERATOR_OTHER : fallback
+}
+
+/** Das Land, mit dem das Formular startet: das eines per Scan erkannten Betreibers, sonst keins. */
+function initialCountry(
+  prefill: TariffSheetFormPrefill | null,
+  operators: readonly OperatorOption[],
+): Country | '' {
+  if (!prefill) return ''
+  return matchOperatorByName(prefill.operatorName, operators)?.country ?? ''
 }
 
 /**
@@ -447,7 +458,12 @@ function CreatedGridTariff({
           id={`${idPrefix}-created-operator`}
           label="Netzbetreiber"
           value={values.operatorName || MISSING}
-          hint={values.operatorId ? `Kennung ${values.operatorId}` : undefined}
+          hint={
+            values.operatorId
+              ? `Kennung ${values.operatorId}` +
+                (isCountry(values.country) ? ` · ${COUNTRY_LABELS[values.country]}` : '')
+              : undefined
+          }
         />
         <AdminFixedValue
           id={`${idPrefix}-created-netzebene`}
@@ -553,6 +569,20 @@ export function CreateGridTariffForm({
   const [operatorId, setOperatorId] = React.useState<string>(() =>
     initialOperatorId(prefill, operators),
   )
+  // Das Land ist Pflicht und wird nie still vorbelegt; die Betreiberauswahl folgt ihm.
+  const [country, setCountry] = React.useState<Country | ''>(() =>
+    initialCountry(prefill, operators),
+  )
+  const countryOperators =
+    country === '' ? operators : operators.filter((o) => o.country === country)
+  const changeCountry = (next: string) => {
+    const nextCountry = isCountry(next) ? next : ''
+    setCountry(nextCountry)
+    const current = operators.find((o) => o.id === operatorId)
+    if (nextCountry !== '' && current && current.country !== nextCountry) {
+      setOperatorId(operators.find((o) => o.country === nextCountry)?.id ?? OPERATOR_OTHER)
+    }
+  }
   const [netzebene, setNetzebene] = React.useState<Netzebene | null>(prefill?.netzebene ?? null)
 
   /*
@@ -573,7 +603,7 @@ export function CreateGridTariffForm({
     if (first) document.getElementById(`${formId}-${first}`)?.focus()
   }, [fieldErrors, formId])
 
-  const known = operators.find((o) => o.id === operatorId)
+  const known = countryOperators.find((o) => o.id === operatorId)
   /*
    * Ohne gewählte Netzebene steht die Frage nach der Messvariante gar nicht an — sie hängt an
    * `NETZEBENEN_MIT_MESSVARIANTE`, und das ist erst mit einer Ebene beantwortbar.
@@ -638,20 +668,39 @@ export function CreateGridTariffForm({
     <form action={formAction} className="flex flex-col gap-6" noValidate>
       {state.formError && <AdminError>{state.formError}</AdminError>}
 
-      {/* ── Netzbetreiber ─────────────────────────────────────────────────────────────────────── */}
+      {/* ── Land und Netzbetreiber ─────────────────────────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminSelect
+          id={`${formId}-country`}
+          name="country"
+          label="Land"
+          value={country}
+          onValueChange={changeCountry}
+          error={state.fieldErrors?.country}
+          hint="Ein Netzbetreiber gehört genau einem Land; das Land ist nach dem Anlegen fest."
+        >
+          <option value="">— bitte wählen —</option>
+          {COUNTRIES.map((c) => (
+            <option key={c} value={c}>
+              {COUNTRY_LABELS[c]}
+            </option>
+          ))}
+        </AdminSelect>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <AdminSelect
           id={`${formId}-operatorSelect`}
           name="operatorSelect"
           label="Netzbetreiber"
-          defaultValue={operatorId}
+          value={operatorId}
           onValueChange={setOperatorId}
           hint={scanOrigin(
             prefill?.operatorName != null,
             'Bereits eingetragene Betreiber stehen zur Auswahl. Ein neuer wird EINMAL von Hand erfasst und ist danach hier zu finden.',
           )}
         >
-          {operators.map((o) => (
+          {countryOperators.map((o) => (
             <option key={o.id} value={o.id}>
               {o.name}
             </option>

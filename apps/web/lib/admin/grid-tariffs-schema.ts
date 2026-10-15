@@ -22,6 +22,7 @@
  * wiese irgendwann einen echten Satz ab (Prinzip 1: die Rechnung ist die Wahrheit).
  */
 import { z } from 'zod'
+import { COUNTRIES, COUNTRY_LABELS, catalogCountryOfOperator, type Country } from 'shared'
 import {
   GRUNDPREIS_UNITS,
   MESSPREIS_UNITS,
@@ -262,9 +263,30 @@ function requireMeteringVariantMatch(
   }
 }
 
+/** Das Land der Zeile — Pflicht bei Anlage und Nachtrag, beim Bearbeiten fest (s. Migration). */
+const countryField = z.enum(COUNTRIES, {
+  errorMap: () => ({ message: 'Bitte das Land des Netzbetreibers wählen.' }),
+})
+
+/** Eine Kennung aus dem Code-Katalog gehört dessen Land; die Datenbank prüft dasselbe gegen ihren Bestand. */
+function requireCatalogCountry(
+  v: { operatorId: string; country: Country },
+  ctx: z.RefinementCtx,
+): void {
+  const catalogCountry = catalogCountryOfOperator(v.operatorId)
+  if (catalogCountry !== null && catalogCountry !== v.country) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['country'],
+      message: `Diese Kennung gehört zu ${COUNTRY_LABELS[catalogCountry]}.`,
+    })
+  }
+}
+
 /** Eine NEUE Tarifzeile, vorwärts angehängt (B21-2b) — mit Anzeigename. */
 export const gridTariffSchema = gridTariffFields
   .extend({
+    country: countryField,
     operatorName: z
       .string()
       .trim()
@@ -273,6 +295,7 @@ export const gridTariffSchema = gridTariffFields
   })
   .superRefine(requireMeteringVariantMatch)
   .superRefine(requireMesspreisPair)
+  .superRefine(requireCatalogCountry)
 
 export type GridTariffInput = z.infer<typeof gridTariffSchema>
 
@@ -286,8 +309,10 @@ export type GridTariffInput = z.infer<typeof gridTariffSchema>
  * einer Sperre. Eine hier vorweggenommene Prüfung wäre zum Zeitpunkt des Klicks womöglich veraltet.
  */
 export const backfillGridTariffSchema = gridTariffFields
+  .extend({ country: countryField })
   .superRefine(requireMeteringVariantMatch)
   .superRefine(requireMesspreisPair)
+  .superRefine(requireCatalogCountry)
 
 export type BackfillGridTariffInput = z.infer<typeof backfillGridTariffSchema>
 
@@ -369,6 +394,7 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
   return {
     operatorId: str('operatorId'),
     operatorName: str('operatorName'),
+    country: str('country'),
     netzebene: str('netzebene'),
     meteringVariant: opt('meteringVariant'),
     grundpreisAmount: str('grundpreisAmount'),

@@ -108,6 +108,8 @@ export * from './grid-tariff-prefill'
 export * from './plz-centroids'
 // Land am Projekt (AT/DE) und die PLZ-Regel je Land.
 export * from './country'
+// Netzbetreiber-Katalog und Netzebenen-Beschriftung je Land.
+export * from './grid-operators'
 // B22b: die PV-Auslegung, wie ein Mensch sie eingibt — und die EINE Stelle, an der Kompass in die
 // PVGIS-Azimut-Konvention umgerechnet wird. Die Verwechslung kostet gemessen 56 % der Ersparnis;
 // sie gehört deshalb dorthin, wo sie geprüft werden kann (`apps/website` hat keinen Testlauf).

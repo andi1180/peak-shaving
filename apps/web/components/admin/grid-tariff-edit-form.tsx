@@ -12,11 +12,19 @@ import {
   MESSPREIS_UNIT_LABELS,
   PRICE_BASES,
   PRICE_BASIS_LABELS,
+  countryLabel,
   shortTime,
   type GridTariffRateWindowRow,
   type GridTariffRow,
 } from '@/lib/admin/grid-tariffs'
-import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from './ui'
+import {
+  AdminError,
+  AdminField,
+  AdminFixedValue,
+  AdminPanel,
+  AdminSelect,
+  AdminSuccess,
+} from './ui'
 
 type WindowRow = { key: number; init: GridTariffRateWindowRow | null }
 
@@ -119,7 +127,12 @@ function EditFields({
           error={errors?.operatorName}
           required
         />
-        <div />
+        {/* Das Land ist ab Anlage fest (Trigger) — hier nur Anzeige, kein Feld. */}
+        <AdminFixedValue
+          id={`${formId}-country`}
+          label="Land"
+          value={countryLabel(row.country)}
+        />
         <AdminField
           id={`${formId}-grundpreisAmount`}
           name="grundpreisAmount"

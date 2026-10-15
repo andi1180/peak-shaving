@@ -63,6 +63,11 @@ export type ReportRenderMeta = {
    * nicht kennt — beides führt zu demselben Report ohne Namen (s. `readMeta`).
    */
   netzbetreiber: NetzbetreiberId | null
+  /**
+   * Anzeigename eines Betreibers ausserhalb des AT-Katalogs (`operator_name` der gerechneten
+   * Netzentgelt-Zeile). `null` = keiner übergeben; dann bleibt der Report ohne Namen wie bisher.
+   */
+  netzbetreiberName: string | null
   /** Die Netzebene aus dem Entwurf (3–7). `null` = keine brauchbare Angabe. */
   netzebene: number | null
   /**
@@ -211,6 +216,10 @@ function readMeta(value: unknown): ReportRenderMeta {
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
     netzbetreiber: readNetzbetreiber(meta.netzbetreiber),
+    netzbetreiberName:
+      typeof meta.netzbetreiberName === 'string' && meta.netzbetreiberName.trim() !== ''
+        ? meta.netzbetreiberName.trim()
+        : null,
     netzebene: parseNetzebeneDraftValue(meta.netzebene),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
@@ -373,6 +382,10 @@ export function buildReportInputFromRenderRequest(
     tariffSource: TARIFF_SOURCE_UNTRACKED,
     /* Ohne bekannten Netzbetreiber gar keine Angabe — der Satz steht dann wortgleich wie zuvor. */
     netzbetreiber: meta.netzbetreiber ?? undefined,
+    // Nur ohne Katalog-Kennung: ein AT-Betreiber behält sein Code-Label und der Text bleibt gleich.
+    ...(meta.netzbetreiber === null && meta.netzbetreiberName !== null
+      ? { netzbetreiberName: meta.netzbetreiberName }
+      : {}),
     netzebene: meta.netzebene ?? undefined,
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
     ...(meta.priceFromInvoice ? { priceFromInvoice: true } : {}),

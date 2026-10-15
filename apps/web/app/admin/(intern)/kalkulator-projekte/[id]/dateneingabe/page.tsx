@@ -21,6 +21,7 @@ import {
   resolveStation,
   stationHref,
 } from '@/lib/admin/data-entry-stations'
+import { readGridOperatorOptions } from '@/lib/admin/grid-operators'
 import { readMeteringPointList } from '@/lib/admin/metering-points'
 import {
   PROJECTS_HREF,
@@ -341,6 +342,10 @@ export default async function AdminProjectDataEntryPage({
    * PostgREST ohne `range()` setzt (in B21-3a gemessen) — es braucht hier also keinen
    * Seitenwechsel. Wer das Fenster verlängert, braucht einen.
    */
+  // Betreiberliste des Projektlandes für die Netzanschluss-Felder der Rechnung-Station.
+  const gridOperators =
+    rechnung !== null ? await readGridOperatorOptions(supabase, project.country) : []
+
   const awattarAverageCtPerKwh =
     tarif !== null
       ? await (async () => {
@@ -441,6 +446,8 @@ export default async function AdminProjectDataEntryPage({
               defaultPriceBasis={displayPriceBasisFor(
                 batteryCategoryForSegment(project.segment) ?? 'gewerbe',
               )}
+              country={project.country}
+              operators={gridOperators}
             />
           )}
 

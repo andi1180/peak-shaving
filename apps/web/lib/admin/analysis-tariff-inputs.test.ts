@@ -98,6 +98,7 @@ describe('readGridTariffRowsForAnalysis', () => {
       operatorId: 'wiener_netze',
       netzebene: 3,
       meteringVariant: null,
+      country: 'AT',
       window: WINDOW,
     })
 
@@ -150,9 +151,68 @@ describe('readGridTariffRowsForAnalysis', () => {
         operatorId: 'wiener_netze',
         netzebene: 7,
         meteringVariant: 'mit_leistungsmessung',
+        country: 'AT',
         window: WINDOW,
       }),
     ).rejects.toThrow('connection reset')
+  })
+})
+
+describe('readGridTariffRowsForAnalysis — Land', () => {
+  /** Ein Bestand mit Land; der Stub wendet die `.eq`-Filter wirklich an. */
+  function filteringClient(rows: Record<string, unknown>[]) {
+    const filters: [string, unknown][] = []
+    const builder: Record<string, unknown> = {
+      then: (resolve: (value: unknown) => unknown) =>
+        Promise.resolve({
+          data: rows.filter((row) => filters.every(([col, val]) => row[col] === val)),
+          error: null,
+        }).then(resolve),
+    }
+    for (const method of ['select', 'is', 'or', 'lte', 'order'] as const) {
+      builder[method] = () => builder
+    }
+    builder.eq = (col: string, val: unknown) => {
+      filters.push([col, val])
+      return builder
+    }
+    return { from: () => builder } as never
+  }
+
+  const AT_ROW = {
+    operator_id: 'wiener_netze',
+    country: 'AT',
+    netzebene: 6,
+    netzverlust_ct_per_kwh: '0.9',
+    grundpreis_amount: '40',
+    grundpreis_unit: 'eur_per_kw_year',
+    price_basis: 'net',
+    valid_from: '2025-01-01',
+    valid_until: null,
+    grid_tariff_rate_windows: [],
+  }
+
+  it('ein DE-Projekt mit AT-Betreiber findet keine Zeile — keine stille Kreuzung', async () => {
+    const rows = await readGridTariffRowsForAnalysis(filteringClient([AT_ROW]), {
+      operatorId: 'wiener_netze',
+      netzebene: 6,
+      meteringVariant: null,
+      country: 'DE',
+      window: WINDOW,
+    })
+    expect(rows).toEqual([])
+  })
+
+  it('ein AT-Projekt findet dieselbe Zeile wie bisher', async () => {
+    const rows = await readGridTariffRowsForAnalysis(filteringClient([AT_ROW]), {
+      operatorId: 'wiener_netze',
+      netzebene: 6,
+      meteringVariant: null,
+      country: 'AT',
+      window: WINDOW,
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.grundpreisAmount).toBe(40)
   })
 })
 
