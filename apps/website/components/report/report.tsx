@@ -526,6 +526,7 @@ export function Report({
         isExisting={isExisting}
         storageNote={catalogStorageNote(result)}
         country={country}
+        levyComponents={result.assumptions.levyComponents}
       />
     </div>
   ) : null
@@ -929,6 +930,7 @@ export function Report({
             recommended={primaryEntry}
             timeZone={loadProfile.timezoneMeta}
             isExisting={isExisting}
+            levyComponents={result.assumptions.levyComponents}
           />
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">

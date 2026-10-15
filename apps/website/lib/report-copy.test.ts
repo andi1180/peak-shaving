@@ -4,6 +4,8 @@ import { analysisForDisplay, type AnalysisResult, type BatteryRoiEntry } from 's
 import {
   batteryNoteTexts,
   dynamicTariffHintKind,
+  levyNamesOf,
+  levySideLabel,
   recommendationRationaleText,
   displayedInvestmentOf,
 } from './report-copy'
@@ -67,5 +69,44 @@ describe('displayedInvestmentOf — angezeigte Investition − Förderung = Nett
       'Förderprogramm 2 (150 €/kWh)',
     ])
     expect(shown).toMatchObject({ capEur: 1400, subsidyEur: 1000, netEur: 0 })
+  })
+})
+
+describe('levyNamesOf — Abgaben-Namen aus dem Ergebnis', () => {
+  const DE_COMPONENTS = [
+    { key: 'de_stromsteuer', label: 'Stromsteuer' },
+    { key: 'de_kwkg', label: 'KWKG-Aufschlag' },
+    { key: 'de_par19', label: 'Aufschlag für besondere Netznutzung (§ 19 StromNEV)' },
+    { key: 'de_offshore', label: 'Offshore-Netzumlage' },
+    { key: 'de_konzession', label: 'Konzessionsabgabe (Sondervertrag)' },
+  ]
+
+  it('Feld fehlt oder ist leer → kein Name, die Seite behält den bisherigen Wortlaut', () => {
+    expect(levyNamesOf({})).toBeNull()
+    expect(levyNamesOf({ levyComponents: [] })).toBeNull()
+    expect(levyNamesOf(undefined)).toBeNull()
+    expect(levySideLabel(levyNamesOf({}))).toBe(
+      'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)',
+    )
+  })
+
+  it('DE-Posten → Aufzählung mit Stromsteuer, ohne österreichische Namen', () => {
+    const names = levyNamesOf({ levyComponents: DE_COMPONENTS })!
+    expect(names.plural).toBe(true)
+    expect(names.text).toBe(
+      'Stromsteuer, KWKG-Aufschlag, Aufschlag für besondere Netznutzung (§ 19 StromNEV), ' +
+        'Offshore-Netzumlage und Konzessionsabgabe (Sondervertrag)',
+    )
+    expect(levySideLabel(names)).not.toMatch(/Elektrizitätsabgabe|EAG|Gebrauchsabgabe/)
+    expect(levyNamesOf({ levyComponents: DE_COMPONENTS.slice(0, 1) })).toEqual({
+      text: 'Stromsteuer',
+      plural: false,
+    })
+  })
+
+  it('nennt keine Beträge oder Sätze', () => {
+    // Gesetzesverweise („§ 19") sind Teil des Namens, keine Zahl zum Posten.
+    const text = levyNamesOf({ levyComponents: DE_COMPONENTS })!.text.replace(/§ \d+/g, '')
+    expect(text).not.toMatch(/\d|€|\bct\b/)
   })
 })

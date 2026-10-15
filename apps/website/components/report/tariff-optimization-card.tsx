@@ -1,5 +1,10 @@
 import { AlertCircle, LineChart } from 'lucide-react'
-import type { BatteryResultEntry, TariffOptimizationStatus, TariffPriceRange } from 'shared'
+import type {
+  BatteryResultEntry,
+  LevyComponentLabel,
+  TariffOptimizationStatus,
+  TariffPriceRange,
+} from 'shared'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { InfoHint } from '@/components/ui/info-hint'
@@ -7,6 +12,8 @@ import { formatEur } from '@/lib/format'
 import {
   ANNUALIZED_LABEL,
   CONTROLLED_WAY_LABEL,
+  levyNamesOf,
+  levySideLabel,
   loadControlValueOf,
   monthlyBatteryRef,
   vatNote,
@@ -62,10 +69,9 @@ function formatRange(range: TariffPriceRange, timeZone: string): string {
   return `${fmt.format(Date.parse(range.fromIso))} – ${fmt.format(Date.parse(range.toIso))}`
 }
 
-const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'levy' | 'dynamic_tariff', string> = {
+const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'dynamic_tariff', string> = {
   grid_tariff: 'Netzentgelte Ihres Netzbetreibers',
   spot_price: 'Börsen-Strompreise',
-  levy: 'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)',
   dynamic_tariff: 'Konditionen dynamischer Tarif',
 }
 
@@ -83,6 +89,7 @@ export function TariffOptimizationCard({
   recommended,
   timeZone,
   isExisting,
+  levyComponents,
 }: {
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
@@ -102,6 +109,8 @@ export function TariffOptimizationCard({
    * hat — dieselbe Unterscheidung, die `report.tsx` schon an der Kapp-Linie trifft.
    */
   isExisting: boolean
+  /** `assumptions.levyComponents` — benennt die Abgaben-Seite eines Befunds. */
+  levyComponents?: readonly LevyComponentLabel[]
 }) {
   if (!status) return null
 
@@ -122,7 +131,10 @@ export function TariffOptimizationCard({
         <CardContent className="flex flex-col gap-3 text-sm">
           <p className="text-text">
             Für diesen Teil zeigen wir bewusst keine Zahl. Betroffen ist die Seite „
-            {SIDE_LABEL[status.side]}“.
+            {status.side === 'levy'
+              ? levySideLabel(levyNamesOf({ levyComponents }))
+              : SIDE_LABEL[status.side]}
+            “.
           </p>
           {status.ranges.length > 0 && (
             <div>

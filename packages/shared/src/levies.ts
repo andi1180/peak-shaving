@@ -84,6 +84,29 @@ export type LevyPeriodInput = {
 /** Ein Abgabenposten je bezogener kWh; `key` ist stabil (Report-Beschriftung). */
 export type LevyPerKwhComponent = { key: string; label: string; ctPerKwh: number }
 
+/** Name eines Abgabenpostens ohne Satz — was der Report über die verwendeten Abgaben nennt. */
+export type LevyComponentLabel = { key: string; label: string }
+
+/**
+ * Die Abgabenposten je kWh aus allen Zeiträumen, die `[fromDate, toDate]` (Ortsdaten, inklusiv)
+ * überlappen — eindeutig je `key`, in der Reihenfolge der Quell-Tabelle.
+ */
+export function levyComponentLabels(
+  periods: readonly LevyPeriodInput[],
+  fromDate: string,
+  toDate: string,
+): LevyComponentLabel[] {
+  const byKey = new Map<string, LevyComponentLabel>()
+  const ordered = [...periods].sort((a, b) => a.validFrom.localeCompare(b.validFrom))
+  for (const period of ordered) {
+    if (period.validFrom > toDate || (period.validUntil != null && period.validUntil < fromDate)) continue
+    for (const { key, label } of period.perKwhComponents ?? []) {
+      if (!byKey.has(key)) byKey.set(key, { key, label })
+    }
+  }
+  return [...byKey.values()]
+}
+
 /** Summe der Abgabenposten je kWh, ct/kWh netto. */
 export function perKwhComponentsCtPerKwh(components: readonly LevyPerKwhComponent[]): number {
   let sum = 0

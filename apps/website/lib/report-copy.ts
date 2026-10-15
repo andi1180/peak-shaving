@@ -13,6 +13,7 @@ import {
   type BatteryRoiEntry,
   type BatteryRoiSummary,
   type BatteryTaxEffect,
+  type LevyComponentLabel,
   type MonthlyTariffComparison,
   type RecommendationRationale,
 } from 'shared'
@@ -28,6 +29,31 @@ import { formatDateOnly, formatEur, formatKw, formatKwh1, formatPercent, formatY
  * auseinander. Das ist der einzige Grund für diese Datei; sie ist bewusst kein allgemeiner
  * „Textkatalog".
  */
+
+/** Die Namen der verwendeten Abgabenposten als Aufzählung, mit grammatischer Zahl. */
+export type LevyNames = { text: string; plural: boolean }
+
+/**
+ * Die Abgaben-Namen aus dem Ergebnis (`assumptions.levyComponents`), oder `null`, wenn es keine
+ * trägt — dann bleibt jede Stelle bei ihrem bisherigen (österreichischen) Wortlaut. Nur Namen,
+ * nie Sätze oder Beträge.
+ */
+export function levyNamesOf(
+  assumptions: { levyComponents?: readonly LevyComponentLabel[] } | undefined,
+): LevyNames | null {
+  const labels = (assumptions?.levyComponents ?? []).map((c) => c.label)
+  if (labels.length === 0) return null
+  const text =
+    labels.length === 1 ? labels[0]! : `${labels.slice(0, -1).join(', ')} und ${labels[labels.length - 1]}`
+  return { text, plural: labels.length > 1 }
+}
+
+/** Die Seite „Abgaben" eines Blocker-Befunds; ohne Namen der bisherige Wortlaut. */
+export function levySideLabel(names: LevyNames | null): string {
+  return names
+    ? `gesetzliche Abgaben (${names.text})`
+    : 'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)'
+}
 
 /** §3.7.1 — die Kennzeichnung jeder Zahl, deren Energie-Anteil aus weniger als 365 Tagen hochgerechnet ist. */
 export const ANNUALIZED_LABEL = 'auf ein Jahr hochgerechnet'

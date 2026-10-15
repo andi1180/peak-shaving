@@ -427,10 +427,11 @@ Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
 
  aWATTar mit Ladesteuerung                                                                               € 27.143
 
-Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf
-den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
-Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (aWATTar € 9,90/Monat). Nicht enthalten ist
-das Netzentgelt aus Leistung und Stufe — es gilt je Abrechnungsjahr, und es auf Monate zu verteilen verlangte
+Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die
+Abgaben auf den Bezug (Stromsteuer, KWKG-Aufschlag, Aufschlag für besondere Netznutzung (§ 19
+StromNEV), Offshore-Netzumlage und Konzessionsabgabe (Sondervertrag)) und die anteiligen Fixkosten
+— Netz-Grundpreis, Messpreis und Grundgebühren (aWATTar € 9,90/Monat). Nicht enthalten ist das
+Netzentgelt aus Leistung und Stufe — es gilt je Abrechnungsjahr, und es auf Monate zu verteilen verlangte
 eine Aufteilungsregel, die es nicht gibt. Hier stehen die drei Summen absolut.
 
 
@@ -700,13 +701,14 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 Berechnungsmethodik je Kennzahl
 Was für alle Wege gleich gerechnet ist
 Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal dem
-Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie
-fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, EAG-Förderbeitrag
-und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die verbrauchsunabhängigen
-Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, tagesanteilig nach den
-tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. Eingespeiste Viertelstunden werden
-mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht in keiner dieser Zahlen: er ist eine
-Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.
+Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie fällt,
+plus Netzverlustaufschlag und die gesetzlichen Abgaben (Stromsteuer, KWKG-Aufschlag, Aufschlag für
+besondere Netznutzung (§ 19 StromNEV), Offshore-Netzumlage und Konzessionsabgabe (Sondervertrag)).
+Dazu die verbrauchsunabhängigen Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und
+Messpreis —, tagesanteilig nach den tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag.
+Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht
+in keiner dieser Zahlen: er ist eine Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je
+Weg nur noch, was an ihm anders ist.
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.
@@ -748,10 +750,10 @@ Jahresgrösse gehört sie zu keinem der Beträge darüber dazu.
    Bekannte Einschränkungen
    Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
    Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
-   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
-   auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
-   Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
-   der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.
+   enthalten: Stromsteuer, KWKG-Aufschlag, Aufschlag für besondere Netznutzung (§ 19 StromNEV),
+   Offshore-Netzumlage und Konzessionsabgabe (Sondervertrag) stecken in den Monatskosten und damit
+   in den Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl da, so wie er auf der Netzrechnung
+   steht.
    Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
    einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
    abgerechneten Leistungswert nach unten begrenzt.
