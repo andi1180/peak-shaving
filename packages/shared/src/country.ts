@@ -22,6 +22,88 @@ export const COUNTRY_LABELS: Record<Country, string> = {
   DE: 'Deutschland',
 }
 
+/** Wie ein Land im Report erscheint: Locale, Monatsnamen und ob das Land im Kopf steht. */
+// Kurze Monatsnamen mit drei Buchstaben: einbuchstabig wären J, M und A mehrfach vergeben.
+export type CountryDisplay = {
+  locale: string
+  monthsShort: readonly string[]
+  monthsLong: readonly string[]
+  /** Anzeige im Report-Kopf; `null` = nicht anzeigen (Vorgabeland). */
+  reportLabel: string | null
+}
+
+export const COUNTRY_DISPLAY: Record<Country, CountryDisplay> = {
+  AT: {
+    locale: 'de-AT',
+    monthsShort: [
+      'Jän',
+      'Feb',
+      'Mär',
+      'Apr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Dez',
+    ],
+    monthsLong: [
+      'Jänner',
+      'Februar',
+      'März',
+      'April',
+      'Mai',
+      'Juni',
+      'Juli',
+      'August',
+      'September',
+      'Oktober',
+      'November',
+      'Dezember',
+    ],
+    reportLabel: null,
+  },
+  DE: {
+    locale: 'de-DE',
+    monthsShort: [
+      'Jan',
+      'Feb',
+      'Mär',
+      'Apr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Dez',
+    ],
+    monthsLong: [
+      'Januar',
+      'Februar',
+      'März',
+      'April',
+      'Mai',
+      'Juni',
+      'Juli',
+      'August',
+      'September',
+      'Oktober',
+      'November',
+      'Dezember',
+    ],
+    reportLabel: COUNTRY_LABELS.DE,
+  },
+}
+
+/** Anzeige-Daten eines Landes; ohne Angabe gilt das Vorgabeland (alte Übergaben, AT-Fixtures). */
+export function countryDisplay(country: Country | null | undefined): CountryDisplay {
+  return COUNTRY_DISPLAY[country ?? DEFAULT_COUNTRY]
+}
+
 export function isCountry(value: unknown): value is Country {
   return typeof value === 'string' && (COUNTRIES as readonly string[]).includes(value)
 }

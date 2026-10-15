@@ -1,3 +1,5 @@
+import { countryDisplay, type Country } from 'shared'
+
 // Lokale Kalenderfelder für Chart-Achsen/Perioden-Segmente. Bewusst per Intl (wie die Engine,
 // `packages/engine/src/parser/datetime.ts:utcMsToLocalFields`, dort nicht öffentlich exportiert) —
 // dieselbe Technik auf denselben Input angewandt liefert dasselbe Ergebnis, ohne die Engine-API für
@@ -20,12 +22,14 @@ export function localMonthIndex(utcMs: number, timeZone: string): number {
 
 const dayLabelCache = new Map<string, Intl.DateTimeFormat>()
 
-/** Kurzes lokales Datum für Achsen-Ticks/Tooltips, z. B. "10. Feb". */
-export function formatDayLabel(utcMs: number, timeZone: string): string {
-  let fmt = dayLabelCache.get(timeZone)
+/** Kurzes lokales Datum für Achsen-Ticks/Tooltips, z. B. "10. Feb"; Monatsname nach Land. */
+export function formatDayLabel(utcMs: number, timeZone: string, country?: Country): string {
+  const locale = countryDisplay(country).locale
+  const key = `${locale}|${timeZone}`
+  let fmt = dayLabelCache.get(key)
   if (!fmt) {
-    fmt = new Intl.DateTimeFormat('de-AT', { timeZone, day: 'numeric', month: 'short' })
-    dayLabelCache.set(timeZone, fmt)
+    fmt = new Intl.DateTimeFormat(locale, { timeZone, day: 'numeric', month: 'short' })
+    dayLabelCache.set(key, fmt)
   }
   return fmt.format(utcMs)
 }
@@ -45,10 +49,12 @@ export function formatTimeLabel(utcMs: number, timeZone: string): string {
 const dateTimeCache = new Map<string, Intl.DateTimeFormat>()
 
 /** Volles lokales Datum + Uhrzeit für die Spitzen-Detailansicht, z. B. "Di, 10. Feb 2024, 05:00". */
-export function formatDateTimeLabel(utcMs: number, timeZone: string): string {
-  let fmt = dateTimeCache.get(timeZone)
+export function formatDateTimeLabel(utcMs: number, timeZone: string, country?: Country): string {
+  const locale = countryDisplay(country).locale
+  const key = `${locale}|${timeZone}`
+  let fmt = dateTimeCache.get(key)
   if (!fmt) {
-    fmt = new Intl.DateTimeFormat('de-AT', {
+    fmt = new Intl.DateTimeFormat(locale, {
       timeZone,
       weekday: 'short',
       day: 'numeric',
@@ -57,7 +63,7 @@ export function formatDateTimeLabel(utcMs: number, timeZone: string): string {
       hour: '2-digit',
       minute: '2-digit',
     })
-    dateTimeCache.set(timeZone, fmt)
+    dateTimeCache.set(key, fmt)
   }
   return fmt.format(utcMs)
 }

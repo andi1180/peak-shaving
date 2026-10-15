@@ -10,10 +10,11 @@ import {
   storagePaysOff,
 } from '@/lib/report-copy'
 import { annualScenarioSavingsOf } from './annual-scenario'
-import { dailyPeaksOf, type DailyPeak } from './daily-peaks'
+import { dailyPeaksOf } from './daily-peaks'
 import { detailChartPlan } from './detail'
+import type { LoadInput } from './executive-summary-load-chart'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
-import { peakShavingChartData, type PeakShavingCapSegment } from './peak-shaving-chart'
+import { peakShavingChartData } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
 import {
   hasLeistungspreis,
@@ -102,7 +103,7 @@ export type ExecutiveSummary = {
   storage: ExecutiveSummaryStorage | null
   /** Bewertung des Katalog-Speichers, wenn er sich nicht rechnet. */
   storageVerdict: { name: string; savingPerYearEur: number; judgement: string } | null
-  load: { dailyPeaks: DailyPeak[]; capSegments: PeakShavingCapSegment[] | null }
+  load: LoadInput
   confidence: {
     measuredDays: number
     projectedDays: number
@@ -327,7 +328,11 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
             ),
           }
         : null,
-    load: { dailyPeaks: dailyPeaksOf(input.loadProfile), capSegments },
+    load: {
+      dailyPeaks: dailyPeaksOf(input.loadProfile),
+      capSegments,
+      ...(input.country ? { country: input.country } : {}),
+    },
     confidence: {
       measuredDays: yearly.measuredDays,
       projectedDays: yearly.projectedDays,

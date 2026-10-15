@@ -1,11 +1,13 @@
 import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
+  isCountry,
   PV_STAGES,
   parseNetzebeneDraftValue,
   readReportSectionSelection,
   type AnalysisResult,
   type BatteryCatalogMeta,
+  type Country,
   type DisplayPriceBasis,
   type LoadProfile,
   type NetzbetreiberId,
@@ -68,6 +70,8 @@ export type ReportRenderMeta = {
    * Netzentgelt-Zeile). `null` = keiner übergeben; dann bleibt der Report ohne Namen wie bisher.
    */
   netzbetreiberName: string | null
+  /** Das Land des Projekts. `null` = nicht übergeben (ältere Übergaben) oder unbekannt. */
+  country: Country | null
   /** Die Netzebene aus dem Entwurf (3–7). `null` = keine brauchbare Angabe. */
   netzebene: number | null
   /**
@@ -220,6 +224,7 @@ function readMeta(value: unknown): ReportRenderMeta {
       typeof meta.netzbetreiberName === 'string' && meta.netzbetreiberName.trim() !== ''
         ? meta.netzbetreiberName.trim()
         : null,
+    country: isCountry(meta.country) ? meta.country : null,
     netzebene: parseNetzebeneDraftValue(meta.netzebene),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
@@ -387,6 +392,7 @@ export function buildReportInputFromRenderRequest(
       ? { netzbetreiberName: meta.netzbetreiberName }
       : {}),
     netzebene: meta.netzebene ?? undefined,
+    country: meta.country ?? undefined,
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
     ...(meta.priceFromInvoice ? { priceFromInvoice: true } : {}),
     ...(meta.baseFeeFromInvoice ? { baseFeeFromInvoice: true } : {}),

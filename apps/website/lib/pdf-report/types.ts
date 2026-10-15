@@ -2,6 +2,7 @@ import type { PvOutageMonth } from 'engine'
 import type {
   AnalysisResult,
   BatteryCatalogMeta,
+  Country,
   DisplayPriceBasis,
   EstimatedPvSummary,
   LoadProfile,
@@ -358,6 +359,8 @@ export type PdfReportInput = {
    * `undefined` = keine Angabe. Ein gebauter `tariffSource` hat Vorrang (s. `prerequisites.ts`).
    */
   netzebene?: number
+  /** Land des Projekts; `undefined` = Vorgabeland (alte Übergaben). Wählt Locale, Monatsnamen, Netzebene-Label und Kopf. */
+  country?: Country
   /**
    * Die Mindestleistung fehlte im Entwurf und wurde mit 0 gerechnet (Annahme, Wizard-Pfad). Nur
    * `true` erzeugt eine Tabellenzeile; fehlt es, bleibt der Report wie zuvor.

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter, XAxis, YAxis } from 'recharts'
-import type { LoadProfile } from 'shared'
+import type { Country, LoadProfile } from 'shared'
 
 import { evenAxisTicks } from '@/lib/chart-ticks'
 import { downsampleMinMax } from '@/lib/downsample'
@@ -18,10 +18,13 @@ export function PeakShavingChart({
   loadProfile,
   capSegments,
   points,
+  country,
 }: {
   loadProfile: LoadProfile
   capSegments: PeakShavingCapSegment[]
   points: PeakShavingPoint[]
+  /** Wählt die Monatsnamen der Achse; fehlt = Vorgabeland. */
+  country?: Country
 }) {
   const tz = loadProfile.timezoneMeta
   const load = useMemo(
@@ -53,7 +56,7 @@ export function PeakShavingChart({
             dataKey="x"
             type="number"
             domain={[minMs, maxMs]}
-            tickFormatter={(ms: number) => formatDayLabel(ms, tz)}
+            tickFormatter={(ms: number) => formatDayLabel(ms, tz, country)}
             stroke="var(--color-text-muted)"
             tick={{ fontSize: 11 }}
             minTickGap={40}

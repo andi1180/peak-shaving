@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { BillingModel, DispatchTrace, LoadProfile } from 'shared'
+import type { BillingModel, Country, DispatchTrace, LoadProfile } from 'shared'
 
 import { evenAxisTicks } from '@/lib/chart-ticks'
 import { downsampleMinMax, type SamplePoint } from '@/lib/downsample'
@@ -81,18 +81,20 @@ function ChartTooltip({
   payload,
   label,
   timeZone,
+  country,
 }: {
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number }>
   label?: number
   timeZone: string
+  country?: Country
 }) {
   if (!active || !payload || payload.length === 0 || label == null) return null
   const load = payload.find((p) => p.dataKey === 'y')
   const cap = payload.find((p) => p.dataKey === 'cap')
   return (
     <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-sm">
-      <p className="mb-1 font-medium text-ink">{formatDateTimeLabel(label, timeZone)}</p>
+      <p className="mb-1 font-medium text-ink">{formatDateTimeLabel(label, timeZone, country)}</p>
       {load && load.value != null && (
         <p className="text-text-muted">
           Bezug: <Num className="font-medium text-ink">{formatKw(load.value)}</Num>
@@ -124,12 +126,15 @@ export function LoadChart({
   dispatchTrace,
   billingModel,
   leistungspreisRatePerKwYear,
+  country,
 }: {
   loadProfile: LoadProfile
   dispatchTrace: DispatchTrace | undefined
   billingModel: BillingModel
   /** [ABGELEITET] Roher Leistungspreis-Satz (€/kW·a) — Basis der kontrafaktischen Spitzen-Kostengröße. */
   leistungspreisRatePerKwYear: number | null
+  /** Wählt die Monatsnamen der Achse; fehlt = Vorgabeland. */
+  country?: Country
 }) {
   const [selectedPeak, setSelectedPeak] = useState<PeakPoint | null>(null)
   const tz = loadProfile.timezoneMeta
@@ -210,7 +215,7 @@ export function LoadChart({
               dataKey="x"
               type="number"
               domain={[minMs, maxMs]}
-              tickFormatter={(ms: number) => formatDayLabel(ms, tz)}
+              tickFormatter={(ms: number) => formatDayLabel(ms, tz, country)}
               stroke="var(--color-text-muted)"
               tick={{ fontSize: 11 }}
               minTickGap={40}
@@ -223,7 +228,10 @@ export function LoadChart({
               tick={{ fontSize: 11 }}
               width={64}
             />
-            <Tooltip content={<ChartTooltip timeZone={tz} />} isAnimationActive={false} />
+            <Tooltip
+              content={<ChartTooltip timeZone={tz} country={country} />}
+              isAnimationActive={false}
+            />
             <Line
               data={loadPoints}
               dataKey="y"
@@ -293,7 +301,7 @@ export function LoadChart({
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-alt p-4 text-sm">
           <div className="flex items-start justify-between gap-2">
             <p className="font-medium text-ink">
-              {formatDateTimeLabel(selectedPeak.x, tz)}
+              {formatDateTimeLabel(selectedPeak.x, tz, country)}
             </p>
             <button
               type="button"

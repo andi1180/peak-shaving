@@ -6,6 +6,7 @@ import {
   type BatteryCandidate,
   type BatteryCatalogMeta,
   type BillingModel,
+  type Country,
   type FinancialParams,
   type LoadProfile,
   type ProposedChange,
@@ -91,6 +92,7 @@ export function Report({
   onRecompute,
   onResetAssumptions,
   origin,
+  country,
 }: {
   /** Nur bei `demo` steht der Demo-Vorbehalt am Fuss — s. `DemoDisclaimer`. */
   origin: PdfReportOrigin
@@ -149,6 +151,8 @@ export function Report({
   effectiveInputs: AnalysisRunInputs | null
   onRecompute: (input: RecomputeInput) => void
   onResetAssumptions: () => void
+  /** Land des Projekts — wählt Monatsnamen und Datumsformat der Charts; fehlt = Vorgabeland. */
+  country?: Country
 }) {
   const result = useMemo(
     () => analysisForDisplay(netResult, priceDisplay),
@@ -521,6 +525,7 @@ export function Report({
         comparison={monthlyComparison}
         isExisting={isExisting}
         storageNote={catalogStorageNote(result)}
+        country={country}
       />
     </div>
   ) : null
@@ -542,6 +547,7 @@ export function Report({
       selectedBatteryId={existingAnalysis.entry.battery.id}
       onSelectBattery={setSelectedBatteryId}
       timeZone={loadProfile.timezoneMeta}
+      country={country}
     />
   ) : result.perBattery.length > 0 && !dynamicTariffHint ? (
     <EnergyFlowChart
@@ -549,6 +555,7 @@ export function Report({
       selectedBatteryId={selectedBatteryId}
       onSelectBattery={setSelectedBatteryId}
       timeZone={loadProfile.timezoneMeta}
+      country={country}
     />
   ) : null
 
@@ -617,9 +624,13 @@ export function Report({
         data-testid="dispatch-einblick"
       >
         {hourFlow && (
-          <BatteryFlowHeatmap grid={hourFlow} batteryName={primaryEntry.battery.name} />
+          <BatteryFlowHeatmap
+            grid={hourFlow}
+            batteryName={primaryEntry.battery.name}
+            country={country}
+          />
         )}
-        {chargePrice && <ChargePriceChart price={chargePrice} />}
+        {chargePrice && <ChargePriceChart price={chargePrice} country={country} />}
       </section>
     ) : null
 
@@ -941,6 +952,7 @@ export function Report({
               dispatchTrace={primaryEntry?.dispatchTrace}
               billingModel={effectiveBillingModel(a.billingModel)}
               leistungspreisRatePerKwYear={leistungspreisRatePerKwYear}
+              country={country}
             />
           </div>
           {/*

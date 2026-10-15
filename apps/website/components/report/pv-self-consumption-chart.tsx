@@ -1,7 +1,7 @@
 'use client'
 
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import type { PvValueMonth } from 'shared'
+import { countryDisplay, type Country, type PvValueMonth } from 'shared'
 
 import { formatKwh } from '@/lib/format'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
@@ -28,21 +28,6 @@ import { CHART_COLORS } from '@/lib/pdf-report/theme'
  * Rasterung in `charts.tsx`), wie beim Wege-Diagramm — der Bildschirm-Report zeigt das PV-Kapitel
  * nicht.
  */
-
-const MONTH_LABELS = [
-  'Jän',
-  'Feb',
-  'Mär',
-  'Apr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Dez',
-] as const
 
 /** Die Beschriftung eines Ausfallmonats unter der Achse — kurz, weil sie mehrfach dastehen kann. */
 const OUTAGE_TICK = 'kein Ertrag'
@@ -81,7 +66,15 @@ function MonthTick({
   )
 }
 
-export function PvSelfConsumptionChart({ months }: { months: readonly PvValueMonth[] }) {
+export function PvSelfConsumptionChart({
+  months,
+  country,
+}: {
+  months: readonly PvValueMonth[]
+  /** Wählt die Monatsnamen; fehlt = Vorgabeland. */
+  country?: Country
+}) {
+  const monthLabels = countryDisplay(country).monthsShort
   /*
    * ⚠ Das Jahr steht NUR dann am Balken, wenn der Zeitraum einen Jahreswechsel überquert. Bei
    * einem Lastgang innerhalb eines Jahres wäre es an zwölf Balken dieselbe Zahl und damit Lärm;
@@ -89,7 +82,7 @@ export function PvSelfConsumptionChart({ months }: { months: readonly PvValueMon
    */
   const multiYear = new Set(months.map((m) => m.year)).size > 1
   const rows: Row[] = months.map((month) => ({
-    label: `${MONTH_LABELS[month.month - 1] ?? String(month.month)}${
+    label: `${monthLabels[month.month - 1] ?? String(month.month)}${
       multiYear ? ` ${String(month.year).slice(2)}` : ''
     }`,
     /* ⚠ `null` und nicht 0 — Recharts zeichnet dort nichts, und genau das ist die Aussage. */

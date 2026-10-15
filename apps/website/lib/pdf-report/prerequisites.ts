@@ -1,5 +1,5 @@
-import { displayedPriceLabel } from 'shared'
-import type { PvSource, PvStage } from 'shared'
+import { DEFAULT_COUNTRY, displayedPriceLabel, netzebeneLabel } from 'shared'
+import type { Country, PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
@@ -96,6 +96,7 @@ function gridConnectionRow(
   analysis: PdfReportAnalysis,
   tariffSource: PdfReportTariffSource,
   netzebeneFromDraft: number | undefined,
+  country: Country | undefined,
 ): ReportRow {
   /* Der Wizard-Weg trägt `tariffSource` immer als „nicht nachverfolgt" — die Netzebene selbst steht
      trotzdem im Entwurf und reist als eigene Angabe mit. */
@@ -103,7 +104,10 @@ function gridConnectionRow(
     typeof tariffSource === 'object' && tariffSource !== null
       ? tariffSource.netzebene
       : netzebeneFromDraft
-  const netzebene = level === undefined ? 'Netzebene nicht erfasst' : `Netzebene ${level}`
+  const netzebene =
+    level === undefined
+      ? 'Netzebene nicht erfasst'
+      : netzebeneLabel(country ?? DEFAULT_COUNTRY, level)
   const measurement = hasLeistungspreis(analysis.current)
     ? 'mit Leistungsmessung'
     : 'ohne Leistungsmessung'
@@ -117,7 +121,7 @@ export function buildOverviewStatement(input: PdfReportInput): ReportStatement {
   const rows = [
     batteryRow(analysis),
     pvRow(input.hasPv, input.pvStage, input.pvPeakPowerKwp, input.gridProfileContainsPv === true),
-    gridConnectionRow(analysis, input.tariffSource, input.netzebene),
+    gridConnectionRow(analysis, input.tariffSource, input.netzebene, input.country),
   ].filter((r): r is ReportRow => r !== null)
 
   return {

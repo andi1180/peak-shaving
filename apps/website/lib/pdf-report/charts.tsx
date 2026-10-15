@@ -388,6 +388,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
         dispatchTrace={undefined}
         billingModel={effectiveBillingModel(analysis.assumptions.billingModel)}
         leistungspreisRatePerKwYear={null}
+        country={input.country}
       />,
       {
         width: LOAD_CHART_WIDTH_PX,
@@ -437,6 +438,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
               loadProfile={input.loadProfile}
               capSegments={peakData.capSegments}
               points={peakData.points}
+              country={input.country}
             />,
             { width: LOAD_CHART_WIDTH_PX, select: selectRechartsSurface },
           ),
@@ -451,10 +453,13 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     pvValueChapter === null
       ? NOT_RASTERIZED
       : await attempt(() =>
-          captureChart(<PvSelfConsumptionChart months={pvValueChapter.months} />, {
-            width: DETAIL_CHART_WIDTH_PX,
-            select: selectRechartsSurface,
-          }),
+          captureChart(
+            <PvSelfConsumptionChart months={pvValueChapter.months} country={input.country} />,
+            {
+              width: DETAIL_CHART_WIDTH_PX,
+              select: selectRechartsSurface,
+            },
+          ),
         )
 
   /* Das Ringdiagramm des Jahreskapitels — `donut === null` heisst: Kapitel oder Ring entfällt. */
@@ -486,7 +491,11 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
           captureChart(
             costPlan.kind === 'monthly' ? (
               /* `costPlan.kind === 'monthly'` gibt es nur im Bestandsfall — s. `detailChartPlan`. */
-              <MonthlyTariffChart comparison={costPlan.comparison} isExisting />
+              <MonthlyTariffChart
+                comparison={costPlan.comparison}
+                isExisting
+                country={input.country}
+              />
             ) : (
               <CostChart
                 entry={costPlan.entry}
@@ -536,6 +545,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
               onSelectBattery={() => {}}
               timeZone={input.loadProfile.timezoneMeta}
               disableAnimation
+              country={input.country}
             />,
             {
               width: DETAIL_CHART_WIDTH_PX,
@@ -569,6 +579,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
             <BatteryFlowHeatmap
               grid={hourFlowPlan.grid}
               batteryName={hourFlowPlan.batteryName}
+              country={input.country}
             />,
             { width: HEATMAP_CHART_WIDTH_PX, select: selectHeatmapGrid },
           ),
@@ -585,7 +596,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     chargePricePlan === null
       ? NOT_RASTERIZED
       : await attempt(() =>
-          captureChart(<ChargePriceChart price={chargePricePlan.price} />, {
+          captureChart(<ChargePriceChart price={chargePricePlan.price} country={input.country} />, {
               width: DETAIL_CHART_WIDTH_PX,
               select: selectRechartsSurface,
             },
@@ -603,7 +614,11 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
-            <MonthlyTariffChart comparison={monthlyChapterComparison} isExisting={false} />,
+            <MonthlyTariffChart
+              comparison={monthlyChapterComparison}
+              isExisting={false}
+              country={input.country}
+            />,
             { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
           ),
         )

@@ -171,6 +171,8 @@ describe('createReportRenderRequestAction', () => {
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
+      // Projekt ohne Landesangabe → Vorgabeland.
+      country: 'AT',
       netzebene: 7,
       supplierBaseFeeEurPerMonth: 14.9,
       /*

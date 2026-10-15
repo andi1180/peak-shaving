@@ -201,6 +201,8 @@ type RenderRequestCase = {
   executiveSummary?: boolean
   /** Zusätzlich das Bildschirm-Markup, mit Tarifannahmen und Katalog des Laufs. */
   screen?: { tariffFile: string; batteryCatalogFile: string }
+  /** Texte, die im PDF stehen müssen bzw. in PDF und Bildschirm nicht stehen dürfen. */
+  textChecks?: { contains: string[]; absent: string[] }
 }
 
 const DE_GOLDEN = path.resolve(APP, '../../packages/engine/test/golden/de-benutzungsdauer-knick')
@@ -249,6 +251,7 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
     ),
     runAt: '2026-10-15T08:00:00.000Z',
     executiveSummary: DE_EXECUTIVE_SUMMARY[stufe],
+    textChecks: { contains: ['Deutschland', 'Niederspannung'], absent: ['Jän'] },
     screen: {
       tariffFile: path.join(DE_GOLDEN, 'tariff.json'),
       batteryCatalogFile: path.join(DE_GOLDEN, 'battery-catalog.json'),
@@ -576,7 +579,10 @@ describe('Report-Snapshots der Referenzfälle', () => {
         c.executiveSummary ?? c.analysisResultFile !== undefined,
       )
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
-      checkSnapshot(`${c.name}.pdf.txt`, await renderPdfText(input, path.join(tmp, `${c.name}.pdf`)))
+      const pdfText = await renderPdfText(input, path.join(tmp, `${c.name}.pdf`))
+      checkSnapshot(`${c.name}.pdf.txt`, pdfText)
+      for (const text of c.textChecks?.contains ?? []) expect(pdfText, text).toContain(text)
+      for (const text of c.textChecks?.absent ?? []) expect(pdfText, text).not.toContain(text)
       if (c.screen) {
         const { tariff } = JSON.parse(readFileSync(c.screen.tariffFile, 'utf8')) as {
           tariff: TariffParams
@@ -599,9 +605,11 @@ describe('Report-Snapshots der Referenzfälle', () => {
             effectiveInputs={null}
             onRecompute={() => {}}
             onResetAssumptions={() => {}}
+            country={readout.request.meta.country ?? undefined}
           />,
         ).replace(/></g, '>\n<')
         checkSnapshot(`${c.name}.screen.html`, screenHtml)
+        for (const text of c.textChecks?.absent ?? []) expect(screenHtml, text).not.toContain(text)
       }
     })
   }
