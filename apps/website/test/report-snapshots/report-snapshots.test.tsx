@@ -17,6 +17,7 @@ import {
   type BatteryCatalogCategory,
   type BatteryCatalogMeta,
   type DisplayPriceBasis,
+  type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -196,7 +197,14 @@ type RenderRequestCase = {
    * gerechnet mit `calculateRoi` wie die Engine (Ersparnis `totalSavingPerYear`, Förderung als Festbetrag).
    */
   tax?: { taxRatePercent: number; investitionsfreibetragPercent: number; depreciationYears: number }
+  /** Erwartete Vorderseite (Vorgabe: genau dann, wenn `analysisResultFile` gesetzt ist). */
+  executiveSummary?: boolean
+  /** Zusätzlich das Bildschirm-Markup, mit Tarifannahmen und Katalog des Laufs. */
+  screen?: { tariffFile: string; batteryCatalogFile: string }
 }
+
+const DE_GOLDEN = path.resolve(APP, '../../packages/engine/test/golden/de-benutzungsdauer-knick')
+const DE_EXECUTIVE_SUMMARY = { stufe1: true, stufe2: true }
 
 const RENDER_REQUEST_CASES: RenderRequestCase[] = [
   {
@@ -232,6 +240,20 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
     tax: { taxRatePercent: 40, investitionsfreibetragPercent: 22, depreciationYears: 10 },
     runAt: '2026-09-30T18:37:04.946Z',
   },
+  // DE-Gewerbe mit Netzentgelt-Stufen, synthetisch (Baseline Schritt 10, s. README im Fixture-Ordner).
+  ...(['stufe1', 'stufe2'] as const).map((stufe) => ({
+    name: `de-gewerbe-benutzungsdauer-${stufe}`,
+    file: path.join(
+      import.meta.dirname,
+      `fixtures/de-gewerbe-benutzungsdauer/${stufe}/render-request.json`,
+    ),
+    runAt: '2026-10-15T08:00:00.000Z',
+    executiveSummary: DE_EXECUTIVE_SUMMARY[stufe],
+    screen: {
+      tariffFile: path.join(DE_GOLDEN, 'tariff.json'),
+      batteryCatalogFile: path.join(DE_GOLDEN, 'battery-catalog.json'),
+    },
+  })),
 ]
 
 const FONT_DIR = path.join(APP, 'public/report-fonts')
@@ -550,9 +572,37 @@ describe('Report-Snapshots der Referenzfälle', () => {
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
       const input = buildReportInputFromRenderRequest(readout.request, new Date(c.runAt))
       // Vorderseite nur mit Jahresbasis: das Teiljahr ohne Jahresszenario hat keine.
-      expect(buildExecutiveSummary(input) !== null).toBe(c.analysisResultFile !== undefined)
+      expect(buildExecutiveSummary(input) !== null).toBe(
+        c.executiveSummary ?? c.analysisResultFile !== undefined,
+      )
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
       checkSnapshot(`${c.name}.pdf.txt`, await renderPdfText(input, path.join(tmp, `${c.name}.pdf`)))
+      if (c.screen) {
+        const { tariff } = JSON.parse(readFileSync(c.screen.tariffFile, 'utf8')) as {
+          tariff: TariffParams
+        }
+        const screenHtml = renderToStaticMarkup(
+          <Report
+            origin="client"
+            result={readout.request.analysisResult}
+            priceDisplay={readout.request.meta.priceDisplay}
+            loadProfile={readout.request.loadProfile}
+            batteryCatalog={JSON.parse(readFileSync(c.screen.batteryCatalogFile, 'utf8'))}
+            batteryCatalogMeta={{}}
+            tariffSource={null}
+            originalTariff={tariff}
+            originalFinancial={undefined}
+            recomputing={false}
+            recomputeError={null}
+            isLive={false}
+            existingBattery={undefined}
+            effectiveInputs={null}
+            onRecompute={() => {}}
+            onResetAssumptions={() => {}}
+          />,
+        ).replace(/></g, '>\n<')
+        checkSnapshot(`${c.name}.screen.html`, screenHtml)
+      }
     })
   }
 
