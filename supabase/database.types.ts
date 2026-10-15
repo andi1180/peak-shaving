@@ -1933,6 +1933,9 @@ export type Database = {
           operator_id: string
           operator_name: string
           price_basis: string
+          tier2_arbeitspreis_ct_per_kwh: number | null
+          tier2_leistungspreis_eur_per_kw_year: number | null
+          tier_threshold_hours: number | null
           valid_from: string
           valid_until: string | null
         }
@@ -1952,6 +1955,9 @@ export type Database = {
           operator_id: string
           operator_name: string
           price_basis: string
+          tier2_arbeitspreis_ct_per_kwh?: number | null
+          tier2_leistungspreis_eur_per_kw_year?: number | null
+          tier_threshold_hours?: number | null
           valid_from: string
           valid_until?: string | null
         }
@@ -1971,6 +1977,9 @@ export type Database = {
           operator_id?: string
           operator_name?: string
           price_basis?: string
+          tier2_arbeitspreis_ct_per_kwh?: number | null
+          tier2_leistungspreis_eur_per_kw_year?: number | null
+          tier_threshold_hours?: number | null
           valid_from?: string
           valid_until?: string | null
         }
@@ -2528,6 +2537,9 @@ export type Database = {
           p_netzverlust_ct_per_kwh: number
           p_operator_id: string
           p_price_basis: string
+          p_tier2_arbeitspreis_ct_per_kwh?: number
+          p_tier2_leistungspreis_eur_per_kw_year?: number
+          p_tier_threshold_hours?: number
           p_valid_from: string
           p_windows: Json
         }
@@ -2580,6 +2592,9 @@ export type Database = {
           p_operator_id: string
           p_operator_name: string
           p_price_basis: string
+          p_tier2_arbeitspreis_ct_per_kwh?: number
+          p_tier2_leistungspreis_eur_per_kw_year?: number
+          p_tier_threshold_hours?: number
           p_valid_from: string
           p_windows: Json
         }
@@ -2803,6 +2818,9 @@ export type Database = {
           p_price_basis: string
           p_reason: string
           p_tariff_id: string
+          p_tier2_arbeitspreis_ct_per_kwh?: number
+          p_tier2_leistungspreis_eur_per_kw_year?: number
+          p_tier_threshold_hours?: number
           p_valid_from: string
           p_valid_until: string
           p_windows: Json

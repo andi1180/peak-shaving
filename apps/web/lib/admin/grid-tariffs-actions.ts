@@ -65,6 +65,11 @@ const OPERATOR_COUNTRY_MISMATCH =
   'Diese Netzbetreiber-Kennung ist bereits einem anderen Land zugeordnet. Ein Betreiber gehört ' +
   'genau einem Land — bitte das Land oder die Kennung prüfen.'
 
+/** Antwort der Datenbank auf Stufen bei mehr als einem bzw. keinem ganzjährigen Fenster (20261015120000). */
+const TIERS_SINGLE_WINDOW =
+  'Mit Benutzungsdauer-Stufen braucht die Zeile genau ein ganzjähriges, ganztägiges ' +
+  'Arbeitspreis-Fenster (00:00–24:00, ohne Saison).'
+
 /**
  * Legt einen Tarifstand an und schliesst dabei die bisher offene Zeile derselben Kombination.
  *
@@ -116,6 +121,9 @@ export async function createGridTariffAction(
     p_messpreis_amount: input.messpreisAmount,
     p_messpreis_unit: input.messpreisUnit,
     p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
+    p_tier_threshold_hours: input.tierThresholdHours,
+    p_tier2_leistungspreis_eur_per_kw_year: input.tier2LeistungspreisEurPerKwYear,
+    p_tier2_arbeitspreis_ct_per_kwh: input.tier2ArbeitspreisCtPerKwh,
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
     p_created_by: createdBy,
@@ -226,6 +234,8 @@ export async function createGridTariffAction(
     }
     case 'invalid_country':
       return { fieldErrors: { country: 'Bitte das Land des Netzbetreibers wählen.' }, values }
+    case 'tiers_require_single_window':
+      return { fieldErrors: { tierThresholdHours: TIERS_SINGLE_WINDOW }, values }
     case 'no_windows':
       return {
         formError:
@@ -374,6 +384,13 @@ export async function addRateWindowAction(
               'Bitte die Seite neu laden.',
             values,
           }
+        case 'tiers_require_single_window':
+          return {
+            formError:
+              'Diese Zeile trägt Benutzungsdauer-Stufen und damit genau ein ganzjähriges Fenster — ' +
+              'ein weiteres Zeitfenster ist dort nicht zulässig.',
+            values,
+          }
         case 'closed_tariff':
           /*
            * Über die Oberfläche unerreichbar (das Formular erscheint nur am offenen Stand). Der Fall
@@ -468,6 +485,9 @@ export async function backfillGridTariffAction(
     p_messpreis_amount: input.messpreisAmount,
     p_messpreis_unit: input.messpreisUnit,
     p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
+    p_tier_threshold_hours: input.tierThresholdHours,
+    p_tier2_leistungspreis_eur_per_kw_year: input.tier2LeistungspreisEurPerKwYear,
+    p_tier2_arbeitspreis_ct_per_kwh: input.tier2ArbeitspreisCtPerKwh,
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
     p_created_by: createdBy,
@@ -572,6 +592,8 @@ export async function backfillGridTariffAction(
       }
     case 'invalid_country':
       return { fieldErrors: { country: 'Bitte das Land des Netzbetreibers wählen.' }, values }
+    case 'tiers_require_single_window':
+      return { fieldErrors: { tierThresholdHours: TIERS_SINGLE_WINDOW }, values }
     case 'no_windows':
       return {
         formError:
@@ -616,6 +638,9 @@ export async function updateGridTariffAction(
     p_messpreis_amount: input.messpreisAmount,
     p_messpreis_unit: input.messpreisUnit,
     p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
+    p_tier_threshold_hours: input.tierThresholdHours,
+    p_tier2_leistungspreis_eur_per_kw_year: input.tier2LeistungspreisEurPerKwYear,
+    p_tier2_arbeitspreis_ct_per_kwh: input.tier2ArbeitspreisCtPerKwh,
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
     // Leer heisst „offen" — die Spalte ist dann null, nicht unberührt.
@@ -700,6 +725,8 @@ export async function updateGridTariffAction(
     }
     case 'invalid_valid_until':
       return { fieldErrors: { validUntil: 'Das Ende liegt vor dem Beginn.' }, values }
+    case 'tiers_require_single_window':
+      return { fieldErrors: { tierThresholdHours: TIERS_SINGLE_WINDOW }, values }
     case 'no_windows':
       return {
         formError:

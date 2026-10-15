@@ -74,6 +74,7 @@ import {
   AdminSuccess,
   formatDate,
 } from './ui'
+import { GridTariffTierFields } from './grid-tariff-tier-fields'
 
 /** Die Vorsilbe jeder DOM-Kennung, wenn der Aufrufer keine eigene vorgibt (Einzelformular). */
 const DEFAULT_FORM_ID = 'gt'
@@ -932,6 +933,8 @@ export function CreateGridTariffForm({
           ))}
         </AdminSelect>
       </div>
+
+      <GridTariffTierFields formId={formId} defaults={state.values} errors={state.fieldErrors} />
 
       <AdminField
         id={`${formId}-validFrom`}

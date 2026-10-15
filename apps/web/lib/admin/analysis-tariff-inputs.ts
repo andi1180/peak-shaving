@@ -26,6 +26,7 @@ import 'server-only'
 import {
   DEFAULT_COUNTRY,
   buildLevySchedule,
+  gridTariffTierFields,
   readDraftDynamicTariff,
   spotPriceProviderFor,
   type Country,
@@ -71,7 +72,7 @@ const PAGE_SIZE = 1000
  * nicht und mitgelesen wären sie Fracht ohne Konsumenten.
  */
 const GRID_TARIFF_SELECT =
-  'netzverlust_ct_per_kwh, grundpreis_amount, grundpreis_unit, messpreis_amount, messpreis_unit, price_basis, valid_from, valid_until, grid_tariff_rate_windows(label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
+  'netzverlust_ct_per_kwh, grundpreis_amount, grundpreis_unit, messpreis_amount, messpreis_unit, tier_threshold_hours, tier2_leistungspreis_eur_per_kw_year, tier2_arbeitspreis_ct_per_kwh, price_basis, valid_from, valid_until, grid_tariff_rate_windows(label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
 
 export type GridTariffReadParams = {
   /** Kennung wie in `grid_tariffs.operator_id` gepflegt (`wiener_netze`, …). Ohne Fremdschlüssel, ohne CHECK. */
@@ -147,6 +148,8 @@ export async function readGridTariffRowsForAnalysis(
     // behauptete „es gibt keinen", wo in Wahrheit keiner gepflegt ist.
     messpreisAmount: row.messpreis_amount == null ? undefined : Number(row.messpreis_amount),
     messpreisUnit: row.messpreis_unit ?? undefined,
+    // Benutzungsdauer-Stufen nur durchgereicht; ohne Stufen fehlen die Schlüssel.
+    ...gridTariffTierFields(row),
     priceBasis: row.price_basis,
     windows: (row.grid_tariff_rate_windows ?? []).map((w) => ({
       label: w.label,

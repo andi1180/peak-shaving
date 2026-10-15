@@ -20,9 +20,9 @@ import {
 const OP = 'gate-country'
 
 const CREATE_SIG =
-  'public.create_grid_tariff(text, text, smallint, numeric, text, numeric, text, date, text, jsonb, text, numeric, text, text)'
+  'public.create_grid_tariff(text, text, smallint, numeric, text, numeric, text, date, text, jsonb, text, numeric, text, text, numeric, numeric, numeric)'
 const BACKFILL_SIG =
-  'public.backfill_grid_tariff(text, smallint, numeric, text, numeric, text, date, text, jsonb, text, numeric, text, text)'
+  'public.backfill_grid_tariff(text, smallint, numeric, text, numeric, text, date, text, jsonb, text, numeric, text, text, numeric, numeric, numeric)'
 
 const WINDOWS = JSON.stringify([
   { label: 'normal', time_from: '00:00', time_to: '24:00', ct_per_kwh: 5.1 },

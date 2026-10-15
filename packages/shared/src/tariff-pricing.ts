@@ -90,6 +90,14 @@ export type GridTariffRowInput = {
    * `'eur_per_year'`  = Jahresbetrag. Ein unbekannter Wert wird wie ein fehlender behandelt.
    */
   messpreisUnit?: string
+  /**
+   * Benutzungsdauer-Stufe 2 (DE): Schwelle in h/a und das Preispaar ab ihr. Stufe 1 ist der
+   * Leistungspreis in `grundpreisAmount` plus das eine Fenster. Alle drei oder keines; bei Zeilen
+   * ohne Stufen fehlen die Schlüssel ganz. Die Engine liest sie noch nicht (Schritt 8).
+   */
+  tierThresholdHours?: number
+  tier2LeistungspreisEurPerKwYear?: number
+  tier2ArbeitspreisCtPerKwh?: number
   /** Delta 6: Pflichtangabe an der Quelle. Gerechnet wird durchgängig netto. */
   priceBasis: PriceBasis | string
   windows: GridTariffWindowInput[]

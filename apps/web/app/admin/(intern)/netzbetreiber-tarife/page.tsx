@@ -18,6 +18,7 @@ import {
   deleteConfirmText,
   grundpreisUnitLabel,
   messpreisLabel,
+  tierLabel,
   isOpen,
   operatorOptions,
   priceBasisLabel,
@@ -266,6 +267,16 @@ export default async function AdminGridTariffsPage() {
                                 <dt className="text-caption text-text-muted">Messpreis</dt>
                                 <dd className="text-text">
                                   <Num>{messpreisLabel(row)}</Num>
+                                </dd>
+                              </div>
+                            )}
+                            {tierLabel(row) && (
+                              <div>
+                                <dt className="text-caption text-text-muted">
+                                  Benutzungsdauer-Stufe 2
+                                </dt>
+                                <dd className="text-text">
+                                  <Num>{tierLabel(row)}</Num>
                                 </dd>
                               </div>
                             )}

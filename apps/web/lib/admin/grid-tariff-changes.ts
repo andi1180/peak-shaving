@@ -4,6 +4,7 @@ import {
   priceBasisLabel,
   seasonLabel,
   shortTime,
+  tierLabel,
   type GridTariffRateWindowRow,
   type GridTariffRow,
 } from './grid-tariffs'
@@ -58,6 +59,15 @@ export function changedFields(
         }) ?? EMPTY,
     ],
     ['Netzverlust', (s) => `${s.netzverlust_ct_per_kwh} ct/kWh`],
+    [
+      'Benutzungsdauer-Stufe 2',
+      (s) =>
+        tierLabel({
+          tier_threshold_hours: s.tier_threshold_hours ?? null,
+          tier2_leistungspreis_eur_per_kw_year: s.tier2_leistungspreis_eur_per_kw_year ?? null,
+          tier2_arbeitspreis_ct_per_kwh: s.tier2_arbeitspreis_ct_per_kwh ?? null,
+        }) ?? EMPTY,
+    ],
     ['Preisbasis', (s) => priceBasisLabel(s.price_basis ?? '')],
     ['Gültig ab', (s) => s.valid_from ?? EMPTY],
     ['Gültig bis', (s) => s.valid_until ?? 'offen'],

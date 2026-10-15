@@ -25,6 +25,7 @@ import {
   AdminSelect,
   AdminSuccess,
 } from './ui'
+import { GridTariffTierFields } from './grid-tariff-tier-fields'
 
 type WindowRow = { key: number; init: GridTariffRateWindowRow | null }
 
@@ -218,6 +219,19 @@ function EditFields({
           error={errors?.validUntil}
         />
       </div>
+
+      <GridTariffTierFields
+        formId={formId}
+        errors={errors}
+        defaults={{
+          tierThresholdHours: val('tierThresholdHours', row.tier_threshold_hours),
+          tier2LeistungspreisEurPerKwYear: val(
+            'tier2LeistungspreisEurPerKwYear',
+            row.tier2_leistungspreis_eur_per_kw_year,
+          ),
+          tier2ArbeitspreisCtPerKwh: val('tier2ArbeitspreisCtPerKwh', row.tier2_arbeitspreis_ct_per_kwh),
+        }}
+      />
 
       <ul className="flex flex-col gap-3">
         {rows.map((r, index) => {
