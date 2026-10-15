@@ -2,12 +2,15 @@
 
 import { MeteringPointAnalysisError, runAnalysisFromMeteringPointDraft } from 'extractors'
 import {
+  COUNTRY_LABELS,
   NETZBETREIBER_DRAFT_KEY,
   REPORT_OPTIONAL_SECTIONS,
   REPORT_OPTIONAL_SECTIONS_FIELD,
   REPORT_OPTIONAL_SECTIONS_MARKER,
   displayPriceBasisFor,
   draftMinBillableKwDefaults,
+  isCountry,
+  levyGapYearBeyondCoverage,
   parseNetzebeneDraftValue,
   type GridTariffRowInput,
   type ReportOptionalSection,
@@ -347,9 +350,25 @@ export async function createReportRenderRequestAction(
         ? category === 'heim'
           ? ' Speicherkatalog für Privathaushalte im Aufbau — der Report enthält keinen Speichervorschlag.'
           : ' Im Speicherkatalog ist für Betriebe kein Gerät freigegeben — der Report enthält keinen Speichervorschlag.'
-        : ''),
+        : '') +
+      levyMaintenanceNote(run.result.tariffOptimization, project.country),
     successHref: externalReportUrl(created.data),
   }
+}
+
+/**
+ * Nur im Admin: steht der Vergleich wegen einer Abgaben-Lücke hinter der hinterlegten Abdeckung,
+ * fehlt die Jahrespflege — nicht ein Netzgebiet. Kundentexte und Engine bleiben unberührt.
+ */
+function levyMaintenanceNote(
+  status: { computable: boolean; side?: string; ranges?: readonly { fromIso: string }[] } | undefined,
+  country: string,
+): string {
+  if (!status || status.computable || status.side !== 'levy' || !status.ranges) return ''
+  const year = levyGapYearBeyondCoverage(status.ranges, country)
+  if (year === null) return ''
+  const label = isCountry(country) ? COUNTRY_LABELS[country] : country
+  return ` Abgabensätze für ${year} (${label}) fehlen – Jahrespflege nötig.`
 }
 
 /**

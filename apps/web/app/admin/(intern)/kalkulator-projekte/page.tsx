@@ -7,6 +7,8 @@ import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
 import { ActionButton } from '@/components/admin/action-button'
 import { NewProjectForm } from '@/components/admin/new-project-form'
+import { LevyCoverageBanner } from '@/components/admin/levy-coverage-banner'
+import { levyCoverageNotices } from '@/lib/admin/levy-coverage'
 import { deleteAdminProjectAction } from '@/lib/admin/projects-actions'
 import {
   PROJECTS_HREF,
@@ -15,6 +17,8 @@ import {
   readAdminProjectList,
   type AdminProjectRow,
 } from '@/lib/admin/projects'
+import { COUNTRIES } from 'shared/country'
+import { levyCoverageStatus, viennaDateOf } from 'shared'
 
 /*
  * `/admin/kalkulator-projekte` — die Projektliste (B24, Teil 1 Schritt 1).
@@ -82,6 +86,11 @@ export default async function AdminProjectsPage({
   const pages = list ? Math.max(1, Math.ceil(list.total / PAGE_SIZE)) : 1
   const leer = list !== null && list.total === 0
 
+  // Jedes wählbare Land braucht gepflegte Abgabensätze, auch ohne Projekte — ein neues Land in
+  // COUNTRIES wird damit automatisch geprüft.
+  const today = viennaDateOf(new Date())
+  const levyNotices = levyCoverageNotices(levyCoverageStatus(COUNTRIES, today), today)
+
   return (
     <Container className="py-10 sm:py-14">
       <header className="border-b border-line pb-6">
@@ -96,6 +105,8 @@ export default async function AdminProjectsPage({
           erscheinen ebenfalls in dieser Liste.
         </p>
       </header>
+
+      <LevyCoverageBanner notices={levyNotices} />
 
       {/*
         Die Liste steht nur, wenn es etwas zu zeigen gibt — sonst führt die Seite direkt zum

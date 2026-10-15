@@ -443,7 +443,14 @@ function usageLevyFor(
  * Sondervertragskunden; die Tarifkunden-Regel ist bewusst nicht gebaut.
  * Jahrespflege: Projektdoc Jahrespflege_Tarifsaetze.md.
  */
-const DE_PER_KWH_LEVIES: (DatedEntry & { components: readonly LevyPerKwhComponent[] })[] = [
+/** Ein Gültigkeitsblock der deutschen Tabelle — exportiert nur als Typ (Injektion im Test). */
+export type GermanLevyTableEntry = {
+  validFrom: string
+  validUntil: string | null
+  components: readonly LevyPerKwhComponent[]
+}
+
+const DE_PER_KWH_LEVIES: (DatedEntry & GermanLevyTableEntry)[] = [
   {
     validFrom: '2025-01-01',
     validUntil: '2025-12-31',
@@ -587,9 +594,13 @@ export function buildLevySchedule(
  * Der deutsche Plan: die österreichischen Felder auf 0, die Posten in `perKwhComponents`.
  * Unabhängig von Netzbetreiber, Netzebene und Standort; Zeitraumgrenzen wie beim AT-Plan.
  */
-function buildGermanLevySchedule(from: string, to: string): LevySchedule {
+function buildGermanLevySchedule(
+  from: string,
+  to: string,
+  table: readonly GermanLevyTableEntry[] = DE_PER_KWH_LEVIES,
+): LevySchedule {
   const periods: LevyPeriodInput[] = []
-  for (const entry of DE_PER_KWH_LEVIES) {
+  for (const entry of table) {
     if (entry.validFrom > to || (entry.validUntil != null && entry.validUntil < from)) continue
     periods.push({
       validFrom: entry.validFrom > from ? entry.validFrom : from,
@@ -604,4 +615,118 @@ function buildGermanLevySchedule(from: string, to: string): LevySchedule {
     })
   }
   return { periods }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// Abdeckung — bis wann die hinterlegten Sätze reichen (Admin-Warnung, keine Rechengrösse)
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/** Ältester hinterlegter Satz (Preisanker) und ein Horizont, der jedes befristete Ende einschliesst. */
+const LEVY_COVERAGE_FROM = '2025-01-01'
+const LEVY_COVERAGE_HORIZON = '2099-12-31'
+
+/** Letzter Tag, bis zu dem die Zeiträume ab dem ersten lückenlos aneinanderschliessen. */
+function contiguousCoverageEnd(periods: readonly LevyPeriodInput[]): string | null {
+  const ordered = [...periods].sort((a, b) => a.validFrom.localeCompare(b.validFrom))
+  let end: string | null = null
+  for (const period of ordered) {
+    if (end !== null && period.validFrom !== shiftDate(end, 1)) break
+    end = period.validUntil ?? LEVY_COVERAGE_HORIZON
+  }
+  return end
+}
+
+/**
+ * Letzter Kalendertag (Europe/Vienna, inklusiv), bis zu dem für das Land lückenlos ein
+ * Abgabenzeitraum entsteht; `null` = keine Abdeckung (auch: unbekanntes Land).
+ *
+ * Abgeleitet über `buildLevySchedule` selbst statt über eine zweite Liste von Enddaten. AT: das
+ * früheste Ende über alle Netzebenen/Messvarianten der EAG-Tabelle, Gebrauchsabgabe mit der
+ * Vorgabe ohne PLZ (Wiener Netze, Wien angenommen) — fehlt eine Quelle, entfällt der Zeitraum.
+ */
+export function levyCoverageEnd(
+  country: string,
+  options: { germanTable?: readonly GermanLevyTableEntry[] } = {},
+): string | null {
+  if (country === 'DE') {
+    const table = options.germanTable ?? DE_PER_KWH_LEVIES
+    return contiguousCoverageEnd(
+      buildGermanLevySchedule(LEVY_COVERAGE_FROM, LEVY_COVERAGE_HORIZON, table).periods,
+    )
+  }
+  if (country !== 'AT') return null
+
+  let earliest: string | null = null
+  for (const key of Object.keys(EAG_FOERDERBEITRAG)) {
+    const [netzebene, variant] = key.split(':')
+    const plan = buildLevySchedule(
+      'wiener_netze',
+      Number(netzebene),
+      LEVY_COVERAGE_FROM,
+      LEVY_COVERAGE_HORIZON,
+      variant === '-' ? null : variant!,
+      { category: 'gewerbe', postalCode: null, country: 'AT' },
+    )
+    const end = contiguousCoverageEnd(plan.periods)
+    if (end === null) return null
+    if (earliest === null || end < earliest) earliest = end
+  }
+  return earliest
+}
+
+export type LevyCoverageStatus = {
+  country: string
+  coverageEnd: string | null
+  status: 'ok' | 'warn' | 'expired'
+}
+
+/**
+ * Abdeckung je Land gegen `today` (ISO-Datum in Europe/Vienna): `expired`, sobald heute nicht mehr
+ * abgedeckt ist; `warn` ab dem 01.12., wenn der 01.01. des Folgejahres nicht abgedeckt ist.
+ */
+export function levyCoverageStatus(
+  countries: readonly string[],
+  today: string,
+  options: { germanTable?: readonly GermanLevyTableEntry[] } = {},
+): LevyCoverageStatus[] {
+  const year = Number(today.slice(0, 4))
+  const nextYearStart = `${year + 1}-01-01`
+  return [...new Set(countries)].map((country) => {
+    const coverageEnd = levyCoverageEnd(country, options)
+    const status =
+      coverageEnd === null || today > coverageEnd
+        ? 'expired'
+        : today >= `${year}-12-01` && coverageEnd < nextYearStart
+          ? 'warn'
+          : 'ok'
+    return { country, coverageEnd, status }
+  })
+}
+
+/** Kalendertag eines Zeitpunkts in Europe/Vienna, als `YYYY-MM-DD`. */
+export function viennaDateOf(instant: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+  const part = (type: string) => parts.find((p) => p.type === type)?.value
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+/**
+ * Das Jahr der ersten Abgaben-Lücke, die HINTER der Abdeckung des Landes liegt — `null`, wenn keine
+ * der Lücken so liegt (dann fehlt etwas anderes als die Jahrespflege, etwa ein Netzgebiet).
+ */
+export function levyGapYearBeyondCoverage(
+  ranges: readonly { fromIso: string }[],
+  country: string,
+): number | null {
+  const coverageEnd = levyCoverageEnd(country)
+  for (const range of ranges) {
+    const date = viennaDateOf(new Date(range.fromIso))
+    if (coverageEnd === null || date > coverageEnd) return Number(date.slice(0, 4))
+  }
+  return null
 }
