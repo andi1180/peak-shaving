@@ -1,0 +1,50 @@
+[
+ {
+  "operatorId": "netz_test",
+  "netzebene": 7,
+  "meteringVariant": "mit_leistungsmessung",
+  "grundpreisAmount": 29.81,
+  "grundpreisUnit": "eur_per_kw_year",
+  "netzverlustCtPerKwh": 0,
+  "priceBasis": "net",
+  "validFrom": "2025-01-01",
+  "validUntil": "2025-12-31",
+  "tierThresholdHours": 2500,
+  "tier2LeistungspreisEurPerKwYear": 131.8,
+  "tier2ArbeitspreisCtPerKwh": 4.68,
+  "windows": [
+   {
+    "label": "normal",
+    "monthDayFrom": null,
+    "monthDayTo": null,
+    "timeFrom": "00:00:00",
+    "timeTo": "24:00:00",
+    "ctPerKwh": 8.76
+   }
+  ]
+ },
+ {
+  "operatorId": "netz_test",
+  "netzebene": 7,
+  "meteringVariant": "mit_leistungsmessung",
+  "grundpreisAmount": 22.75,
+  "grundpreisUnit": "eur_per_kw_year",
+  "netzverlustCtPerKwh": 0,
+  "priceBasis": "net",
+  "validFrom": "2026-01-01",
+  "validUntil": null,
+  "tierThresholdHours": 2500,
+  "tier2LeistungspreisEurPerKwYear": 115.43,
+  "tier2ArbeitspreisCtPerKwh": 4.09,
+  "windows": [
+   {
+    "label": "normal",
+    "monthDayFrom": null,
+    "monthDayTo": null,
+    "timeFrom": "00:00:00",
+    "timeTo": "24:00:00",
+    "ctPerKwh": 7.8
+   }
+  ]
+ }
+]

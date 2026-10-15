@@ -1,0 +1,23 @@
+[
+ {
+  "operatorId": "netz_test",
+  "netzebene": 7,
+  "meteringVariant": "mit_leistungsmessung",
+  "grundpreisAmount": 22.75,
+  "grundpreisUnit": "eur_per_kw_year",
+  "netzverlustCtPerKwh": 0,
+  "priceBasis": "net",
+  "validFrom": "2025-01-01",
+  "validUntil": null,
+  "windows": [
+   {
+    "label": "normal",
+    "monthDayFrom": null,
+    "monthDayTo": null,
+    "timeFrom": "00:00:00",
+    "timeTo": "24:00:00",
+    "ctPerKwh": 7.8
+   }
+  ]
+ }
+]

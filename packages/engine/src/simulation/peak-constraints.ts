@@ -1,4 +1,4 @@
-import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, TariffParams, TariffPricingInputs } from 'shared'
 
 import { searchCaps } from './cap-search'
 import {
@@ -36,11 +36,12 @@ export function peakConstraints(
   loadProfile: LoadProfile,
   battery: BatteryCandidate,
   tariffParams: TariffParams,
+  pricing?: Pick<TariffPricingInputs, 'gridTariffRows'>,
 ): PeakConstraints {
   const physics = toPhysics(battery)
   const draws = drawSeries(loadProfile)
   const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
-  const peakShavingDisabled = isPeakShavingDisabled(loadProfile, battery, tariffParams)
+  const peakShavingDisabled = isPeakShavingDisabled(loadProfile, battery, tariffParams, pricing)
 
   // 1. Kapp-Suche (§3.6.1). Ohne Spitzenkappung → `cap = ∞` je Contract-Slot.
   const capKwByPeriod = peakShavingDisabled

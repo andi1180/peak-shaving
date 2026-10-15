@@ -1,0 +1,78 @@
+{
+ "periods": [
+  {
+   "validFrom": "2025-01-01",
+   "validUntil": "2025-12-31",
+   "elektrizitaetsabgabeCtPerKwh": 0,
+   "eagFoerderbeitragCtPerKwh": 0,
+   "eagFoerderbeitragGrundpreisAmount": 0,
+   "eagFoerderbeitragGrundpreisUnit": "eur_per_year",
+   "eagPauschaleEurPerYear": 0,
+   "gebrauchsabgabeRate": 0,
+   "perKwhComponents": [
+    {
+     "key": "de_stromsteuer",
+     "label": "Stromsteuer",
+     "ctPerKwh": 2.05
+    },
+    {
+     "key": "de_kwkg",
+     "label": "KWKG-Aufschlag",
+     "ctPerKwh": 0.277
+    },
+    {
+     "key": "de_par19",
+     "label": "Aufschlag für besondere Netznutzung (§ 19 StromNEV)",
+     "ctPerKwh": 1.558
+    },
+    {
+     "key": "de_offshore",
+     "label": "Offshore-Netzumlage",
+     "ctPerKwh": 0.816
+    },
+    {
+     "key": "de_konzession",
+     "label": "Konzessionsabgabe (Sondervertrag)",
+     "ctPerKwh": 0.11
+    }
+   ]
+  },
+  {
+   "validFrom": "2026-01-01",
+   "validUntil": "2026-12-31",
+   "elektrizitaetsabgabeCtPerKwh": 0,
+   "eagFoerderbeitragCtPerKwh": 0,
+   "eagFoerderbeitragGrundpreisAmount": 0,
+   "eagFoerderbeitragGrundpreisUnit": "eur_per_year",
+   "eagPauschaleEurPerYear": 0,
+   "gebrauchsabgabeRate": 0,
+   "perKwhComponents": [
+    {
+     "key": "de_stromsteuer",
+     "label": "Stromsteuer",
+     "ctPerKwh": 2.05
+    },
+    {
+     "key": "de_kwkg",
+     "label": "KWKG-Aufschlag",
+     "ctPerKwh": 0.446
+    },
+    {
+     "key": "de_par19",
+     "label": "Aufschlag für besondere Netznutzung (§ 19 StromNEV)",
+     "ctPerKwh": 1.559
+    },
+    {
+     "key": "de_offshore",
+     "label": "Offshore-Netzumlage",
+     "ctPerKwh": 0.941
+    },
+    {
+     "key": "de_konzession",
+     "label": "Konzessionsabgabe (Sondervertrag)",
+     "ctPerKwh": 0.11
+    }
+   ]
+  }
+ ]
+}

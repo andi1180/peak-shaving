@@ -234,7 +234,10 @@ export class MeteringPointAnalysisError extends Error {
       | 'unsupported_draft'
       // „Eigener Tarif unbekannt" (25.09.2026) — `AnalysisRefusal` der Engine, gleichnamig.
       | 'supplier_tariff_unknown_without_price_basis'
-      | 'feed_in_tariff_missing',
+      | 'feed_in_tariff_missing'
+      // Netzentgelt-Zeilen mit Benutzungsdauer-Stufen nicht rechenbar (Schritt 8b).
+      | 'network_tier_invalid'
+      | 'network_tier_requires_annual_max',
     message: string,
   ) {
     super(message)

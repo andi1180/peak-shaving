@@ -1,0 +1,10 @@
+{
+  "horizonYears": 10,
+  "tariff": {
+    "leistungspreisEurPerKwYear": 22.75,
+    "billingModel": "annual_max",
+    "minBillableKw": 0,
+    "energyPriceCtPerKwh": 20,
+    "einspeiseverguetungCtPerKwh": 0
+  }
+}

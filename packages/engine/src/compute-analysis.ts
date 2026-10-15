@@ -27,6 +27,7 @@ import {
   ownTariffStorageOf,
 } from './savings'
 import { AnalysisRefusedError, hasFeedIn } from './refusal'
+import { currentNetworkTier, networkTierSummary, tieredOrRefuse } from './tariff/network-tier'
 import {
   alignPvGrossToLoad,
   buildDispatchTrace,
@@ -332,7 +333,19 @@ export function computeAnalysis(
   const pvProfile = payload.pv?.profile
 
   // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
-  const { current, peaks } = analyzeCurrentPeaks(loadProfile, payload.tariff)
+  const { current: scalarCurrent, peaks } = analyzeCurrentPeaks(loadProfile, payload.tariff)
+  // Netzentgelt-Zeile mit Benutzungsdauer-Stufen: Ist-Leistungsteil = Stufenkorrektur N (Schritt 8b).
+  const currentTier = tieredOrRefuse(
+    currentNetworkTier(loadProfile, payload.tariff, payload.tariffPricing),
+    payload.tariff,
+  )
+  const current = currentTier
+    ? {
+        ...scalarCurrent,
+        leistungspreisCostPerYear: currentTier.correctionEur,
+        networkTier: networkTierSummary(currentTier),
+      }
+    : scalarCurrent
 
   /*
    * Die ZWEITE kW-gebundene Jahresgrösse neben dem Leistungspreis: der Grundpreis-Teil des
@@ -462,6 +475,7 @@ export function computeAnalysis(
       entry.battery,
       payload.tariff,
       planning,
+      payload.tariffPricing,
     ),
   }))
 

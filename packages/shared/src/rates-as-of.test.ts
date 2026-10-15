@@ -51,4 +51,21 @@ describe('pinRatesToDate', () => {
     const period = findLevyPeriod(pinned.levies!.periods, '2025-09-01')
     expect(period?.perKwhComponents).toEqual(findLevyPeriod(de.periods, '2026-08-31')!.perKwhComponents)
   })
+
+  it('übernimmt die Benutzungsdauer-Stufen der Zeile des Stichtags', () => {
+    const tiered: GridTariffRowInput = {
+      ...row('2026-01-01', null),
+      tierThresholdHours: 2500,
+      tier2LeistungspreisEurPerKwYear: 115.43,
+      tier2ArbeitspreisCtPerKwh: 4.09,
+    }
+    const pinned = pinRatesToDate(
+      { gridTariffRows: [row('2025-01-01', '2025-12-31'), tiered], spotPrices: null, levies: null },
+      '2026-06-30',
+      WINDOW,
+    )
+    expect(pinned.gridTariffRows).toEqual([
+      { ...tiered, validFrom: '2025-09-01', validUntil: '2026-08-31' },
+    ])
+  })
 })

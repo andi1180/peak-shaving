@@ -4,6 +4,7 @@ import {
   type EnergySavingBasis,
   type LevySchedule,
   type LoadProfile,
+  type NetworkTierSummary,
   type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
@@ -16,6 +17,12 @@ import { intervalTariffRates } from '../simulation/tou'
 import { feedInTariffCtPerKwh } from '../refusal'
 import { coveredMonthCount } from '../peaks/metrics'
 import { eagDemandChargePerYear } from '../tariff/eag-demand-charge'
+import {
+  currentNetworkTier,
+  networkTierOf,
+  networkTierSummary,
+  tieredOrRefuse,
+} from '../tariff/network-tier'
 import { getTariffStrategy } from '../tariff/strategy'
 import { usageLevyFactor } from '../tariff/usage-levy'
 import { annualizationFactor, coveredDaysOf } from './annualization'
@@ -53,6 +60,8 @@ export type BatterySavings = {
   totalSavingPerYear: number
   /** Contract-Warnungen (z.B. static-Steuerung: Spitzenkappung nicht kreditiert). */
   warnings: string[]
+  /** Stufenergebnis der Speicher-Reihe; fehlt ohne Netzentgelt-Zeilen mit Stufen. */
+  networkTier?: NetworkTierSummary
 }
 
 /** Das Contract-Feld `eagDemandSavingPerYear` — nur gesetzt, wenn ungleich 0 (Ergebnisse ohne EAG-Anteil bleiben bitgleich). */
@@ -73,6 +82,12 @@ export function computeBatterySavings(
 
   const strategy = getTariffStrategy(tariffParams.billingModel)
   const oldBilledKw = strategy.billedKw(loadProfile, tariffParams)
+  // Stufenzeile: der Leistungsteil ist die Stufenkorrektur N, die Zeile gewinnt gegen den Entwurfs-LP.
+  const currentTier = tieredOrRefuse(
+    currentNetworkTier(loadProfile, tariffParams, pricing),
+    tariffParams,
+  )
+  let networkTier: NetworkTierSummary | undefined
 
   /*
    * Bewertet wird mit derselben Preisreihe, gegen die der Fahrplan geladen hat: mit rechenbaren
@@ -118,10 +133,11 @@ export function computeBatterySavings(
   let newBilledKw: number
   let leistungspreisSavingPerYear: number
   let eagDemandSavingPerYear = 0
-  const blockers = peakShavingBlockers(loadProfile, battery, tariffParams)
+  const blockers = peakShavingBlockers(loadProfile, battery, tariffParams, pricing)
   if (blockers.length > 0) {
     newBilledKw = oldBilledKw
     leistungspreisSavingPerYear = 0
+    if (currentTier) networkTier = networkTierSummary(currentTier)
     /*
      * Je Grund ein eigener Satz, und alle zutreffenden nebeneinander: „statische Steuerung" erklärt
      * einem Kunden mit synthetischem Lastgang nicht, warum auch die dynamische Batterie daneben
@@ -180,14 +196,25 @@ export function computeBatterySavings(
     }
   } else {
     newBilledKw = sim.newBilledKw
+    const deviceTier = currentTier
+      ? tieredOrRefuse(
+          networkTierOf(loadProfile, pricing, sim.dispatch.gridAfterKw, newBilledKw),
+          tariffParams,
+        )
+      : null
+    if (deviceTier) networkTier = networkTierSummary(deviceTier)
     // Die Gebrauchsabgabe fällt auch auf den Leistungspreis an (WGAG Tarif C Post 1).
+    const demandSaving =
+      currentTier && deviceTier
+        ? currentTier.correctionEur - deviceTier.correctionEur
+        : demandChargePerYear(
+            oldBilledKw - newBilledKw,
+            tariffParams.leistungspreisEurPerKwYear,
+            tariffParams.billingModel,
+            coveredMonthCount(loadProfile),
+          )
     leistungspreisSavingPerYear =
-      demandChargePerYear(
-        oldBilledKw - newBilledKw,
-        tariffParams.leistungspreisEurPerKwYear,
-        tariffParams.billingModel,
-        coveredMonthCount(loadProfile),
-      ) * usageLevyFactor(loadProfile, levies ?? pricing?.levies)
+      demandSaving * usageLevyFactor(loadProfile, levies ?? pricing?.levies)
     // Ohne Gebrauchsabgabe: deren Bemessungsgrundlage sind nur die Netzgebühren, nicht der EAG-Beitrag.
     const levySource = { levies: levies ?? pricing?.levies ?? null }
     const eagOld = eagDemandChargePerYear(loadProfile, levySource, oldBilledKw, tariffParams.billingModel)
@@ -213,5 +240,6 @@ export function computeBatterySavings(
     coveredDays: coveredDaysOf(loadProfile),
     totalSavingPerYear,
     warnings,
+    ...(networkTier ? { networkTier } : {}),
   }
 }
