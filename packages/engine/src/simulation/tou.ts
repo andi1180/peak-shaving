@@ -8,7 +8,7 @@ import type {
   TariffPricingInputs,
   TimeOfUseWindow,
 } from 'shared'
-import { findLevyPeriod, resolveDynamicTariff } from 'shared'
+import { findLevyPeriod, perKwhComponentsCtPerKwh, resolveDynamicTariff } from 'shared'
 
 import { AnalysisRefusedError } from '../refusal'
 
@@ -372,11 +372,12 @@ export function combinedIntervalPrices(
  * Abgaben kommen danach dazu und werden nicht mitbesteuert.
  */
 function levyOnWorkPrice(energyCtPerKwh: number, netzCtPerKwh: number, levy: LevyPeriodInput): number {
-  return (
+  const price =
     (energyCtPerKwh + netzCtPerKwh) * (1 + levy.gebrauchsabgabeRate) +
     levy.elektrizitaetsabgabeCtPerKwh +
     levy.eagFoerderbeitragCtPerKwh
-  )
+  // Länderneutrale Posten je kWh (DE) neben den beiden Abgaben, ebenfalls ohne Gebrauchsabgabe.
+  return levy.perKwhComponents ? price + perKwhComponentsCtPerKwh(levy.perKwhComponents) : price
 }
 
 /** Eine Lückenmeldung, die den betroffenen Zeitraum NENNT statt ihn nur zu zählen. */

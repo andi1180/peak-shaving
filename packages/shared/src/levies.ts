@@ -73,6 +73,22 @@ export type LevyPeriodInput = {
    * die EAG-Beiträge (§ 10 Abs. 1 lit. b). Bis 24.09.2026 stand hier „nur Netzpreis“.
    */
   gebrauchsabgabeRate: number
+  /**
+   * Länderneutrale Abgabenposten in ct/kWh netto je bezogener Kilowattstunde, NICHT mit der
+   * Gebrauchsabgabe multipliziert. Fehlt das Feld, rechnet der Rechenkern wie zuvor; Österreich
+   * setzt es nicht, Deutschland trägt hier seine Posten (`buildLevySchedule`).
+   */
+  perKwhComponents?: readonly LevyPerKwhComponent[]
+}
+
+/** Ein Abgabenposten je bezogener kWh; `key` ist stabil (Report-Beschriftung). */
+export type LevyPerKwhComponent = { key: string; label: string; ctPerKwh: number }
+
+/** Summe der Abgabenposten je kWh, ct/kWh netto. */
+export function perKwhComponentsCtPerKwh(components: readonly LevyPerKwhComponent[]): number {
+  let sum = 0
+  for (const component of components) sum += component.ctPerKwh
+  return sum
 }
 
 /**
@@ -419,6 +435,47 @@ function usageLevyFor(
   return { entries: [], locationAssumed: false }
 }
 
+/**
+ * Deutschland: Abgaben und Umlagen je bezogener kWh, netto, je Gültigkeitsjahr.
+ *
+ * Wie die österreichischen Jahressätze auf IHR Kalenderjahr befristet — nach dem letzten Eintrag
+ * entsteht kein Abgabenzeitraum, und der Rechenkern verweigert. Konzessionsabgabe mit dem Satz für
+ * Sondervertragskunden; die Tarifkunden-Regel ist bewusst nicht gebaut.
+ * Jahrespflege: Projektdoc Jahrespflege_Tarifsaetze.md.
+ */
+const DE_PER_KWH_LEVIES: (DatedEntry & { components: readonly LevyPerKwhComponent[] })[] = [
+  {
+    validFrom: '2025-01-01',
+    validUntil: '2025-12-31',
+    components: [
+      { key: 'de_stromsteuer', label: 'Stromsteuer', ctPerKwh: 2.05 },
+      { key: 'de_kwkg', label: 'KWKG-Aufschlag', ctPerKwh: 0.277 },
+      { key: 'de_par19', label: 'Aufschlag für besondere Netznutzung (§ 19 StromNEV)', ctPerKwh: 1.558 },
+      { key: 'de_offshore', label: 'Offshore-Netzumlage', ctPerKwh: 0.816 },
+      { key: 'de_konzession', label: 'Konzessionsabgabe (Sondervertrag)', ctPerKwh: 0.11 },
+    ],
+    sourceNote:
+      'Deutschland 2025, netto: KWKG-Aufschlag, § 19 StromNEV-Aufschlag und Offshore-Netzumlage ' +
+      'laut netztransparenz.de; Stromsteuer StromStG § 3; Konzessionsabgabe KAV § 2 ' +
+      '(Sondervertragskunden). Stand 15.10.2026.',
+  },
+  {
+    validFrom: '2026-01-01',
+    validUntil: '2026-12-31',
+    components: [
+      { key: 'de_stromsteuer', label: 'Stromsteuer', ctPerKwh: 2.05 },
+      { key: 'de_kwkg', label: 'KWKG-Aufschlag', ctPerKwh: 0.446 },
+      { key: 'de_par19', label: 'Aufschlag für besondere Netznutzung (§ 19 StromNEV)', ctPerKwh: 1.559 },
+      { key: 'de_offshore', label: 'Offshore-Netzumlage', ctPerKwh: 0.941 },
+      { key: 'de_konzession', label: 'Konzessionsabgabe (Sondervertrag)', ctPerKwh: 0.11 },
+    ],
+    sourceNote:
+      'Deutschland 2026, netto: KWKG-Aufschlag, § 19 StromNEV-Aufschlag und Offshore-Netzumlage ' +
+      'laut netztransparenz.de; Stromsteuer StromStG § 3; Konzessionsabgabe KAV § 2 ' +
+      '(Sondervertragskunden). Stand 15.10.2026.',
+  },
+]
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // Zusammensetzen
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
@@ -476,6 +533,12 @@ export function buildLevySchedule(
   const from = `${fromDate.slice(0, 4)}-01-01`
   const to = `${toDate.slice(0, 4)}-12-31`
 
+  // Zuerst das Land: ein deutscher Plan liest keinen österreichischen Satz, ein unbekanntes Land
+  // bekommt keinen Plan (Verweigerung) statt eines österreichischen.
+  const country = context.country ?? 'AT'
+  if (country === 'DE') return buildGermanLevySchedule(from, to)
+  if (country !== 'AT') return { periods: [] }
+
   const foerderbeitraege = EAG_FOERDERBEITRAG[eagKey(netzebene, meteringVariant)] ?? []
   const pauschalen = EAG_PAUSCHALE_BY_NETZEBENE[netzebene] ?? []
 
@@ -518,4 +581,27 @@ export function buildLevySchedule(
   }
 
   return usage.locationAssumed && periods.length > 0 ? { periods, locationAssumed: 'vienna' } : { periods }
+}
+
+/**
+ * Der deutsche Plan: die österreichischen Felder auf 0, die Posten in `perKwhComponents`.
+ * Unabhängig von Netzbetreiber, Netzebene und Standort; Zeitraumgrenzen wie beim AT-Plan.
+ */
+function buildGermanLevySchedule(from: string, to: string): LevySchedule {
+  const periods: LevyPeriodInput[] = []
+  for (const entry of DE_PER_KWH_LEVIES) {
+    if (entry.validFrom > to || (entry.validUntil != null && entry.validUntil < from)) continue
+    periods.push({
+      validFrom: entry.validFrom > from ? entry.validFrom : from,
+      validUntil: entry.validUntil == null || entry.validUntil > to ? to : entry.validUntil,
+      elektrizitaetsabgabeCtPerKwh: 0,
+      eagFoerderbeitragCtPerKwh: 0,
+      eagFoerderbeitragGrundpreisAmount: 0,
+      eagFoerderbeitragGrundpreisUnit: 'eur_per_year',
+      eagPauschaleEurPerYear: 0,
+      gebrauchsabgabeRate: 0,
+      perKwhComponents: entry.components,
+    })
+  }
+  return { periods }
 }
