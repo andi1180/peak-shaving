@@ -3,7 +3,14 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { buildLevySchedule, findLevyPeriod, perKwhComponentsCtPerKwh } from './levies'
+import {
+  buildLevySchedule,
+  findLevyPeriod,
+  levyCoverageEnd,
+  levyCoverageStatus,
+  levyGapYearBeyondCoverage,
+  perKwhComponentsCtPerKwh,
+} from './levies'
 
 const HEIM = { category: 'heim', postalCode: null } as const
 const GEWERBE = { category: 'gewerbe', postalCode: null } as const
@@ -281,5 +288,37 @@ describe('buildLevySchedule — Abgabenposten je kWh nach Land', () => {
     const spanning = buildLevySchedule('x', 7, '2026-06-01', '2027-03-31', null, DE)
     expect(findLevyPeriod(spanning.periods, '2026-12-31')).not.toBeNull()
     expect(findLevyPeriod(spanning.periods, '2027-01-01')).toBeNull()
+  })
+})
+
+describe('levyCoverageEnd / levyCoverageStatus — Abdeckung der Abgabensätze je Land', () => {
+  it('AT und DE reichen heute bis 2026-12-31, ein unbekanntes Land hat keine Abdeckung', () => {
+    expect(levyCoverageEnd('AT')).toBe('2026-12-31')
+    expect(levyCoverageEnd('DE')).toBe('2026-12-31')
+    expect(levyCoverageEnd('CH')).toBeNull()
+  })
+
+  it('Positivkontrolle: eine im Test verkürzte DE-Tabelle (nur 2025) endet am 2025-12-31', () => {
+    const only2025 = [
+      { validFrom: '2025-01-01', validUntil: '2025-12-31', components: [{ key: 'x', label: 'x', ctPerKwh: 1 }] },
+    ]
+    expect(levyCoverageEnd('DE', { germanTable: only2025 })).toBe('2025-12-31')
+    expect(levyCoverageStatus(['DE'], '2025-12-01', { germanTable: only2025 })[0]!.status).toBe('warn')
+  })
+
+  it('Status: ok bis 30.11., warn ab 01.12., expired ab 01.01.; Land ohne Tabelle sofort expired', () => {
+    const at = (today: string) => levyCoverageStatus(['AT', 'DE'], today).map((s) => s.status)
+    expect(at('2026-11-30')).toEqual(['ok', 'ok'])
+    expect(at('2026-12-01')).toEqual(['warn', 'warn'])
+    expect(at('2027-01-01')).toEqual(['expired', 'expired'])
+    expect(levyCoverageStatus(['CH'], '2026-06-01')).toEqual([
+      { country: 'CH', coverageEnd: null, status: 'expired' },
+    ])
+  })
+
+  it('erkennt eine Lücke hinter der Abdeckung am Ortsdatum, nicht an UTC', () => {
+    // 31.12.2026 23:00 UTC ist in Wien bereits der 01.01.2027.
+    expect(levyGapYearBeyondCoverage([{ fromIso: '2026-12-31T23:00:00Z' }], 'AT')).toBe(2027)
+    expect(levyGapYearBeyondCoverage([{ fromIso: '2026-12-31T22:45:00Z' }], 'AT')).toBeNull()
   })
 })
