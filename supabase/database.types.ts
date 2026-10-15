@@ -1919,6 +1919,7 @@ export type Database = {
       grid_tariffs: {
         Row: {
           backfilled_at: string | null
+          country: string
           created_at: string
           created_by: string
           grundpreis_amount: number
@@ -1937,6 +1938,7 @@ export type Database = {
         }
         Insert: {
           backfilled_at?: string | null
+          country?: string
           created_at?: string
           created_by: string
           grundpreis_amount: number
@@ -1955,6 +1957,7 @@ export type Database = {
         }
         Update: {
           backfilled_at?: string | null
+          country?: string
           created_at?: string
           created_by?: string
           grundpreis_amount?: number
@@ -2514,6 +2517,7 @@ export type Database = {
       }
       backfill_grid_tariff: {
         Args: {
+          p_country?: string
           p_created_by: string
           p_grundpreis_amount: number
           p_grundpreis_unit: string
@@ -2564,6 +2568,7 @@ export type Database = {
       confirm_retail_tariff: { Args: { p_id: string }; Returns: Json }
       create_grid_tariff: {
         Args: {
+          p_country?: string
           p_created_by: string
           p_grundpreis_amount: number
           p_grundpreis_unit: string

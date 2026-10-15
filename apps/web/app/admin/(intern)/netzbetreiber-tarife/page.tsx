@@ -14,6 +14,7 @@ import {
   STALE_OPEN_STAND_MONTHS,
   combinationKey,
   combinationLabel,
+  countryLabel,
   deleteConfirmText,
   grundpreisUnitLabel,
   messpreisLabel,
@@ -188,6 +189,7 @@ export default async function AdminGridTariffsPage() {
                   <h3 className="text-h4 text-ink">{combinationLabel(rows[0]!)}</h3>
                   <p className="mt-1 text-caption text-text-muted">
                     Kennung <span className="font-medium text-text">{rows[0]!.operator_id}</span> ·{' '}
+                    {countryLabel(rows[0]!.country)} ·{' '}
                     <Num>{rows.length}</Num> {rows.length === 1 ? 'Stand' : 'Stände'}
                   </p>
 

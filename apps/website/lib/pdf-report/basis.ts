@@ -12,7 +12,6 @@ import {
   type EstimatedPvSummary,
   type LoadProfile,
   type LoadSource,
-  type NetzbetreiberId,
   type PvStage,
   reportSectionEnabled,
   type TariffPriceRange,
@@ -573,6 +572,16 @@ const TARIFF_FIELD_LABEL: Record<TariffSourceRef['overriddenFields'][number], st
 }
 
 /**
+ * Anzeigename des Netzbetreibers: das Code-Label einer Katalog-Kennung, sonst der übergebene
+ * `operator_name` der Netzentgelt-Zeile, sonst nichts.
+ */
+export function operatorLabelOf(
+  input: Pick<PdfReportInput, 'netzbetreiber' | 'netzbetreiberName'>,
+): string | undefined {
+  return input.netzbetreiber ? NETZBETREIBER_LABELS[input.netzbetreiber] : input.netzbetreiberName
+}
+
+/**
  * Welcher Tarifsatz-Stand dieser Rechnung zugrunde lag — und was davon überschrieben wurde (B11).
  *
  * ── ⚠ ER STEHT IMMER, UND „KEINE AUSWAHL" IST EINE AUSSAGE UND KEINE LEERSTELLE ───────────────
@@ -609,7 +618,7 @@ const TARIFF_FIELD_LABEL: Record<TariffSourceRef['overriddenFields'][number], st
  */
 function buildTariffSource(
   source: PdfReportTariffSource,
-  netzbetreiber: NetzbetreiberId | undefined,
+  operatorLabel: string | undefined,
 ): string {
   /*
    * ⚠ ZUERST UND ALS GLEICHHEIT GEPRÜFT, NICHT ÜBER `!source`. Der dritte Zustand ist eine
@@ -618,7 +627,7 @@ function buildTariffSource(
    * drei Antworten werden deshalb einzeln und benannt unterschieden (s. `types.ts`).
    */
   if (source === TARIFF_SOURCE_UNTRACKED) {
-    const operator = netzbetreiber ? `, laut hinterlegtem Tarif ${NETZBETREIBER_LABELS[netzbetreiber]}` : ''
+    const operator = operatorLabel ? `, laut hinterlegtem Tarif ${operatorLabel}` : ''
     return (
       'Gerechnet mit den bei diesem Zählpunkt hinterlegten Leistungspreis-, Abrechnungs- und ' +
       `Mindestleistungswerten${operator}.`
@@ -1070,13 +1079,11 @@ const NOT_SPECIFIED = 'keine Angabe'
 function gridFieldStatus(
   source: PdfReportTariffSource,
   field: TariffSourceRef['overriddenFields'][number],
-  netzbetreiber: NetzbetreiberId | undefined,
+  operatorLabel: string | undefined,
 ): string {
   /* ⚠ Als Gleichheit geprüft und nicht über `!source` — s. `buildTariffSource`. */
   if (source === TARIFF_SOURCE_UNTRACKED) {
-    return netzbetreiber
-      ? `laut hinterlegtem Tarif ${NETZBETREIBER_LABELS[netzbetreiber]}`
-      : 'laut hinterlegtem Tarif'
+    return operatorLabel ? `laut hinterlegtem Tarif ${operatorLabel}` : 'laut hinterlegtem Tarif'
   }
   if (source === null) return 'unverändert aus Ihrer Eingabe (Netzrechnung)'
   return source.overriddenFields.includes(field)
@@ -1111,7 +1118,7 @@ export function billedKwPerYear(analysis: PdfReportAnalysis): number {
 function leistungspreisRow(
   analysis: PdfReportAnalysis,
   source: PdfReportTariffSource,
-  netzbetreiber: NetzbetreiberId | undefined,
+  operatorLabel: string | undefined,
 ): ReportTableRow[] {
   if (!(analysis.current.billedKw > 0)) return []
   const rate = analysis.current.leistungspreisCostPerYear / billedKwPerYear(analysis)
@@ -1119,7 +1126,7 @@ function leistungspreisRow(
     dataRow('tariff_leistungspreis', [
       'Leistungspreis',
       `${formatEur2(rate)} / kW·a`,
-      gridFieldStatus(source, 'leistungspreisEurPerKwYear', netzbetreiber),
+      gridFieldStatus(source, 'leistungspreisEurPerKwYear', operatorLabel),
     ]),
   ]
 }
@@ -1132,7 +1139,7 @@ function leistungspreisRow(
 function billingModelRow(
   analysis: PdfReportAnalysis,
   source: PdfReportTariffSource,
-  netzbetreiber: NetzbetreiberId | undefined,
+  operatorLabel: string | undefined,
 ): ReportTableRow[] {
   const billingModel = analysis.assumptions.billingModel
   if (!hasLeistungspreis(analysis.current) || billingModel === null) return []
@@ -1140,7 +1147,7 @@ function billingModelRow(
     dataRow('tariff_billing_model', [
       'Abrechnungsmodell',
       BILLING_MODEL_LABEL[billingModel],
-      gridFieldStatus(source, 'billingModel', netzbetreiber),
+      gridFieldStatus(source, 'billingModel', operatorLabel),
     ]),
   ]
 }
@@ -1213,7 +1220,7 @@ export const TARIFF_COMPONENTS_TABLE_ID = 'table_tariff_components'
 export function buildTariffComponents(input: PdfReportInput): ReportTable {
   const a = input.analysis.assumptions
   const source = input.tariffSource
-  const netzbetreiber = input.netzbetreiber
+  const operatorLabel = operatorLabelOf(input)
 
   return {
     /* ⚠ Gewichte als VERHÄLTNIS, keine pt-Angaben — s. `buildDataSources`. Der Status trägt ganze
@@ -1226,8 +1233,8 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
     /* Die Reihenfolge ist die des Schemas (`tariffParamsSchema`): Netzseite, dann Energieseite,
        dann die Metadaten. Wer das Schema neben den Report legt, liest beide in derselben Folge. */
     rows: [
-      ...leistungspreisRow(input.analysis, source, netzbetreiber),
-      ...billingModelRow(input.analysis, source, netzbetreiber),
+      ...leistungspreisRow(input.analysis, source, operatorLabel),
+      ...billingModelRow(input.analysis, source, operatorLabel),
       ...minBillableKwAssumedRow(input),
       dataRow('tariff_energy_price', [
         'Arbeitspreis',
@@ -1564,7 +1571,7 @@ export function buildBasisChapter(
     dataQuality,
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
     pvOutage,
-    tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
+    tariffSource: buildTariffSource(input.tariffSource, operatorLabelOf(input)),
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),

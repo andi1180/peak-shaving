@@ -15,11 +15,13 @@
  * müsste.
  */
 import {
-  NETZBETREIBER_IDS,
-  NETZBETREIBER_LABELS,
+  COUNTRIES,
+  COUNTRY_LABELS,
+  GRID_OPERATOR_CATALOG,
   findWindowCollisions,
+  isCountry,
+  type Country,
   type GridTariffWindowInput,
-  type NetzbetreiberId,
   type WindowCollision,
 } from 'shared'
 import { formatDate } from './format'
@@ -127,6 +129,8 @@ export type GridTariffRow = {
   id: string
   operator_id: string
   operator_name: string
+  /** Land des Betreibers (20261015090000), ab Anlage fest. */
+  country: string
   netzebene: number
   metering_variant: string | null
   grundpreis_amount: number
@@ -179,7 +183,8 @@ export function isOpen(row: GridTariffRow): boolean {
 
 // ── Netzbetreiber-Auswahl ────────────────────────────────────────────────────────────────────────
 
-export type OperatorOption = { id: string; name: string }
+/** `country` ist das Land der Kennung — das Formular filtert die Auswahl danach. */
+export type OperatorOption = { id: string; name: string; country: Country }
 
 /**
  * Die Auswahlliste des Formulars — aus ZWEI Quellen zusammengeführt, plus einem Weg für alles
@@ -200,26 +205,31 @@ export type OperatorOption = { id: string; name: string }
  * nie. Der Fehler fiele erst auf, wenn eine Analyse den falschen Leistungspreis zieht.
  *
  * ── DIE LÖSUNG: WAS EINMAL EINGETRAGEN WURDE, IST DANACH AUSWÄHLBAR ─────────────────────────────
- * Angeboten werden die drei bekannten Kennungen aus B11 UND jede Kennung, die bereits in
- * `grid_tariffs` steht. Ein neuer Betreiber wird also genau EINMAL von Hand eingetragen und ist von
- * da an ein Listeneintrag, der sich nicht mehr vertippen lässt.
+ * Angeboten werden die Kennungen des Code-Katalogs (`GRID_OPERATOR_CATALOG`, je Land) UND jede
+ * Kennung, die bereits in `grid_tariffs` steht — jeweils mit ihrem Land. Ein neuer Betreiber wird
+ * also genau EINMAL von Hand eingetragen und ist von da an ein Listeneintrag, der sich nicht mehr
+ * vertippen lässt.
  *
  * Der Anzeigename folgt dabei der ZULETZT gespeicherten Fassung (die Zeilen kommen absteigend nach
  * `created_at`): eine Umbenennung setzt sich damit von selbst durch, ohne dass die stabile Kennung
  * sich ändert.
  */
 export function operatorOptions(existing: readonly GridTariffRow[]): OperatorOption[] {
-  const byId = new Map<string, string>()
+  const byId = new Map<string, { name: string; country: Country }>()
 
-  for (const id of NETZBETREIBER_IDS) {
-    byId.set(id, NETZBETREIBER_LABELS[id as NetzbetreiberId])
+  for (const country of COUNTRIES) {
+    for (const option of GRID_OPERATOR_CATALOG[country]) {
+      byId.set(option.id, { name: option.label, country })
+    }
   }
   for (const row of existing) {
-    if (!byId.has(row.operator_id)) byId.set(row.operator_id, row.operator_name)
+    if (!byId.has(row.operator_id) && isCountry(row.country)) {
+      byId.set(row.operator_id, { name: row.operator_name, country: row.country })
+    }
   }
 
   return [...byId.entries()]
-    .map(([id, name]) => ({ id, name }))
+    .map(([id, { name, country }]) => ({ id, name, country }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de-AT'))
 }
 
@@ -296,6 +306,11 @@ export function messpreisLabel(row: Pick<GridTariffRow, 'messpreis_amount' | 'me
 
 export function priceBasisLabel(value: string): string {
   return PRICE_BASIS_LABELS[value as PriceBasisValue] ?? value
+}
+
+/** Anzeigename des Landes einer Zeile; ein unbekannter Wert bleibt roh lesbar. */
+export function countryLabel(country: string): string {
+  return isCountry(country) ? COUNTRY_LABELS[country] : country
 }
 
 /** „Wiener Netze · NE 7 · mit Leistungsmessung" — die Kombination, auf der die Datierung beruht. */

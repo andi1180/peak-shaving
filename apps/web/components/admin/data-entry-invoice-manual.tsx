@@ -51,6 +51,8 @@ import {
   BILLING_MODEL_LABELS,
   INVOICE_MERGE_FIELD_LABELS,
   VAT_INCLUSIVE_LABEL,
+  type Country,
+  type GridOperatorOption,
 } from 'shared'
 
 import Link from 'next/link'
@@ -106,11 +108,15 @@ type Phase = 'connection' | 'choice' | 'tariff'
 export function DataEntryInvoiceManual({
   projectId,
   meteringPointId,
+  country,
+  operators,
   initial,
   nextHref,
 }: {
   projectId: string
   meteringPointId: string
+  country: Country
+  operators: readonly GridOperatorOption[]
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
   /**
@@ -236,6 +242,8 @@ export function DataEntryInvoiceManual({
 
         <DataEntryGridConnectionFields
           idPrefix="manual"
+          country={country}
+          operators={operators}
           value={connection}
           onChange={changeConnection}
           fieldError={fieldError}

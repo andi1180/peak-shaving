@@ -10,6 +10,7 @@ import {
   withInvoicePriceBasis,
   withStoredInvoiceExtractions,
 } from './invoice-extractions'
+import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
 import type { AdminState } from './schema'
@@ -64,7 +65,7 @@ export async function setInvoicePriceBasisAction(
     entry.documentId === documentId ? { ...entry, supplierPriceBasisChosen: basis } : entry,
   )
 
-  const fold = foldStoredInvoices(next)
+  const fold = foldStoredInvoices(next, await readKnownOperatorIdsForProject(supabase, projectId))
   let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, next), fold)
   const now = new Date()
   for (const { field, value } of fold.values) {

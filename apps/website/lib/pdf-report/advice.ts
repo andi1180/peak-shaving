@@ -10,7 +10,7 @@ import {
   isAnnualized,
   storagePaysOff,
 } from '@/lib/report-copy'
-import { formatIsoDate } from './basis'
+import { formatIsoDate, operatorLabelOf } from './basis'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { catalogVerdictIsNo, comparisonSelection, hasComparisonChapter } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
@@ -382,9 +382,7 @@ function gridCostSentence(input: PdfReportInput): string | null {
     .filter((value): value is string => value !== null)
   if (dates.length === 0) return null
 
-  const operator = input.netzbetreiber
-    ? NETZBETREIBER_LABELS[input.netzbetreiber]
-    : 'Ihres Netzbetreibers'
+  const operator = operatorLabelOf(input) ?? 'Ihres Netzbetreibers'
   /* ⚠ MEHRERE STÄNDE WERDEN ALLE GENANNT: ein langer Lastgang kann einen Tarifwechsel überqueren,
      und nur den ersten zu nennen wäre eine Angabe, die für den halben Zeitraum nicht stimmt. */
   const head =

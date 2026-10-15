@@ -4,6 +4,7 @@ import { MeteringPointAnalysisError, runAnalysisFromMeteringPointDraft } from 'e
 import {
   COUNTRY_LABELS,
   NETZBETREIBER_DRAFT_KEY,
+  NETZBETREIBER_IDS,
   REPORT_OPTIONAL_SECTIONS,
   REPORT_OPTIONAL_SECTIONS_FIELD,
   REPORT_OPTIONAL_SECTIONS_MARKER,
@@ -21,6 +22,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { batteryCategoryForSegment, fetchBatteryCatalogForAnalysis } from './battery-catalog-source'
+import { readOperatorDisplayName } from './grid-operators'
 import { draftValueFromInvoice } from './invoice-draft-fields'
 import { readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
@@ -224,10 +226,19 @@ export async function createReportRenderRequestAction(
    * ein später geänderter Entwurf darf eine bereits übergebene Rechnung nicht still umschreiben.
    */
   const netzbetreiber = point.draft[NETZBETREIBER_DRAFT_KEY]
+  // Ausserhalb des AT-Katalogs gibt es kein Code-Label — der Name der gerechneten Zeile reist mit.
+  const netzbetreiberName =
+    typeof netzbetreiber === 'string' &&
+    !(NETZBETREIBER_IDS as readonly string[]).includes(netzbetreiber) &&
+    // Die Zuweisung geschieht im Port-Callback; TypeScript sieht sie hier nicht.
+    ((gridTariffRows as GridTariffRowInput[] | null)?.length ?? 0) > 0
+      ? await readOperatorDisplayName(supabase, netzbetreiber, project.country)
+      : null
   const supplierBaseFee = point.draft.supplierBaseFeeEurPerMonth
   const reportInputMeta = {
     customerLabel: project.customer_label,
     netzbetreiber: typeof netzbetreiber === 'string' ? netzbetreiber : null,
+    ...(netzbetreiberName ? { netzbetreiberName } : {}),
     // Für „Ihr Netzanschluss" (Voraussetzungen) — `tariffSource` bleibt hier der dritte Zustand.
     netzebene: parseNetzebeneDraftValue(point.draft.netzebene),
     // Mindestleistung fehlte und wurde mit 0 gerechnet — dieselbe Bedingung wie im Lauf; nur `true` wird vermerkt.

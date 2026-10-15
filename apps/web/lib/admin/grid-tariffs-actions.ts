@@ -60,6 +60,11 @@ function formatDay(value: string): string {
     : new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'UTC' }).format(parsed)
 }
 
+/** Die Kennung ist in `grid_tariffs` bereits einem anderen Land zugeordnet (Trigger, 20261015090000). */
+const OPERATOR_COUNTRY_MISMATCH =
+  'Diese Netzbetreiber-Kennung ist bereits einem anderen Land zugeordnet. Ein Betreiber gehört ' +
+  'genau einem Land — bitte das Land oder die Kennung prüfen.'
+
 /**
  * Legt einen Tarifstand an und schliesst dabei die bisher offene Zeile derselben Kombination.
  *
@@ -114,6 +119,7 @@ export async function createGridTariffAction(
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
     p_created_by: createdBy,
+    p_country: input.country,
     p_windows: input.windows.map((w) => ({
       label: w.label,
       month_day_from: w.monthDayFrom ?? null,
@@ -159,6 +165,8 @@ export async function createGridTariffAction(
               '(Netzebene, Einheit oder Preisbasis).',
             values,
           }
+        case 'operator_country_mismatch':
+          return { fieldErrors: { country: OPERATOR_COUNTRY_MISMATCH }, values }
       }
     }
     console.error('[admin/grid-tariffs] create_grid_tariff:', error)
@@ -216,6 +224,8 @@ export async function createGridTariffAction(
         values,
       }
     }
+    case 'invalid_country':
+      return { fieldErrors: { country: 'Bitte das Land des Netzbetreibers wählen.' }, values }
     case 'no_windows':
       return {
         formError:
@@ -461,6 +471,7 @@ export async function backfillGridTariffAction(
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
     p_created_by: createdBy,
+    p_country: input.country,
     p_windows: input.windows.map((w) => ({
       label: w.label,
       month_day_from: w.monthDayFrom ?? null,
@@ -499,6 +510,8 @@ export async function backfillGridTariffAction(
               '(Netzebene, Einheit oder Preisbasis).',
             values,
           }
+        case 'operator_country_mismatch':
+          return { fieldErrors: { country: OPERATOR_COUNTRY_MISMATCH }, values }
       }
     }
     console.error('[admin/grid-tariffs] backfill_grid_tariff:', error)
@@ -557,6 +570,8 @@ export async function backfillGridTariffAction(
           'eintragen.',
         values,
       }
+    case 'invalid_country':
+      return { fieldErrors: { country: 'Bitte das Land des Netzbetreibers wählen.' }, values }
     case 'no_windows':
       return {
         formError:

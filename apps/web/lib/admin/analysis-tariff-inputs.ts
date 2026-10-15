@@ -28,6 +28,7 @@ import {
   buildLevySchedule,
   readDraftDynamicTariff,
   spotPriceProviderFor,
+  type Country,
   type LevyContext,
   type SpotPriceProvider,
 } from 'shared'
@@ -79,6 +80,8 @@ export type GridTariffReadParams = {
   netzebene: number
   /** `null` bei Netzebenen ohne Varianten (NE 3–6) — und dann wird auf `IS NULL` gefiltert, nicht auf „egal". */
   meteringVariant: string | null
+  /** Projektland — eine Kennung eines anderen Landes findet so keine Zeile (Blocker statt Kreuzung). */
+  country: Country
   window: AnalysisPeriod
 }
 
@@ -107,12 +110,13 @@ export type GridTariffReadParams = {
  */
 export async function readGridTariffRowsForAnalysis(
   supabase: AdminClient,
-  { operatorId, netzebene, meteringVariant, window }: GridTariffReadParams,
+  { operatorId, netzebene, meteringVariant, country, window }: GridTariffReadParams,
 ): Promise<GridTariffRowInput[]> {
   const base = supabase
     .from('grid_tariffs')
     .select(GRID_TARIFF_SELECT)
     .eq('operator_id', operatorId)
+    .eq('country', country)
     .eq('netzebene', netzebene)
     .lte('valid_from', toDateOnly(window.endIso))
     .or(`valid_until.is.null,valid_until.gte.${toDateOnly(window.startIso)}`)
@@ -312,18 +316,21 @@ export async function readTariffPricingForAnalysis(
   draft: Record<string, unknown>,
 ): Promise<TariffPricingInputs> {
   const { operatorId, netzebene, meteringVariant, window, intervalMinutes } = request
+  // Fehlt das Land im Kontext, gilt wie vor der DE-Erweiterung Österreich.
+  const country = levyContext.country ?? DEFAULT_COUNTRY
 
   const [grid, spot] = await Promise.allSettled([
     operatorId !== null && netzebene !== null
-      ? readGridTariffRowsForAnalysis(supabase, { operatorId, netzebene, meteringVariant, window })
+      ? readGridTariffRowsForAnalysis(supabase, {
+          operatorId,
+          netzebene,
+          meteringVariant,
+          country,
+          window,
+        })
       : Promise.resolve(null),
     // Das Projektland steht im Abgaben-Kontext (der Port selbst trägt es nicht); ohne Angabe gilt AT.
-    readSpotPricesForAnalysis(
-      supabase,
-      window,
-      intervalMinutes,
-      spotPriceProviderFor(levyContext.country ?? DEFAULT_COUNTRY),
-    ),
+    readSpotPricesForAnalysis(supabase, window, intervalMinutes, spotPriceProviderFor(country)),
   ])
 
   if (grid.status === 'rejected') {

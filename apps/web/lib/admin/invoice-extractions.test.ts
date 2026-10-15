@@ -200,6 +200,26 @@ describe('invoiceDraftValues — was in den Entwurf geht und in welcher Form', (
     expect(ohne.some((value) => value.field === NETZBETREIBER_DRAFT_KEY)).toBe(false)
   })
 
+  it('prüft gegen die Betreiber des Projektlandes: DE-Betreiber bekannt, AT-Betreiber nicht', () => {
+    const DE_OPERATORS = ['stromnetz_berlin']
+    const has = (values: { field: string; value: unknown }[], id: string) =>
+      values.some((v) => v.field === NETZBETREIBER_DRAFT_KEY && v.value === id)
+
+    const deInDe = invoiceDraftValues(
+      extraction({ netzbetreiber: 'stromnetz_berlin' as never }),
+      DE_OPERATORS,
+    )
+    expect(has(deInDe, 'stromnetz_berlin')).toBe(true)
+    expect(has(invoiceDraftValues(extraction(), DE_OPERATORS), 'wiener_netze')).toBe(false)
+    // Ohne Länderliste gilt der AT-Katalog wie bisher.
+    expect(has(invoiceDraftValues(extraction()), 'wiener_netze')).toBe(true)
+
+    expect(
+      readManualTariffDraft({ netzbetreiber: 'wiener_netze' }, 'net', DE_OPERATORS).operatorId,
+    ).toBe('')
+    expect(readManualTariffDraft({ netzbetreiber: 'wiener_netze' }).operatorId).toBe('wiener_netze')
+  })
+
   it('⚠ legt den Jahresverbrauch unter denselben Schlüssel wie der Standardprofil-Zweig', () => {
     const values = invoiceDraftValues(extraction())
     const verbrauch = values.find((value) => value.value === 88_426)

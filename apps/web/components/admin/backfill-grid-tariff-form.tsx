@@ -52,6 +52,7 @@ import {
   PRICE_BASIS_LABELS,
   backfillRangeText,
   combinationLabel,
+  countryLabel,
   previousDay,
   type GridTariffRow,
 } from '@/lib/admin/grid-tariffs'
@@ -173,6 +174,8 @@ export function BackfillGridTariffForm({ oldest }: { oldest: GridTariffRow }) {
       */}
       <input type="hidden" name="operatorId" value={oldest.operator_id} />
       <input type="hidden" name="netzebene" value={String(oldest.netzebene)} />
+      {/* Das Land der Kombination — der Nachtrag kann nur in ihrem Land liegen (Trigger). */}
+      <input type="hidden" name="country" value={oldest.country} />
       {variant !== null && <input type="hidden" name="meteringVariant" value={variant} />}
 
       {state.formError && <AdminError>{state.formError}</AdminError>}
@@ -181,8 +184,12 @@ export function BackfillGridTariffForm({ oldest }: { oldest: GridTariffRow }) {
         <AdminFixedValue
           id={`${formId}-kombination`}
           label="Kombination"
-          value={combinationLabel(oldest)}
-          error={state.fieldErrors?.netzebene ?? state.fieldErrors?.meteringVariant}
+          value={`${combinationLabel(oldest)} · ${countryLabel(oldest.country)}`}
+          error={
+            state.fieldErrors?.netzebene ??
+            state.fieldErrors?.meteringVariant ??
+            state.fieldErrors?.country
+          }
           hint={
             'Festgelegt durch die Karte, in der dieses Formular steht — ein früherer Stand gehört ' +
             'immer zu genau dieser Kombination.'

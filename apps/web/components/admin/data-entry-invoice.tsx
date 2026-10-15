@@ -81,7 +81,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
-import { hasSupplierPrices, priceBasisLabel, type PriceBasis } from 'shared'
+import {
+  hasSupplierPrices,
+  priceBasisLabel,
+  type Country,
+  type GridOperatorOption,
+  type PriceBasis,
+} from 'shared'
 
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
@@ -118,9 +124,14 @@ export function DataEntryInvoice({
   maxBytes,
   nextHref,
   defaultPriceBasis,
+  country,
+  operators,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
+  /** Projektland und dessen Netzbetreiber — für die Netzanschluss-Felder. */
+  country: Country
+  operators: readonly GridOperatorOption[]
   /** H3: Vorgabe der Preisbasis nach Segment (privat → inkl. USt, betrieb → netto). */
   defaultPriceBasis: PriceBasis
   /** 1-basiert, wie in der Station — die Nummer ist eine Position, keine Kennung. */
@@ -169,7 +180,11 @@ export function DataEntryInvoice({
    * Station auch (s. Kopf). Er befüllt das Formular der Handeingabe wieder; ohne ihn stand es nach
    * jedem Stationswechsel leer da, obwohl gespeichert war.
    */
-  const manualValues = readManualTariffDraft(meteringPoint.draft, defaultPriceBasis)
+  const manualValues = readManualTariffDraft(
+    meteringPoint.draft,
+    defaultPriceBasis,
+    operators.map((operator) => operator.id),
+  )
   const hasManualValues = !manualTariffDraftIsEmpty(manualValues)
   /*
    * ⚠ AUFGEKLAPPT, SOBALD ETWAS ERFASST IST — und nur dann.
@@ -408,6 +423,8 @@ export function DataEntryInvoice({
             <DataEntryInvoiceSkip
               projectId={projectId}
               meteringPointId={meteringPoint.id}
+              country={country}
+              operators={operators}
               initial={{
                 operatorId: manualValues.operatorId,
                 netzebene: manualValues.netzebene,
@@ -431,6 +448,8 @@ export function DataEntryInvoice({
             <DataEntryInvoiceManual
               projectId={projectId}
               meteringPointId={meteringPoint.id}
+              country={country}
+              operators={operators}
               initial={manualValues}
               nextHref={nextHref}
             />

@@ -237,7 +237,10 @@ export function invoicesAwaitingPriceBasis(
  * umgerechnet, solche mit unklarer Basis zurückgehalten. `supplierPriceBasis` ist die Basis, die
  * der Entwurf neben den Nettowerten festhält (die der ersten Rechnung, deren Preise eingehen).
  */
-export function foldStoredInvoices(entries: readonly StoredInvoiceExtraction[]) {
+export function foldStoredInvoices(
+  entries: readonly StoredInvoiceExtraction[],
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
+) {
   const { merged, conflicts } = mergeInvoiceExtractions(
     entries.map((entry) => supplierPricesOnNetBasis(entry.extraction, supplierPriceBasisOf(entry))),
   )
@@ -247,7 +250,7 @@ export function foldStoredInvoices(entries: readonly StoredInvoiceExtraction[]) 
   return {
     merged,
     conflicts,
-    values: invoiceDraftValues(merged),
+    values: invoiceDraftValues(merged, knownOperatorIds),
     supplierPriceBasis: counted ? supplierPriceBasisOf(counted) : null,
   }
 }
@@ -277,9 +280,19 @@ export function isSupplierPriceField(key: string): boolean {
 
 export const INVOICE_DRAFT_FIELD_KEYS: readonly InvoiceMergeFieldKey[] = INVOICE_MERGE_FIELD_KEYS
 
+/**
+ * Die Betreiber-Kennungen, die die Handeingabe zur Auswahl stellt — Vorgabe ist der AT-Katalog.
+ * Für ein Projekt eines anderen Landes reicht der Aufrufer dessen Liste herein
+ * (`gridOperatorOptionsFor`), sonst gälte ein österreichischer Betreiber dort als bekannt.
+ */
+export type KnownOperatorIds = readonly string[]
+
 /** Ist der gelesene Betreiber eine der Kennungen, die auch die Handeingabe zur Auswahl stellt? */
-function isKnownNetzbetreiber(value: string | number): boolean {
-  return (NETZBETREIBER_IDS as readonly string[]).includes(String(value))
+function isKnownNetzbetreiber(
+  value: string | number,
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
+): boolean {
+  return knownOperatorIds.includes(String(value))
 }
 
 /** Ein Wert, fertig für `setDraftField` — Feldname im Entwurf und der Wert in Contract-Form. */
@@ -338,7 +351,10 @@ export function netzebeneDraftValue(value: string | number): string {
  * korrigiert worden sein); damit es niemandem entgeht, nennt die Station den Widerspruch
  * ausdrücklich und weist auf den stehengebliebenen Wert hin.
  */
-export function invoiceDraftValues(merged: InvoiceExtraction): InvoiceDraftValue[] {
+export function invoiceDraftValues(
+  merged: InvoiceExtraction,
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
+): InvoiceDraftValue[] {
   const values: InvoiceDraftValue[] = []
   for (const key of INVOICE_DRAFT_FIELD_KEYS) {
     const raw = mergeFieldValue(merged, key)
@@ -351,7 +367,7 @@ export function invoiceDraftValues(merged: InvoiceExtraction): InvoiceDraftValue
      * eigene Entscheidung — und eine falsch geratene Zuständigkeit sähe im Report aus wie eine
      * abgelesene.
      */
-    if (key === 'netzbetreiber' && !isKnownNetzbetreiber(raw)) continue
+    if (key === 'netzbetreiber' && !isKnownNetzbetreiber(raw, knownOperatorIds)) continue
     values.push({
       field: draftFieldFor(key),
       value: key === 'netzebene' ? netzebeneDraftValue(raw) : raw,
@@ -563,6 +579,7 @@ export function readManualTariffDraft(
   draft: Record<string, unknown>,
   /** Die Vorgabe für einen Entwurf ohne Lieferantenpreise — nach Segment (heim → brutto). */
   defaultPriceBasis: PriceBasis = 'net',
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
 ): ManualTariffDraft {
   const operatorRaw = draft[NETZBETREIBER_DRAFT_KEY]
   const storedBasis = draft[SUPPLIER_PRICE_BASIS_DRAFT_KEY]
@@ -600,7 +617,9 @@ export function readManualTariffDraft(
   return {
     priceBasis,
     operatorId:
-      typeof operatorRaw === 'string' && isKnownNetzbetreiber(operatorRaw) ? operatorRaw : '',
+      typeof operatorRaw === 'string' && isKnownNetzbetreiber(operatorRaw, knownOperatorIds)
+        ? operatorRaw
+        : '',
     netzebene: readNetzebeneDigit(netzebeneRaw),
     billingModel: confirmed ? (billingModelRaw as BillingModel) : DEFAULT_DRAFT_BILLING_MODEL,
     billingModelConfirmed: confirmed,

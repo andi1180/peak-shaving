@@ -52,6 +52,10 @@ const extractPvDesign = vi.fn()
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
+// Projektland AT: die Rechnungs-Actions prüfen gegen dessen Betreiberliste (hier der AT-Katalog).
+vi.mock('./grid-operators', () => ({
+  readKnownOperatorIdsForProject: async () => ['wiener_netze', 'netz_noe', 'salzburg_netz'],
+}))
 vi.mock('next/navigation', () => ({
   redirect: (href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`)

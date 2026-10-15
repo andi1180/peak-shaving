@@ -34,6 +34,7 @@ import {
   withStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
+import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
 import type { AdminState } from './schema'
@@ -253,7 +254,7 @@ export async function uploadMeteringPointInvoicesAction(
 
   const stored = readStoredInvoiceExtractions(point.draft)
   const all = [...stored, ...read.map((result) => result.entry)]
-  const fold = foldStoredInvoices(all)
+  const fold = foldStoredInvoices(all, await readKnownOperatorIdsForProject(supabase, projectId))
   const { conflicts } = fold
 
   /*
@@ -494,7 +495,10 @@ export async function removeMeteringPointInvoiceAction(
   }
 
   const remaining = stored.filter((entry) => entry.documentId !== documentId)
-  const fold = foldStoredInvoices(remaining)
+  const fold = foldStoredInvoices(
+    remaining,
+    await readKnownOperatorIdsForProject(supabase, projectId),
+  )
   const { conflicts } = fold
 
   /*
