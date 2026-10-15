@@ -53,7 +53,7 @@ describe('mapDraftToTariffParams', () => {
     )
     // Ein unbekannter Wert wird ABGEWIESEN und nicht still durch den Vorgabewert ersetzt.
     expect(() => mapDraftToTariffParams({ ...DRAFT, billingModel: 'quartalsmittel' })).toThrow(
-      /billingModel/,
+      /Abrechnungsmodell/,
     )
   })
 
@@ -82,7 +82,7 @@ describe('mapDraftToTariffParams', () => {
       mapDraftToTariffParams(DRAFT, { billingModelOverride: 'annual_max' }).billingModel,
     ).toBe('annual_max')
     expect(() => mapDraftToTariffParams(ohneLeistungspreis)).toThrow(
-      /leistungspreisEurPerKwYear/,
+      /Leistungspreis Netz/,
     )
   })
 
@@ -110,7 +110,37 @@ describe('mapDraftToTariffParams', () => {
         invoiceSkipped: false,
       }
       expect(draftMinBillableKwDefaults(draft)).toBe(false)
-      expect(() => mapDraftToTariffParams(draft)).toThrow(/energyPriceCtPerKwh/)
+      expect(() => mapDraftToTariffParams(draft)).toThrow(/Energie-Arbeitspreis/)
     })
+  })
+})
+
+describe('mapDraftToTariffParams — Meldung bei unvollständigem Entwurf', () => {
+  it('nennt in EINEM Durchgang alle fehlenden Pflichtangaben im Klartext, samt Station', () => {
+    let message = ''
+    try {
+      mapDraftToTariffParams({})
+    } catch (error) {
+      message = (error as Error).message
+    }
+    expect(message).toBe(
+      'Für die Berechnung fehlen: Leistungspreis Netz (€/kW·a), Mindestleistung (kW), ' +
+        'Energie-Arbeitspreis (ct/kWh). Eintragen in: Rechnung-Station (oder Knopf ' +
+        '„Werte vorschlagen" aus dem Preisblatt bzw. „Ohne Rechnung fortfahren").',
+    )
+    expect(message).not.toMatch(/Required|leistungspreisEurPerKwYear|minBillableKw/)
+  })
+})
+
+describe('Mindestleistung mit Leistungsmessung auf Netzebene 7 — für jedes Land gleich', () => {
+  const { minBillableKw: _drop, ...ohneMindestleistung } = DRAFT
+
+  it.each([
+    ['AT', 'wiener_netze'],
+    ['DE', 'netze_bw'],
+  ])('%s: fehlende Mindestleistung wird 0', (_country, netzbetreiber) => {
+    const draft = { ...ohneMindestleistung, netzbetreiber, meteringVariant: 'mit_leistungsmessung' }
+    expect(mapDraftToTariffParams(draft).minBillableKw).toBe(0)
+    expect(draftMinBillableKwDefaults(draft)).toBe(true)
   })
 })

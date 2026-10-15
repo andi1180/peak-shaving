@@ -64,11 +64,18 @@ function stubClient(result: { data: Row[] | null; error: { message: string } | n
   return { supabase: supabase as never, calls }
 }
 
-const NE3 = { operatorId: 'wiener_netze', netzebene: 3, meteringVariant: null, stichtag: '2026-03-15' }
+const NE3 = {
+  operatorId: 'wiener_netze',
+  netzebene: 3,
+  meteringVariant: null,
+  country: 'AT' as const,
+  stichtag: '2026-03-15',
+}
 const NE7_OHNE = {
   operatorId: 'wiener_netze',
   netzebene: 7,
   meteringVariant: 'ohne_leistungsmessung',
+  country: 'AT' as const,
   stichtag: '2026-03-15',
 }
 
@@ -179,5 +186,43 @@ describe('lookupGridTariffDefaults — keine passende Zeile ist eine Antwort, ke
     // Als `null` durchgereicht behauptete ein Ausfall eine Fehlanzeige im Preisblatt, und jemand
     // trüge Werte von Hand nach, die längst gepflegt sind.
     await expect(lookupGridTariffDefaults(supabase, NE3)).rejects.toThrow('connection reset')
+  })
+})
+
+describe('lookupGridTariffDefaults — Projektland', () => {
+  /** Ein Bau, der `.eq`/`.is` wirklich auf die Zeilen anwendet — so wird der Länderfilter wirksam statt nur mitgeschrieben. */
+  function filteringClient(rows: (Row & Record<string, unknown>)[]) {
+    const filters: [string, unknown][] = []
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => (filters.push([column, value]), builder),
+      is: (column: string, value: unknown) => (filters.push([column, value]), builder),
+      then: (resolve: (value: unknown) => unknown) =>
+        Promise.resolve({
+          data: rows.filter((row) => filters.every(([column, value]) => (row[column] ?? null) === value)),
+          error: null,
+        }).then(resolve),
+    }
+    return { from: () => builder } as never
+  }
+
+  const ROWS = [
+    { operator_id: 'netze_bw', netzebene: 7, metering_variant: 'mit_leistungsmessung', country: 'DE',
+      grundpreis_amount: 61.4, grundpreis_unit: 'eur_per_kw_year', valid_from: '2026-01-01', valid_until: null },
+    { operator_id: 'wiener_netze', netzebene: 7, metering_variant: 'mit_leistungsmessung', country: 'AT',
+      grundpreis_amount: 38.52, grundpreis_unit: 'eur_per_kw_year', valid_from: '2026-01-01', valid_until: null },
+  ]
+  const DE_NE7 = { netzebene: 7, meteringVariant: 'mit_leistungsmessung', country: 'DE' as const, stichtag: '2026-03-15' }
+
+  it('DE-Projekt mit DE-Zeile: Stufe-1-Leistungspreis übernommen, Mindestleistung 0', async () => {
+    await expect(
+      lookupGridTariffDefaults(filteringClient(ROWS), { ...DE_NE7, operatorId: 'netze_bw' }),
+    ).resolves.toEqual({ leistungspreisEurPerKwYear: 61.4, minBillableKw: 0 })
+  })
+
+  it('DE-Projekt mit AT-Betreiber: keine Zeile, statt den österreichischen Satz vorzuschlagen', async () => {
+    await expect(
+      lookupGridTariffDefaults(filteringClient(ROWS), { ...DE_NE7, operatorId: 'wiener_netze' }),
+    ).resolves.toBeNull()
   })
 })

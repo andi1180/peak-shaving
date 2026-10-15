@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
 import {
   BILLING_MODELS,
+  COUNTRY_LABELS,
   DEFAULT_DRAFT_BILLING_MODEL,
   METERING_VARIANTS,
   NETZBETREIBER_DRAFT_KEY,
@@ -36,7 +37,7 @@ import {
 } from './invoice-extractions'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
-import { projectDataEntryHref } from './projects'
+import { projectDataEntryHref, readAdminProject } from './projects'
 import type { AdminState } from './schema'
 import type { Json } from '@/db-types'
 import {
@@ -784,12 +785,23 @@ export async function lookupGridTariffDefaultsAction(
 
   const stichtag = tariffStichtag(point.coveredFrom, new Date())
 
+  // Ohne lesbares Projektland kein Vorschlag: ein AT-Satz für ein DE-Projekt wäre schlimmer als keiner.
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+  const project = readAdminProject(projectRes.data)
+  if (projectRes.error || project === null || project === 'not_found') {
+    if (projectRes.error && isForbidden(projectRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] admin_get_project (Tarif-Lookup):', projectRes.error ?? project)
+    return { formError: GENERIC }
+  }
+  const country = project.country
+
   let defaults
   try {
     defaults = await lookupGridTariffDefaults(supabase, {
       operatorId,
       netzebene,
       meteringVariant,
+      country,
       stichtag,
     })
   } catch (error) {
@@ -805,7 +817,7 @@ export async function lookupGridTariffDefaultsAction(
   }
 
   if (defaults === null) {
-    return { values: { lookup: 'none', stichtag } }
+    return { values: { lookup: 'none', stichtag, country: COUNTRY_LABELS[country] } }
   }
 
   return {

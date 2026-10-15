@@ -1,5 +1,6 @@
 import {
   DEFAULT_DRAFT_BILLING_MODEL,
+  describeTariffParamsProblems,
   draftMinBillableKwDefaults,
   tariffParamsSchema,
   type BillingModel,
@@ -207,15 +208,7 @@ export function mapDraftToTariffParams(
 
   const parsed = tariffParamsSchema.safeParse(candidate)
   if (!parsed.success) {
-    const problems = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || '(Wurzel)'}: ${issue.message}`)
-      .join(' · ')
-    throw new Error(
-      `Der Entwurf ergibt keine gültigen Tarifparameter — ${problems}. ` +
-        'Die fehlenden Angaben stammen aus der Netzrechnung und werden in der Rechnung-Station ' +
-        'erfasst; geraten wird hier nichts. Gibt es keine Stromrechnung, dort „Ohne Rechnung ' +
-        'fortfahren" wählen — dann wird mit unbekanntem Liefertarif gerechnet.',
-    )
+    throw new Error(describeTariffParamsProblems(candidate, parsed.error.issues))
   }
 
   return parsed.data

@@ -348,20 +348,17 @@ export async function readTariffPricingForAnalysis(
     spotPrices: spot.status === 'fulfilled' ? spot.value : null,
     /*
      * Die Abgaben stammen aus der versionierten Code-Schicht (`shared/levies.ts`), nicht aus der
-     * Datenbank — dieselbe Auflösung wie im öffentlichen Rechner, damit beide Wege dieselbe
-     * Rechnung ergeben. Ohne Netzbetreiber/Netzebene nicht auflösbar.
+     * Datenbank — dieselbe Auflösung wie im öffentlichen Rechner. Ob Netzbetreiber/Netzebene nötig
+     * sind, entscheidet der Plan des Landes (AT: ja, sonst `null`; DE: nein).
      */
-    levies:
-      operatorId !== null && netzebene !== null
-        ? buildLevySchedule(
-            operatorId,
-            netzebene,
-            toDateOnly(window.startIso),
-            toDateOnly(window.endIso),
-            meteringVariant,
-            levyContext,
-          )
-        : null,
+    levies: buildLevySchedule(
+      operatorId,
+      netzebene,
+      toDateOnly(window.startIso),
+      toDateOnly(window.endIso),
+      meteringVariant,
+      levyContext,
+    ),
     // Konditionen des dynamischen Tarifs aus dem Entwurf, für jedes Land gleich (leer ⇒ `null` ⇒ kein Vergleich).
     dynamicTariff: readDraftDynamicTariff(draft),
   }

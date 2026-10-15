@@ -337,8 +337,8 @@ export function DataEntryInvoiceManual({
                   ? `Aus dem hinterlegten Preisblatt übernommen (Stand ${suggested.stichtag}). ` +
                     'Beide Werte bleiben frei änderbar.'
                   : lookupState.values?.lookup === 'none'
-                    ? 'Für diese Kombination ist kein Preisblatt hinterlegt — bitte von der ' +
-                      'Netzrechnung abtippen.'
+                    ? `Für diese Kombination ist im Projektland (${lookupState.values.country ?? '—'}) ` +
+                      'kein Preisblatt hinterlegt — bitte von der Netzrechnung abtippen.'
                     : ''}
             </span>
           </div>

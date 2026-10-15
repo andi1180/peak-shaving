@@ -517,6 +517,9 @@ function pick<T extends DatedEntry>(entries: readonly T[], date: string): T | nu
  *                 `null`. Auf NE 7 entscheidet sie über den Förderbeitrag; auf NE 3–6 gibt es
  *                 keine Variante und der Schlüssel trägt `null`.
  * @param context  Kundenkategorie und PLZ — Pflicht, damit kein Aufrufer einen Satz still erbt.
+ *
+ * Netzbetreiber und Netzebene dürfen fehlen: die Voraussetzungen prüft der Plan des Landes, nicht
+ * der Aufrufer. AT braucht beide und liefert ohne sie `null` (kein Plan); DE braucht keines.
  */
 export function buildLevySchedule(
   operatorId: string,
@@ -525,7 +528,23 @@ export function buildLevySchedule(
   toDate: string,
   meteringVariant: string | null,
   context: LevyContext,
-): LevySchedule {
+): LevySchedule
+export function buildLevySchedule(
+  operatorId: string | null,
+  netzebene: number | null,
+  fromDate: string,
+  toDate: string,
+  meteringVariant: string | null,
+  context: LevyContext,
+): LevySchedule | null
+export function buildLevySchedule(
+  operatorId: string | null,
+  netzebene: number | null,
+  fromDate: string,
+  toDate: string,
+  meteringVariant: string | null,
+  context: LevyContext,
+): LevySchedule | null {
   /*
    * ⚠ Der Plan wird auf die BERÜHRTEN KALENDERJAHRE geweitet, nicht auf den übergebenen Zeitraum
    * beschnitten — aus zwei Gründen, die beide sonst eine stille Lücke erzeugen:
@@ -545,6 +564,7 @@ export function buildLevySchedule(
   const country = context.country ?? 'AT'
   if (country === 'DE') return buildGermanLevySchedule(from, to)
   if (country !== 'AT') return { periods: [] }
+  if (operatorId === null || netzebene === null) return null
 
   const foerderbeitraege = EAG_FOERDERBEITRAG[eagKey(netzebene, meteringVariant)] ?? []
   const pauschalen = EAG_PAUSCHALE_BY_NETZEBENE[netzebene] ?? []

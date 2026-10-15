@@ -4,6 +4,7 @@
 export * from './load-profile'
 export * from './upload-interval'
 export * from './tariff'
+export * from './tariff-param-problems'
 export * from './demand-charge'
 export * from './battery'
 export * from './financial'

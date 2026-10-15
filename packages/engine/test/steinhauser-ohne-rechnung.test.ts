@@ -58,7 +58,7 @@ describe('Steinhauser — Kunde ohne Stromrechnung', () => {
   it('⚠ ohne den Vermerk „Ohne Rechnung fortfahren" bleibt es beim benannten Abbruch', () => {
     // Leere Tariffelder allein sind KEIN „unbekannt" — so steht der echte Entwurf heute da.
     expect(() => mapDraftToTariffParams({ ...STEINHAUSER_DRAFT, invoiceSkipped: false })).toThrow(
-      /energyPriceCtPerKwh.*Ohne Rechnung fortfahren/,
+      /Energie-Arbeitspreis.*Ohne Rechnung fortfahren/,
     )
   })
 })
