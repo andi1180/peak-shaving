@@ -373,7 +373,7 @@ describe('Tarif-Station — dynamischer Tarif (alle Länder)', () => {
     expect(writes()).toHaveLength(0)
   })
 
-  it('Round-Trip: der Leser liest genau das Gespeicherte; leerer Name ergibt „Spot-Tarif"', async () => {
+  it('Round-Trip: der Leser liest genau das Gespeicherte; leerer Name ergibt „Börsentarif"', async () => {
     await saveMeteringPointDynamicTariffAction({}, dynamicForm(VALID))
     expect(readDraftDynamicTariff(draft)).toEqual({
       supplier: 'Beispiel Spot',
@@ -385,7 +385,7 @@ describe('Tarif-Station — dynamischer Tarif (alle Länder)', () => {
     await saveMeteringPointDynamicTariffAction({}, dynamicForm({ ...VALID, supplierName: '  ' }))
     expect('dynamicSupplierName' in draft).toBe(false)
     expect(readDraftDynamicTariff(draft)).toEqual({
-      supplier: 'Spot-Tarif',
+      supplier: 'Börsentarif',
       markupCtPerKwh: 1.5,
       baseFeeEurPerMonth: 4.9,
     })

@@ -14648,7 +14648,12 @@
   "billingModel": null,
   "energyPriceCtPerKwh": null,
   "einspeiseverguetungCtPerKwh": null,
-  "levyLocationAssumed": "vienna"
+  "levyLocationAssumed": "vienna",
+  "dynamicTariff": {
+   "name": "aWATTar HOURLY",
+   "markupCtPerKwh": 1.5,
+   "baseFeeEurPerMonth": 4.79
+  }
  },
  "tariffOptimization": {
   "computable": true,

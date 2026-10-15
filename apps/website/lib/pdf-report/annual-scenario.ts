@@ -2,7 +2,7 @@ import { EXISTING_BATTERY_ID, annualBasisApplies, displayedPriceLabel } from 'sh
 import type { AnnualScenario, AnnualScenarioWays } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
+import { controlledWayLabel, dynamicTariffOf, uncontrolledWayLabel } from '@/lib/report-copy'
 import { hasAdviceChapter } from './advice'
 import { ADVICE_SECTION } from './content'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
@@ -127,6 +127,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   const days = scenario.measuredDays + scenario.projectedDays
   const measuredPercent = Math.round((scenario.measuredDays / days) * 100)
   const priceLabel = displayedPriceLabel(analysis)
+  const tariffName = dynamicTariffOf(analysis).name
   const window = `${formatDate(scenario.windowFromDate)} bis ${formatDate(scenario.windowToDate)}`
   const ratesNote = scenario.ratesAsOf
     ? `Netzentgelte und Abgaben im Stand vom ${formatDate(scenario.ratesAsOf)}`
@@ -160,8 +161,8 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     amount: null,
     rows: [
       { label: 'Ihr Tarif heute', value: formatEur(currentTariffEur), tone: 'neutral' },
-      { label: 'aWATTar ohne Steuerung', value: formatEur(spotWithoutControlEur), tone: 'neutral' },
-      { label: CONTROLLED_WAY_LABEL, value: formatEur(controlledEur), tone: 'neutral' },
+      { label: uncontrolledWayLabel(tariffName), value: formatEur(spotWithoutControlEur), tone: 'neutral' },
+      { label: controlledWayLabel(tariffName), value: formatEur(controlledEur), tone: 'neutral' },
     ],
     body: `Hochgerechnete Jahreskosten (${priceLabel}), gerechnet mit ${deviceRef(scenario)}.`,
   }
@@ -171,7 +172,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   const toneOf = (eur: number): ReportRow['tone'] => (eur >= 0 ? 'positive' : 'warning')
 
   const rows: ReportRow[] = [
-    { label: 'Tarifwechsel zu aWATTar', value: formatEur(switchEur), tone: toneOf(switchEur) },
+    { label: `Tarifwechsel zu ${tariffName}`, value: formatEur(switchEur), tone: toneOf(switchEur) },
     {
       label: 'Ladesteuerung des Speichers',
       value: formatEur(controlEur),

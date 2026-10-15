@@ -19,7 +19,11 @@ import {
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
   type TariffComparisonPriceBasis,
 } from '@/lib/admin/tariff-draft'
-import { DYNAMIC_TARIFF_DRAFT_KEYS, readDraftDynamicTariff } from 'shared'
+import {
+  DEFAULT_DYNAMIC_SUPPLIER_NAME,
+  DYNAMIC_TARIFF_DRAFT_KEYS,
+  readDraftDynamicTariff,
+} from 'shared'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
 import { DataEntryAssumptions } from './data-entry-assumptions'
@@ -542,8 +546,9 @@ function DynamicTariffBlock({
           <AdminField
             id={`${formId}-supplierName`}
             name="supplierName"
-            label="Bezeichnung (optional)"
-            placeholder="Spot-Tarif"
+            label="Tarifname (optional)"
+            placeholder={DEFAULT_DYNAMIC_SUPPLIER_NAME}
+            hint={`z. B. Anbieter und Produkt; leer = ${DEFAULT_DYNAMIC_SUPPLIER_NAME}`}
             error={saveState.fieldErrors?.supplierName}
             defaultValue={saveState.values?.supplierName}
           />

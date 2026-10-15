@@ -532,6 +532,6 @@ describe('readTariffPricingForAnalysis — Konditionen des dynamischen Tarifs', 
     })
     expect((await read('DE', { ...values, dynamicMarkupCtPerKwh: -1 })).dynamicTariff).toBeNull()
     expect((await read('DE', { ...values, dynamicBaseFeeEurPerMonth: 'zehn' })).dynamicTariff).toBeNull()
-    expect((await read('DE', { ...values, dynamicSupplierName: undefined })).dynamicTariff?.supplier).toBe('Spot-Tarif')
+    expect((await read('DE', { ...values, dynamicSupplierName: undefined })).dynamicTariff?.supplier).toBe('Börsentarif')
   })
 })

@@ -20,7 +20,9 @@ import { localMonthIndex } from '@/lib/local-time'
 import {
   ANNUALIZED_LABEL,
   batteryNoteTexts,
-  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
+  dynamicTariffOf,
+  uncontrolledWayLabel,
   demandSavingShown,
   dynamicTariffHintKind,
   dynamicTariffHintText,
@@ -480,10 +482,11 @@ export function buildLoadControl(
   const value = loadControlValueOf(primary, analysis.tariffOptimization.monthlyComparison)
   const days = `über die ${value.coveredDays} gemessenen Tage`
   const headline = headlineLoadControlEur(analysis, primary, pv)
+  const tariffName = dynamicTariffOf(analysis).name
 
   return {
     id: 'load_control',
-    title: 'Wert der Ladesteuerung unter aWATTar',
+    title: `Wert der Ladesteuerung unter ${tariffName}`,
     amount: {
       value: formatEur(headline),
       caption:
@@ -501,7 +504,7 @@ export function buildLoadControl(
       'und die Abgaben angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem ' +
       'Tagesplan in günstigen Stunden und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit ' +
       'weniger kostet als ohne Steuerung, Ladeverluste eingeschlossen. Das ist genau der Abstand ' +
-      `der Wege „aWATTar ohne Steuerung" und „${CONTROLLED_WAY_LABEL}" ${days}. Er ist der ` +
+      `der Wege „${uncontrolledWayLabel(tariffName)}" und „${controlledWayLabel(tariffName)}" ${days}. Er ist der ` +
       'Energie-Anteil der Gesamtersparnis dieses Speichers und steckt dort bereits mit drin. Die ' +
       'Preise sind die tatsächlichen Ihres Zeitraums; ein Versprechen für die Zukunft ist die Zahl ' +
       'nicht.' +

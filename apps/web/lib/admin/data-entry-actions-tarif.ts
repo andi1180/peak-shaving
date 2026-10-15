@@ -169,7 +169,7 @@ const DYNAMIC_SUPPLIER_NAME_MAX = 80
 /**
  * Konditionen des dynamischen Tarifs (Spotvertrag), netto — für alle Länder gleich. Beide Zahlen
  * oder keine, 0 ist gültig; ein leerer Name lässt den Schlüssel weg (der Leser setzt dann
- * „Spot-Tarif"). Gesetzt und entfernt wird in EINEM Schreibvorgang.
+ * `DEFAULT_DYNAMIC_SUPPLIER_NAME`). Gesetzt und entfernt wird in EINEM Schreibvorgang.
  */
 export async function saveMeteringPointDynamicTariffAction(
   _prev: AdminState,

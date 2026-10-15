@@ -1,6 +1,7 @@
 import { Circle, Path, Svg, Text, View } from '@react-pdf/renderer'
 
 import { formatEur } from '@/lib/format'
+import { FALLBACK_DYNAMIC_TARIFF } from '@/lib/report-copy'
 import { fitFontSize } from './executive-summary-charts'
 import type { ExecutiveSummary } from './executive-summary'
 import { DOT_COLOR } from './executive-summary-load-chart'
@@ -12,11 +13,12 @@ import { CHART_COLORS, PDF_COLORS } from './theme'
  * `buildSavingsDonut` (Tarifwechsel, günstig laden, Spitzen) als nativer Ring mit Legende.
  * Farben wie die übrigen Diagramme der Seite: aWATTar-Balken, empfohlener Balken, Lastgang-Punkte.
  */
-const LABELS: Record<SavingsDonutSegmentKey, string> = {
-  switch: 'Wechsel zu aWATTar',
-  control: 'Speicher lädt günstig',
-  peak: 'Weniger Spitzen (Höchstwert)',
-}
+const labelOf = (key: SavingsDonutSegmentKey, tariffName: string): string =>
+  ({
+    switch: `Wechsel zu ${tariffName}`,
+    control: 'Speicher lädt günstig',
+    peak: 'Weniger Spitzen (Höchstwert)',
+  })[key]
 const COLORS: Record<SavingsDonutSegmentKey, string> = {
   switch: CHART_COLORS.seriesSoft,
   control: CHART_COLORS.series,
@@ -60,7 +62,7 @@ export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
     const sweep = (s.eur / donut.totalEur) * 360
     const segment = {
       key: s.key,
-      label: LABELS[s.key],
+      label: labelOf(s.key, summary.tariffName ?? FALLBACK_DYNAMIC_TARIFF.name),
       eur: s.eur,
       amount: formatEur(s.eur),
       color: COLORS[s.key],

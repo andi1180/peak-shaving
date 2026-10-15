@@ -11,6 +11,7 @@ import {
   type LevyComponentLabel,
   type LevySchedule,
   type LoadProfile,
+  resolveDynamicTariff,
   type PvProfile,
   type TariffOptimizationStatus,
   type TariffParams,
@@ -571,6 +572,7 @@ export function computeAnalysis(
 
   // Nur Namen, mitgeschrieben fürs Report; ein leerer Plan (Österreich) lässt das Feld weg.
   const levyComponents = levyComponentsOf(loadProfile, leviesOf(payload))
+  const dynamicTariff = payload.tariffPricing ? resolveDynamicTariff(payload.tariffPricing) : undefined
 
   return {
     current:
@@ -599,6 +601,15 @@ export function computeAnalysis(
         ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),
       ...(levyComponents.length > 0 ? { levyComponents } : {}),
+      ...(dynamicTariff
+        ? {
+            dynamicTariff: {
+              name: dynamicTariff.supplier,
+              markupCtPerKwh: dynamicTariff.markupCtPerKwh,
+              baseFeeEurPerMonth: dynamicTariff.baseFeeEurPerMonth,
+            },
+          }
+        : {}),
       ...(taxAssumptions ? { tax: taxAssumptions } : {}),
       ...(subsidyPrograms ? { subsidyPrograms } : {}),
     },

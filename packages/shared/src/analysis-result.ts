@@ -479,6 +479,11 @@ export type AnalysisResult = {
      * nur Namen. Fehlt das Feld, nennt der Report die österreichischen Abgaben (Fassung ≤ 18).
      */
     levyComponents?: LevyComponentLabel[]
+    /**
+     * Name und Konditionen (netto) des dynamischen Tarifs, 1:1 aus dem Input — gesetzt GENAU DANN,
+     * wenn der Input einen gültigen trägt. Fehlt das Feld, nennt der Report aWATTar (Fassung ≤ 19).
+     */
+    dynamicTariff?: { name: string; markupCtPerKwh: number; baseFeeEurPerMonth: number }
     /** Die Steuerangaben der Nach-Steuer-Richtwerte — gesetzt GENAU DANN, wenn sie gerechnet sind. */
     tax?: AnalysisTaxAssumptions
     /** Die Förderprogramme „€ pro kWh" — gesetzt GENAU DANN, wenn mit ihnen gerechnet ist. */

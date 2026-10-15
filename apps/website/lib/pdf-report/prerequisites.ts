@@ -2,7 +2,7 @@ import { DEFAULT_COUNTRY, displayedPriceLabel, netzebeneLabel } from 'shared'
 import type { Country, PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
-import { hasDemandChargeComponent } from '@/lib/report-copy'
+import { dynamicTariffOf, hasDemandChargeComponent } from '@/lib/report-copy'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
@@ -146,6 +146,7 @@ const NO_LEISTUNGSPREIS_HEAD =
  * Leistungspreis > 0 bislang).
  */
 export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: boolean): ReportNotice {
+  const tariffName = dynamicTariffOf(analysis).name
   const body = hasDemandChargeComponent(analysis.current)
     ? hasBattery
       ? 'Ihr Anschluss hat einen Leistungspreis-Bestandteil. Ihre Batterie kann hier zusätzlich ' +
@@ -156,9 +157,9 @@ export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: bool
     : hasBattery
       ? `${NO_LEISTUNGSPREIS_HEAD} Ihre Batterie kann bei Ihnen deshalb keine Ersparnis durchs ` +
         '„Kappen von Spitzen" bringen. Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ' +
-        'anderen Quellen: dem gewählten Tarif und, falls aWATTar, der gezielten Steuerung der Batterie.'
+        `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung der Batterie.`
       : `${NO_LEISTUNGSPREIS_HEAD} Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ` +
-        'anderen Quellen: dem gewählten Tarif und, falls aWATTar, der gezielten Steuerung eines Speichers.'
+        `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung eines Speichers.`
 
   return {
     id: 'prerequisites_framing',

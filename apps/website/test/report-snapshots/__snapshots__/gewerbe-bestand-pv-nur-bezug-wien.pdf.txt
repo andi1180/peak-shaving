@@ -30,7 +30,7 @@ Auf einen Blick
    rund
 
    € 102
-   durch den Wechsel zu aWATTar, ohne Anschaffung
+   durch den Wechsel zu aWATTar HOURLY, ohne Anschaffung
 
 gerechnet mit Ihren Messwerten von 365 Tagen
 
@@ -44,7 +44,7 @@ Ihr Lastgang
 
 
      0
-            Jän     Feb       Mär        Apr     Mai       Jun      Jul       Aug      Sep      Okt       Nov       Dez
+            Jän     Feb       Mär      Apr       Mai       Jun      Jul       Aug      Sep      Okt       Nov       Dez
 
 Die Balken zeigen Ihre höchste Leistung pro Tag.
 
@@ -52,14 +52,14 @@ Ihre Stromkosten pro Jahr
 Ihr Tarif heute
                                                                                                                   € 2.976
 
-aWATTar (Börsenpreis)
+aWATTar HOURLY (Börsenpreis)
                                                                                                               € 2.875
 
-aWATTar mit Speicher, der günstig lädt
+aWATTar HOURLY mit Speicher, der günstig lädt
                                                                                                 € 2.523
 
 
-Mit dem Wechsel zu aWATTar sinken Ihre Kosten von rund € 2.976 auf rund € 2.875.
+Mit dem Wechsel zu aWATTar HOURLY sinken Ihre Kosten von rund € 2.976 auf rund € 2.875.
 
 Ihr Speicher
 Ein neuer Speicher (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40) würde rund € 352 pro
@@ -179,7 +179,8 @@ Voraussetzungen für diese Auswertung
    Ein wichtiger Rahmen vorweg
    Ihr Anschluss hat keinen Leistungspreis-Bestandteil (eine Zusatzgebühr für hohe Verbrauchsspitzen,
    vor allem bei Gewerbekunden üblich). Die gesamte Ersparnis in dieser Auswertung kommt aus zwei
-   anderen Quellen: dem gewählten Tarif und, falls aWATTar, der gezielten Steuerung eines Speichers.
+   anderen Quellen: dem gewählten Tarif und, falls aWATTar HOURLY, der gezielten Steuerung eines
+   Speichers.
 
 
 Ihr Netzbezug heute
@@ -243,12 +244,12 @@ Die Bezugsgrösse für alles Weitere: mit Ihrem heutigen Vertrag haben Sie über
 € 2.976 für Energie, Netz und Abgaben gezahlt. Jeder der folgenden Wege wird gegen genau diesen Betrag
 gerechnet — mit demselben Lastgang, denselben Netzentgelten und denselben gesetzlichen Abgaben.
 
-aWATTar ohne Steuerung
-Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar statt
-zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die 365 gemessenen
-Tage hätte das € 102 weniger gekostet.
+aWATTar HOURLY ohne Steuerung
+Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar
+HOURLY statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die
+365 gemessenen Tage hätte das € 102 weniger gekostet.
 
-aWATTar mit Ladesteuerung
+aWATTar HOURLY mit Ladesteuerung
  Gesamtinvestition                                                                                        € 7.691
 
  Netto über 10 Jahre                                                                                    -€ 4.174
@@ -257,13 +258,13 @@ Zusätzlich zum Tarifwechsel wird mit der empfohlenen Batterie gezielt geladen: 
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
 das, Tarifwechsel und Ladesteuerung zusammen, € 453 gespart. Der Wert der Ladesteuerung allein, der
-Abstand zu „aWATTar ohne Steuerung", beträgt € 352. Gerechnet mit diesem Speicher: Dyness Stack 100
-30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 352 pro Jahr und amortisiert sich nach 21,9
-Jahren — Netto-Ersparnis über 10 Jahre: -€ 4.174. Im Betrachtungszeitraum von 10 Jahren rechnet er sich
-damit nicht. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend
-mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen Messwerten —
-nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab,
-fällt das Ergebnis entsprechend anders aus.
+Abstand zu „aWATTar HOURLY ohne Steuerung", beträgt € 352. Gerechnet mit diesem Speicher: Dyness
+Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 352 pro Jahr und amortisiert sich
+nach 21,9 Jahren — Netto-Ersparnis über 10 Jahre: -€ 4.174. Im Betrachtungszeitraum von 10 Jahren rechnet
+er sich damit nicht. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant seinen Tag
+am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen
+Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser
+Erwartung ab, fällt das Ergebnis entsprechend anders aus.
 
 
 
@@ -311,15 +312,15 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
      Lastverschiebung zur Verfügung.
 
 
-Wert der Ladesteuerung unter aWATTar
+Wert der Ladesteuerung unter aWATTar HOURLY
 € 352 über die 365 gemessenen Tage, netto
 Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt und die Abgaben
 angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem Tagesplan in günstigen Stunden
 und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit weniger kostet als ohne Steuerung, Ladeverluste
-eingeschlossen. Das ist genau der Abstand der Wege „aWATTar ohne Steuerung" und „aWATTar mit
-Ladesteuerung" über die 365 gemessenen Tage. Er ist der Energie-Anteil der Gesamtersparnis dieses
-Speichers und steckt dort bereits mit drin. Die Preise sind die tatsächlichen Ihres Zeitraums; ein Versprechen
-für die Zukunft ist die Zahl nicht.
+eingeschlossen. Das ist genau der Abstand der Wege „aWATTar HOURLY ohne Steuerung" und „aWATTar
+HOURLY mit Ladesteuerung" über die 365 gemessenen Tage. Er ist der Energie-Anteil der Gesamtersparnis
+dieses Speichers und steckt dort bereits mit drin. Die Preise sind die tatsächlichen Ihres Zeitraums; ein
+Versprechen für die Zukunft ist die Zahl nicht.
 
 
 
@@ -355,16 +356,16 @@ Was Sie heute zahlen — und was es mit einem Börsenpreis-Tarif gewesen wäre.
 
 
 
-Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
+Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar HOURLY
  Ihr Tarif heute                                                                                          € 2.976
 
- aWATTar ohne Steuerung                                                                                   € 2.875
+ aWATTar HOURLY ohne Steuerung                                                                            € 2.875
 
- aWATTar mit Ladesteuerung                                                                               € 2.523
+ aWATTar HOURLY mit Ladesteuerung                                                                        € 2.523
 
 Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf
 den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
-Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (Ihr Lieferant € 7,58/Monat · aWATTar
+Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (Ihr Lieferant € 7,58/Monat · aWATTar HOURLY
 € 4,79/Monat). Hier stehen die drei Summen absolut.
 
 
@@ -474,8 +475,8 @@ Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
 1     Wollen Sie es einfach halten
-      Wechseln Sie zu aWATTar, ohne sonst etwas zu ändern — € 102 weniger über die 365 gemessenen
-      Tage, ohne Umstellung an Speicher oder Verbrauch.
+      Wechseln Sie zu aWATTar HOURLY, ohne sonst etwas zu ändern — € 102 weniger über die 365
+      gemessenen Tage, ohne Umstellung an Speicher oder Verbrauch.
 
 2     Speicher
       Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel „Speichergrösse und
@@ -614,8 +615,8 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                 je Zeitfenster.
 
  Lieferanten-Tarif              Arbeitspreis, Grundgebühr und              Kundenrechnung: nicht erfasst.
-                                Einspeisevergütung der Energieseite.       Vergleichstarif aWATTar, gültig
-                                                                           ab 01.01.2025 — Fundstelle:
+                                Einspeisevergütung der Energieseite.       Vergleichstarif aWATTar HOURLY,
+                                                                           gültig ab 01.01.2025 — Fundstelle:
                                                                            aWATTar HOURLY, Grundgebühr
                                                                            laut Endkunden-Preisangabe (5,75 €
                                                                            brutto/Monat = 4,79 € netto), im Repo
@@ -647,15 +648,15 @@ zählen. Darunter steht je Weg nur noch, was an ihm anders ist.
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.
-aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
-Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
-bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
-verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — keine
-Prognose und kein Durchschnittswert.
-aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
-gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen
-Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
-Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
+aWATTar HOURLY ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen
+Stunde, statt Ihrer Grundgebühr die von aWATTar HOURLY. Die Netzseite hängt am Anschluss und nicht
+am Lieferanten und bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts
+gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses
+Zeitraums — keine Prognose und kein Durchschnittswert.
+aWATTar HOURLY mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine
+Viertelstunde gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres
+eigenen Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis
+zum Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
 noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit mitgeführtem Ladezustand
 und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang vor dem Preis. Eine Faustregel
 je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge sieht dabei nicht Ihren

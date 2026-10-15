@@ -2,7 +2,13 @@ import { displayedPriceLabel, peakShavingSavingPerYearOf } from 'shared'
 import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatHours } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, monthlyBatteryRef, storageJudgementText } from '@/lib/report-copy'
+import {
+  controlledWayLabel,
+  dynamicTariffOf,
+  monthlyBatteryRef,
+  storageJudgementText,
+  uncontrolledWayLabel,
+} from '@/lib/report-copy'
 import { netOverHorizonRow, subsidyRows, totalInvestmentRow } from './investment-rows'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import {
@@ -387,6 +393,7 @@ export function buildWaysChapter(
   const isExisting = analysis.existingBatteryAnalysis != null
   const whose = monthlyBatteryRef(isExisting)
   const days = String(ways.coveredDays)
+  const tariffName = dynamicTariffOf(analysis).name
 
   const comparisonWay = wayById(ways, 'comparison_tariff')
   const switchWay = wayById(ways, 'tariff_switch')!
@@ -410,14 +417,14 @@ export function buildWaysChapter(
   }
   bars.push({
     key: 'uncontrolled',
-    label: 'aWATTar ohne Steuerung',
+    label: uncontrolledWayLabel(tariffName),
     eur: switchWay.costEur,
     model: false,
   })
   if (controlWay) {
     bars.push({
       key: 'controlled',
-      label: CONTROLLED_WAY_LABEL,
+      label: controlledWayLabel(tariffName),
       eur: controlWay.costEur,
       model: true,
     })
@@ -483,17 +490,17 @@ export function buildWaysChapter(
 
   addWay({
     id: 'ways_tariff_switch',
-    title: 'aWATTar ohne Steuerung',
+    title: uncontrolledWayLabel(tariffName),
     amount: null,
     rows: [],
     body:
       'Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von ' +
-      'aWATTar statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder ' +
+      `${tariffName} statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder ` +
       `Verbrauch. Über die ${days} gemessenen Tage hätte das ` +
       outcome(switchWay, 'mehr gekostet als Ihr heutiger Tarif, nicht weniger.', 'weniger gekostet.'),
     },
     'statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt Ihrer ' +
-      'Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ' +
+      `Grundgebühr die von ${tariffName}. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ` +
       'bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts ' +
       'gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise ' +
       'genau dieses Zeitraums — keine Prognose und kein Durchschnittswert.',
@@ -503,7 +510,7 @@ export function buildWaysChapter(
     const device = controlledDeviceOf(analysis, pv)
     addWay({
       id: 'ways_load_control',
-      title: CONTROLLED_WAY_LABEL,
+      title: controlledWayLabel(tariffName),
       amount: null,
       rows: device?.rows ?? [],
       body:
@@ -512,7 +519,7 @@ export function buildWaysChapter(
         'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
         'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
         outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
-        ' Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar ohne Steuerung", beträgt ' +
+        ` Der Wert der Ladesteuerung allein, der Abstand zu „${uncontrolledWayLabel(tariffName)}", beträgt ` +
         `${formatEur(switchWay.costEur - controlWay.costEur)}.` +
         (device?.text ?? '') +
         (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
@@ -593,8 +600,8 @@ const UNKNOWN_TARIFF_WAYS_INTRO =
   'Was Ihr Strom mit einem Börsenpreis-Tarif gekostet hätte — Ihren heutigen Tarif kennen wir ' +
   'noch nicht.'
 
-const UNKNOWN_TARIFF_SWITCH_METHOD =
-  'der Börsenpreis der jeweiligen Stunde und die Grundgebühr von aWATTar. Die Netzseite hängt am ' +
+const unknownTariffSwitchMethod = (tariffName: string): string =>
+  `der Börsenpreis der jeweiligen Stunde und die Grundgebühr von ${tariffName}. Die Netzseite hängt am ` +
   'Anschluss und nicht am Lieferanten. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, ' +
   'nichts gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise ' +
   'genau dieses Zeitraums — keine Prognose und kein Durchschnittswert.'
@@ -612,6 +619,7 @@ function buildUnknownTariffWaysChapter(
 ): WaysChapter {
   const whose = monthlyBatteryRef(analysis.existingBatteryAnalysis != null)
   const days = String(ways.coveredDays)
+  const tariffName = dynamicTariffOf(analysis).name
   const baseline = ways.baseline
   const peakSavingPerYear = peakShavingSavingOf(analysis)
   const tiered = primaryEntryOf(analysis)?.networkTier !== undefined
@@ -658,15 +666,15 @@ function buildUnknownTariffWaysChapter(
     )
   }
 
-  bars.push({ key: 'uncontrolled', label: 'aWATTar ohne Steuerung', eur: ways.uncontrolledEur, model: false })
+  bars.push({ key: 'uncontrolled', label: uncontrolledWayLabel(tariffName), eur: ways.uncontrolledEur, model: false })
   addWay(
     {
       id: 'ways_tariff_switch',
-      title: 'aWATTar ohne Steuerung',
+      title: uncontrolledWayLabel(tariffName),
       amount: null,
       rows: [],
       body:
-        'Der einfachste Weg mit Börsenpreis: Ihr gemessener Lastgang zum Börsenpreis von aWATTar, ' +
+        `Der einfachste Weg mit Börsenpreis: Ihr gemessener Lastgang zum Börsenpreis von ${tariffName}, ` +
         `ohne jede Umstellung an Speicher oder Verbrauch. Über die ${days} gemessenen Tage hätte ` +
         `das ${formatEur(ways.uncontrolledEur)} für Energie, Netz und Abgaben gekostet.` +
         againstBaseline(ways.uncontrolledEur) +
@@ -674,17 +682,17 @@ function buildUnknownTariffWaysChapter(
           ? ''
           : ' Ob das weniger ist als heute, zeigt erst der Vergleich mit Ihrer Stromrechnung.'),
     },
-    UNKNOWN_TARIFF_SWITCH_METHOD,
+    unknownTariffSwitchMethod(tariffName),
   )
 
   if (ways.controlledEur !== null) {
     const controlValue = ways.uncontrolledEur - ways.controlledEur
     const device = controlledDeviceOf(analysis)
-    bars.push({ key: 'controlled', label: CONTROLLED_WAY_LABEL, eur: ways.controlledEur, model: true })
+    bars.push({ key: 'controlled', label: controlledWayLabel(tariffName), eur: ways.controlledEur, model: true })
     addWay(
       {
         id: 'ways_load_control',
-        title: CONTROLLED_WAY_LABEL,
+        title: controlledWayLabel(tariffName),
         amount: null,
         rows: device?.rows ?? [],
         body:

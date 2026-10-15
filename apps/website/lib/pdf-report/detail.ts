@@ -4,11 +4,14 @@ import { sumCovered, tariffWayCosts } from 'shared'
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
 import {
   catalogStorageNote,
-  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
   dynamicTariffHintKind,
+  dynamicTariffOf,
+  FALLBACK_DYNAMIC_TARIFF,
   hasDemandChargeComponent,
   levyNamesOf,
   type LevyNames,
+  uncontrolledWayLabel,
 } from '@/lib/report-copy'
 import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
@@ -237,6 +240,8 @@ export function buildMonthly(
   storageNote: string | null = null,
   /** Abgaben-Namen aus dem Ergebnis (`levyNamesOf`); `null` = bisheriger Wortlaut. */
   levyNames: LevyNames | null = null,
+  /** Name des dynamischen Tarifs (`dynamicTariffOf`). */
+  tariffName: string = FALLBACK_DYNAMIC_TARIFF.name,
 ): MonthlyChapter {
   const fixed = comparison.fixedCosts
   /*
@@ -265,16 +270,16 @@ export function buildMonthly(
       : []),
     {
       color: 'hell',
-      legend: 'aWATTar ohne Steuerung',
-      label: 'aWATTar ohne Steuerung',
+      legend: uncontrolledWayLabel(tariffName),
+      label: uncontrolledWayLabel(tariffName),
       eur: sumCovered(comparison.spotWithoutControlEur),
     },
     ...(controlledEur !== null
       ? [
           {
             color: 'kräftig',
-            legend: CONTROLLED_WAY_LABEL,
-            label: CONTROLLED_WAY_LABEL,
+            legend: controlledWayLabel(tariffName),
+            label: controlledWayLabel(tariffName),
             eur: controlledEur,
           },
         ]
@@ -300,7 +305,7 @@ export function buildMonthly(
   if (fixed.supplierFeeEurPerMonth > 0) {
     fees.push(`Ihr Lieferant ${formatEur2(fixed.supplierFeeEurPerMonth)}/Monat`)
   }
-  fees.push(`aWATTar ${formatEur2(fixed.awattarFeeEurPerMonth)}/Monat`)
+  fees.push(`${tariffName} ${formatEur2(fixed.awattarFeeEurPerMonth)}/Monat`)
 
   /*
    * ⚠ DIE ZWEI VERWEISE AUF DIE KERNERGEBNIS-SEITE SIND MIT DEM ZUSAMMENFASSUNGS-UMBAU ENTFALLEN.
@@ -347,8 +352,8 @@ export function buildMonthly(
     statement: {
       id: 'monthly_comparison',
       title: hasCurrent
-        ? 'Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar'
-        : 'Ihre Stromkosten mit aWATTar',
+        ? `Das zahlen Sie jetzt — und das zahlten Sie mit ${tariffName}`
+        : `Ihre Stromkosten mit ${tariffName}`,
       /*
        * ⚠ KEINE KOPFZAHL. Die Differenz zwischen der ersten und der dritten Zeile ist die
        * Kern-Ersparnis der Zusammenfassung; hier gross daneben gesetzt stünde derselbe Betrag
@@ -490,7 +495,13 @@ export function buildDetailChapter(
       ? null
       : plan.cost.kind === 'monthly'
         ? /* `detailChartPlan` wählt `monthly` ausschliesslich im Bestandsfall — s. dort. */
-          buildMonthly(plan.cost.comparison, analysis.current, null, levyNamesOf(analysis.assumptions))
+          buildMonthly(
+            plan.cost.comparison,
+            analysis.current,
+            null,
+            levyNamesOf(analysis.assumptions),
+            dynamicTariffOf(analysis).name,
+          )
         : buildCumulative(plan.cost)
 
   return {
@@ -546,6 +557,7 @@ export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter
         analysis.current,
         catalogStorageNote(analysis),
         levyNamesOf(analysis.assumptions),
+        dynamicTariffOf(analysis).name,
       )
     : null
 }

@@ -11,11 +11,13 @@ import { InfoHint } from '@/components/ui/info-hint'
 import { formatEur } from '@/lib/format'
 import {
   ANNUALIZED_LABEL,
-  CONTROLLED_WAY_LABEL,
+  controlledWayLabel,
+  FALLBACK_DYNAMIC_TARIFF,
   levyNamesOf,
   levySideLabel,
   loadControlValueOf,
   monthlyBatteryRef,
+  uncontrolledWayLabel,
   vatNote,
 } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
@@ -90,6 +92,7 @@ export function TariffOptimizationCard({
   timeZone,
   isExisting,
   levyComponents,
+  tariffName = FALLBACK_DYNAMIC_TARIFF.name,
 }: {
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
@@ -111,6 +114,8 @@ export function TariffOptimizationCard({
   isExisting: boolean
   /** `assumptions.levyComponents` — benennt die Abgaben-Seite eines Befunds. */
   levyComponents?: readonly LevyComponentLabel[]
+  /** Name des dynamischen Tarifs (`dynamicTariffOf`); fehlt = Fallback-Name. */
+  tariffName?: string
 }) {
   if (!status) return null
 
@@ -201,21 +206,21 @@ export function TariffOptimizationCard({
         >
           <div className="mb-2 flex items-center gap-2 text-warning">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            <p className="font-semibold">aWATTar wäre für Sie derzeit teurer als Ihr Tarif heute</p>
+            <p className="font-semibold">{`${tariffName} wäre für Sie derzeit teurer als Ihr Tarif heute`}</p>
           </div>
           <p className="text-text">
             Über die <Num>{totals!.months}</Num> gemessenen Monate:{' '}
-            <Num className="font-medium text-ink">{formatEur(totals!.withBattery)}</Num> mit aWATTar
-            und {monthlyBatteryRef(isExisting)} gegenüber{' '}
+            <Num className="font-medium text-ink">{formatEur(totals!.withBattery)}</Num>
+            {` mit ${tariffName} und `}
+            {monthlyBatteryRef(isExisting)} gegenüber{' '}
             <Num className="font-medium text-ink">{formatEur(totals!.current)}</Num> mit Ihrem
             heutigen Tarif — also <Num className="font-medium text-ink">{formatEur(surcharge)}</Num>{' '}
             mehr. Alle Beträge {vatNote(status)}.
           </p>
           <p className="mt-2 text-text-muted">
             Die Zahl unten ist deshalb <strong>kein Grund zum Wechseln</strong>: sie sagt, was Ihre
-            Ladesteuerung <em>innerhalb</em> von aWATTar wert wäre — nicht, ob sich aWATTar für Sie
-            rechnet. Diese Frage beantwortet allein der Monatsvergleich „Das zahlen Sie jetzt vs.
-            mit aWATTar".
+            Ladesteuerung <em>innerhalb</em>
+            {` von ${tariffName} wert wäre — nicht, ob sich ${tariffName} für Sie rechnet. Diese Frage beantwortet allein der Monatsvergleich „Das zahlen Sie jetzt vs. mit ${tariffName}".`}
           </p>
         </div>
       )}
@@ -227,7 +232,7 @@ export function TariffOptimizationCard({
           <div className="flex items-center gap-2 text-accent">
             <LineChart className="h-4 w-4 shrink-0" />
             <h3 className="text-base font-semibold text-ink">
-              Wert der Ladesteuerung unter aWATTar
+              {`Wert der Ladesteuerung unter ${tariffName}`}
             </h3>
           </div>
           {/*
@@ -262,7 +267,7 @@ export function TariffOptimizationCard({
                   pro Jahr, {ANNUALIZED_LABEL} ({vatNote(status)})
                 </>
               )}
-              {` — dieselbe Zahl wie der Abstand zwischen „aWATTar ohne Steuerung" und „${CONTROLLED_WAY_LABEL}".`}
+              {` — dieselbe Zahl wie der Abstand zwischen „${uncontrolledWayLabel(tariffName)}" und „${controlledWayLabel(tariffName)}".`}
             </p>
             {value.annualizedEur !== null && (
               <p className="text-xs text-text-muted" data-testid="ladesteuerung-gemessen">
