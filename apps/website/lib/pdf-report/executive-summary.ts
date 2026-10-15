@@ -1,8 +1,9 @@
-import type { BatteryRoiEntry } from 'shared'
+import { effectiveBillingModel, type BatteryRoiEntry, type BillingModel } from 'shared'
 
 import { buildYearSeries } from '@/components/report/cost-chart'
 import { localMonthIndex } from '@/lib/local-time'
 import {
+  hasDemandChargeComponent,
   displayedInvestmentOf,
   dynamicTariffHintKind,
   hasEnteredSubsidy,
@@ -16,12 +17,7 @@ import type { LoadInput } from './executive-summary-load-chart'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
-import {
-  hasLeistungspreis,
-  recommendedEntryOf,
-  summaryWaysOf,
-  unknownTariffWaysOf,
-} from './summary'
+import { recommendedEntryOf, summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -100,6 +96,8 @@ export type ExecutiveSummary = {
   /** `null` bei unbekanntem Liefertarif. */
   todayCostPerYearEur: number | null
   hasLeistungspreis: boolean
+  /** Wählt den Satz, welche Spitze die Gebühr bestimmt; fehlt = Monatsmodell (Satz wie bisher). */
+  billingModel?: BillingModel
   storage: ExecutiveSummaryStorage | null
   /** Bewertung des Katalog-Speichers, wenn er sich nicht rechnet. */
   storageVerdict: { name: string; savingPerYearEur: number; judgement: string } | null
@@ -315,7 +313,8 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     stages,
     ways,
     todayCostPerYearEur: yearly.todayEur,
-    hasLeistungspreis: hasLeistungspreis(analysis.current),
+    hasLeistungspreis: hasDemandChargeComponent(analysis.current),
+    billingModel: effectiveBillingModel(analysis.assumptions.billingModel),
     storage,
     storageVerdict:
       variant === 'speicher-lohnt-nicht' && headline

@@ -19,4 +19,17 @@ describe('peakShavingSavingPerYearOf', () => {
     ).toBe(0)
     expect(peakShavingSavingPerYearOf(undefined)).toBe(0)
   })
+
+  it('mit Netzentgelt-Stufen bleibt ein negativer Anteil negativ (passt zur Gesamtersparnis)', () => {
+    const networkTier = {
+      tier: 2 as const,
+      thresholdHours: 2500,
+      usageHours: 3000,
+      costTier1Eur: 100,
+      costTier2Eur: 90,
+      correctionEur: -10,
+    }
+    expect(peakShavingSavingPerYearOf({ leistungspreisSavingPerYear: -42, networkTier })).toBe(-42)
+    expect(peakShavingSavingPerYearOf({ leistungspreisSavingPerYear: -42 })).toBe(0)
+  })
 })

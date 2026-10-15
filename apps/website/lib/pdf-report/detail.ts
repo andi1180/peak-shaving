@@ -2,13 +2,18 @@ import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } fro
 import { sumCovered, tariffWayCosts } from 'shared'
 
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
-import { catalogStorageNote, CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
+import {
+  catalogStorageNote,
+  CONTROLLED_WAY_LABEL,
+  dynamicTariffHintKind,
+  hasDemandChargeComponent,
+} from '@/lib/report-copy'
 import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
 import { headlineStorageOf } from './headline-storage'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
-import { hasLeistungspreis, recommendedEntryOf } from './summary'
+import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -307,14 +312,17 @@ export function buildMonthly(
 
   /*
    * Der Vorbehalt nur, wo es den Posten gibt — dieselbe Bedingung wie der Rahmen-Hinweis im
-   * Kapitel „Voraussetzungen" und die Bezugszeile der Ist-Kosten (`hasLeistungspreis`). Ohne
+   * Kapitel „Voraussetzungen" und die Bezugszeile der Ist-Kosten (`hasDemandChargeComponent`). Ohne
    * Leistungspreis gäbe es nichts Reales, das „nicht enthalten" wäre; der Satz erfände einen
    * Posten, den die Rechnung des Kunden nicht kennt — dieselbe Regel wie bei den Grundgebühren.
    */
-  const leistungspreis = hasLeistungspreis(current)
-    ? ' Nicht enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine ' +
-      'Aufteilungsregel, die es nicht gibt.'
-    : ''
+  const leistungspreis = current.networkTier
+    ? ' Nicht enthalten ist das Netzentgelt aus Leistung und Stufe — es gilt je Abrechnungsjahr, ' +
+      'und es auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt.'
+    : hasDemandChargeComponent(current)
+      ? ' Nicht enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine ' +
+        'Aufteilungsregel, die es nicht gibt.'
+      : ''
 
   const legend =
     series.length === 1

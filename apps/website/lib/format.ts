@@ -71,6 +71,11 @@ export function formatEur2(value: number): string {
   return de({ style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(value)
 }
 
+/** Ganze Stunden, z. B. Benutzungsdauer. */
+export function formatHours(value: number): string {
+  return de({ maximumFractionDigits: 0 }).format(value)
+}
+
 export function formatYears(value: number): string {
   return `${de({ maximumFractionDigits: 1 }).format(value)} Jahre`
 }

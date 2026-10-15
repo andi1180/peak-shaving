@@ -21,8 +21,9 @@ import {
   VAT_INCLUSIVE_LABEL,
 } from 'shared'
 
-import { formatDateOnly, formatEur, formatEur2, formatEurRate, formatPercent } from '@/lib/format'
+import { formatDateOnly, formatEur, formatEur2, formatEurRate, formatHours, formatPercent } from '@/lib/format'
 import {
+  hasDemandChargeComponent,
   dynamicTariffHintKind,
   displayedInvestmentOf,
   hasEnteredSubsidy,
@@ -46,7 +47,7 @@ import type {
   ReportTable,
   ReportTableRow,
 } from './statement'
-import { hasLeistungspreis, primaryEntryOf, recommendedEntryOf } from './summary'
+import { primaryEntryOf, recommendedEntryOf } from './summary'
 import { buildWaysChapter, hasWaysChapter } from './ways'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
@@ -1120,6 +1121,29 @@ function leistungspreisRow(
   source: PdfReportTariffSource,
   operatorLabel: string | undefined,
 ): ReportTableRow[] {
+  const tier = analysis.current.networkTier
+  if (tier) {
+    /* Netzentgelt-Stufen: die Kosten sind die Stufenkorrektur, ein zurückgerechneter Satz wäre falsch. */
+    const status = gridFieldStatus(source, 'leistungspreisEurPerKwYear', operatorLabel)
+    return [
+      dataRow('tariff_network_tier', ['Netzentgelt-Stufe (gewählt)', `Stufe ${tier.tier}`, status]),
+      dataRow('tariff_usage_hours', [
+        'Benutzungsdauer',
+        tier.usageHours === null ? 'keine Angabe' : `${formatHours(tier.usageHours)} h/a`,
+        status,
+      ]),
+      dataRow('tariff_tier_threshold', [
+        'Stufengrenze',
+        `${formatHours(tier.thresholdHours)} h/a`,
+        status,
+      ]),
+      dataRow('tariff_tier_costs', [
+        'Netzentgelt Stufe 1 / Stufe 2',
+        `${formatEur(tier.costTier1Eur)} / ${formatEur(tier.costTier2Eur)} pro Jahr`,
+        status,
+      ]),
+    ]
+  }
   if (!(analysis.current.billedKw > 0)) return []
   const rate = analysis.current.leistungspreisCostPerYear / billedKwPerYear(analysis)
   return [
@@ -1142,7 +1166,7 @@ function billingModelRow(
   operatorLabel: string | undefined,
 ): ReportTableRow[] {
   const billingModel = analysis.assumptions.billingModel
-  if (!hasLeistungspreis(analysis.current) || billingModel === null) return []
+  if (!hasDemandChargeComponent(analysis.current) || billingModel === null) return []
   return [
     dataRow('tariff_billing_model', [
       'Abrechnungsmodell',

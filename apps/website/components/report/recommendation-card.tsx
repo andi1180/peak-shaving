@@ -24,6 +24,8 @@ import {
   formatYears,
 } from '@/lib/format'
 import {
+  demandSavingLabel,
+  demandSavingShown,
   ANNUALIZED_LABEL,
   batteryNoteTexts,
   CONTROLLED_WAY_LABEL,
@@ -379,17 +381,30 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 und die Zahl darüber ein Zeitraumbetrag — addiert wären es zwei Zeiträume in einer
                 Summe.
               */}
-              {entry.leistungspreisSavingPerYear > 0 && (
-                <p className="mt-2">
-                  <strong className="text-ink">Nicht enthalten: die Spitzenkappung.</strong> Ihr
-                  Speicher senkt zusätzlich den abgerechneten Leistungswert — das sind{' '}
-                  <Num className="font-medium text-text">
-                    {formatEur(entry.leistungspreisSavingPerYear)}
-                  </Num>{' '}
-                  je Jahr. Der Betrag hängt am Leistungspreis Ihres Netzbetreibers und nicht am
-                  Stromvertrag; er ist eine Jahresgrösse und deshalb oben nicht mitaddiert.
-                </p>
-              )}
+              {demandSavingShown(entry) &&
+                (entry.networkTier ? (
+                  <p className="mt-2">
+                    <strong className="text-ink">
+                      Nicht enthalten: das Netzentgelt aus Leistung und Stufe.
+                    </strong>{' '}
+                    Ihr Speicher ändert es um{' '}
+                    <Num className="font-medium text-text">
+                      {formatEur(entry.leistungspreisSavingPerYear)}
+                    </Num>{' '}
+                    je Jahr. Der Betrag hängt am Netzentgelt Ihres Netzbetreibers und nicht am
+                    Stromvertrag; er ist eine Jahresgrösse und deshalb oben nicht mitaddiert.
+                  </p>
+                ) : (
+                  <p className="mt-2">
+                    <strong className="text-ink">Nicht enthalten: die Spitzenkappung.</strong> Ihr
+                    Speicher senkt zusätzlich den abgerechneten Leistungswert — das sind{' '}
+                    <Num className="font-medium text-text">
+                      {formatEur(entry.leistungspreisSavingPerYear)}
+                    </Num>{' '}
+                    je Jahr. Der Betrag hängt am Leistungspreis Ihres Netzbetreibers und nicht am
+                    Stromvertrag; er ist eine Jahresgrösse und deshalb oben nicht mitaddiert.
+                  </p>
+                ))}
             </div>
           </div>
         ) : (
@@ -412,7 +427,10 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 des gemeinsamen Speichers.
               </p>
             )}
-            <SavingRow label="Leistungspreis-Anteil" value={entry.leistungspreisSavingPerYear} />
+            <SavingRow
+              label={demandSavingLabel(entry, 'Leistungspreis-Anteil')}
+              value={entry.leistungspreisSavingPerYear}
+            />
             <SavingRow label="Energie-Anteil" value={entry.energySavingPerYear} />
             <div className="flex items-center justify-between border-t-2 border-border py-2 text-sm font-semibold">
               <span className="text-ink">Gesamt</span>

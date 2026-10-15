@@ -124,6 +124,19 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
   },
 ]
 
+/** „Ein Fahrplan" bei Netzentgelt-Stufen: der Leistungs-Anteil ist dann Netzentgelt aus Leistung und Stufe. */
+const ONE_SCHEDULE_NETWORK_TIER_BODY =
+  'Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe ' +
+  'Batteriekapazität. Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und ' +
+  'erst danach in Leistungs- und Energie-Anteil aufgeteilt — nie getrennt gerechnet und ' +
+  'addiert. Der Energie-Anteil ist die volle Kostendifferenz Ihres Netzbezugs ohne und mit ' +
+  'Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen genau die ' +
+  'ausgewiesene Gesamtersparnis. Ihr Netzentgelt hat zwei Preisstufen nach Benutzungsdauer ' +
+  '(Jahresmenge geteilt durch die abgerechnete Jahreshöchstleistung); gerechnet wird ohne und mit ' +
+  'Speicher jeweils die günstigere Stufe. Ein Speicher senkt die Spitze, dadurch steigt die ' +
+  'Benutzungsdauer, und die Stufe kann wechseln. Der Leistungs-Anteil ist deshalb das ' +
+  'Netzentgelt aus Leistung und Stufe: er enthält dessen Leistungs- und Arbeitspreisanteil.'
+
 /**
  * `METHODOLOGY_ITEMS`, angepasst an diesen Lauf — s. `PdfReportOrigin` (`types.ts`).
  *
@@ -141,7 +154,13 @@ export function methodologyItemsFor(
 
   return METHODOLOGY_ITEMS.filter(
     (item) => item.id !== 'methodik-prinzip4' || input.origin === 'client',
-  ).map((item) => (item.id === 'methodik-fahrplan' ? { ...item, body: dispatch } : item))
+  ).map((item) =>
+    item.id === 'methodik-fahrplan'
+      ? { ...item, body: dispatch }
+      : item.id === 'methodik-ein-fahrplan' && input.analysis.current.networkTier
+        ? { ...item, body: ONE_SCHEDULE_NETWORK_TIER_BODY }
+        : item,
+  )
 }
 
 /** Die Demo-Fusszeile — ausschliesslich am Prüfstand/Demo-Fixture, s. `PdfReportOrigin`. */

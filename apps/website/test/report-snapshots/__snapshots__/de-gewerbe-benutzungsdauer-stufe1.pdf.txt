@@ -49,8 +49,8 @@ Ihr Lastgang
        0
             Jul      Aug       Sep       Okt        Nov       Dez        Jan      Feb         Mär       Apr       Mai          Jun
 
-Die Balken zeigen Ihre höchste Leistung pro Tag. Der höchste Balken im Monat bestimmt die
-Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
+Die Balken zeigen Ihre höchste Leistung pro Tag. Die höchste Viertelstunde im Abrechnungsjahr
+bestimmt die Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute
@@ -157,8 +157,8 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 € 39.166                                                        € 11.815 –
                                                                 € 12.023
 Ihre Stromkosten heute
-über 365 gemessene Tage, netto, ohne Leistungspreis
-
+über 365 gemessene Tage, netto, ohne Netzentgelt aus
+Leistung und Stufe
                                                                 Mögliche Ersparnis
                                                                 je nach gewähltem Weg, im selben Zeitraum
 
@@ -167,9 +167,9 @@ Ihre Stromkosten heute
 Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage. Es gibt zwei unterschiedlich
 aufwändige Wege, Ihre Stromkosten zu senken: ein einfacher Tarifwechsel ohne jede Umstellung oder ein
 Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung eines Speichers — alle weiter
-hinten im Detail erklärt. Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht enthalten: sie hängt am
-Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag, und was Ihr Speicher dabei leistet, steht im
-Kapitel „Empfehlung und Wirtschaftlichkeit".
+hinten im Detail erklärt. Die Netzentgelt-Ersparnis aus Leistung und Stufe ist in dieser Spanne nicht enthalten:
+sie hängt am Netzentgelt Ihres Netzbetreibers und nicht am Stromvertrag, und was Ihr Speicher dabei leistet,
+steht im Kapitel „Empfehlung und Wirtschaftlichkeit".
 
 Was der empfohlene Speicher zusätzlich bringt
  Testspeicher mittel                                                                                         € 5.000
@@ -290,9 +290,9 @@ zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch
 Tage hätte das € 11.815 weniger gekostet.
 
 aWATTar mit Ladesteuerung
- Gesamtinvestition                                                                                      € 5.000
+ Gesamtinvestition                                                                                        € 5.000
 
- Netto über 10 Jahre                                                                                     € 1.627
+ Netto über 10 Jahre                                                                                       € 1.627
 
 Zusätzlich zum Tarifwechsel wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
@@ -305,18 +305,19 @@ keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten B
 einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich
 bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
 
-Kappung Ihrer Lastspitzen
- Leistungspreis (netto)                                                                                    € 132
+Netzentgelt-Ersparnis (Leistung und Stufe)
+ Netzentgelt aus Leistung und Stufe                                                                         € 454
 
- Gebrauchsabgabe darauf                                                                                    € 322
+ Netzentgelt-Stufe                                                                      heute 1, mit Speicher 2
 
- Kappung Ihrer Lastspitzen pro Jahr                                                                       € 454
+ Benutzungsdauer                                     heute 2 405 h/a, mit Speicher 2 687 h/a (Schwelle 2 500 h)
 
-Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit der empfohlenen Batterie den
-abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis verrechnet. Das bringt € 454 pro
-Jahr. Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als die 365 Tage
-der Balken darüber — sie wird deshalb nicht zu ihnen addiert und steht auch nicht in der Ersparnis-Spanne
-der Zusammenfassung. Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag entscheiden, hinzu.
+Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit der empfohlenen Batterie die
+abgerechnete Jahreshöchstleistung; daran und an der Benutzungsdauer hängt das Netzentgelt Ihres
+Netzbetreibers. Das senkt es um € 454 pro Jahr. Diese Zahl ist eine JAHRESgrösse und bezieht sich damit
+auf einen anderen Zeitraum als die 365 Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert
+und steht auch nicht in der Ersparnis-Spanne der Zusammenfassung. Sie kommt zu dem Weg, für den Sie
+sich beim Stromvertrag entscheiden, hinzu.
 
 
   Das Kappungs-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
@@ -325,7 +326,7 @@ der Zusammenfassung. Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag e
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 7 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 7 von 18
       COOLiN ENERGY         Referenzfall DE Gewerbe
 
 
@@ -429,8 +430,8 @@ Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
 Summen über die 12 gemessenen Monate. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf
 den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
 Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (aWATTar € 9,90/Monat). Nicht enthalten ist
-der Leistungspreis — ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt. Hier
-stehen die drei Summen absolut.
+das Netzentgelt aus Leistung und Stufe — es gilt je Abrechnungsjahr, und es auf Monate zu verteilen verlangte
+eine Aufteilungsregel, die es nicht gibt. Hier stehen die drei Summen absolut.
 
 
 
@@ -564,11 +565,14 @@ später niemandem als Fehler auf, sondern als Ergebnis.
 
 Ein Fahrplan, keine addierten Einzelrechnungen
 Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Batteriekapazität.
-Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungs-
-und Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle
-Kostendifferenz Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile
-ergeben zusammen genau die ausgewiesene Gesamtersparnis. Der Leistungs-Anteil umfasst den
-Leistungspreis, die Gebrauchsabgabe darauf und den EAG-Förderbeitrag Leistung.
+Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungs- und
+Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle Kostendifferenz
+Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen
+genau die ausgewiesene Gesamtersparnis. Ihr Netzentgelt hat zwei Preisstufen nach Benutzungsdauer
+(Jahresmenge geteilt durch die abgerechnete Jahreshöchstleistung); gerechnet wird ohne und mit Speicher
+jeweils die günstigere Stufe. Ein Speicher senkt die Spitze, dadurch steigt die Benutzungsdauer, und die Stufe
+kann wechseln. Der Leistungs-Anteil ist deshalb das Netzentgelt aus Leistung und Stufe: er enthält dessen
+Leistungs- und Arbeitspreisanteil.
 
 Physikalische Simulation, kein Hochrechnen von Spitzen
 Die Batterie wird über den gesamten Zeitraum chronologisch mit Ladestand, Leistungsgrenze und
@@ -595,8 +599,8 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 18
-    COOLiN ENERGY           Referenzfall DE Gewerbe
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 14 von 18
+    COOLiN ENERGY          Referenzfall DE Gewerbe
 
 
 
@@ -607,13 +611,13 @@ Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datens
 Annahmen & Rechenweise — Stand dieser Berechnung
  Betrachtungshorizont                                                                                          10 Jahre
 
- Wirkungsgrad (Testspeicher mittel)                                                                                90 %
+ Wirkungsgrad (Testspeicher mittel)                                                                               90 %
 
- Batteriepreis (Testspeicher mittel)                                                                   € 500,00 / kWh
+ Batteriepreis (Testspeicher mittel)                                                                  € 500,00 / kWh
 
- Gesamtinvestition                                                                                              € 5.000
+ Gesamtinvestition                                                                                             € 5.000
 
- Nettoinvestition nach Förderung                                                  keine Angabe (nicht einbezogen)
+ Nettoinvestition nach Förderung                                                 keine Angabe (nicht einbezogen)
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -630,7 +634,13 @@ Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
 Tarifkomponenten
  Position                            Wert                             Status
 
- Leistungspreis                      € 26,31 / kW·a                   laut hinterlegtem Tarif Netz Test GmbH
+ Netzentgelt-Stufe (gewählt)         Stufe 1                          laut hinterlegtem Tarif Netz Test GmbH
+
+ Benutzungsdauer                     2 405 h/a                        laut hinterlegtem Tarif Netz Test GmbH
+
+ Stufengrenze                        2 500 h/a                        laut hinterlegtem Tarif Netz Test GmbH
+
+ Netzentgelt Stufe 1 / Stufe 2       € 11.050 / € 11.230 pro Jahr     laut hinterlegtem Tarif Netz Test GmbH
 
  Abrechnungsmodell                   Jahreshöchstwert                 laut hinterlegtem Tarif Netz Test GmbH
 
@@ -642,16 +652,25 @@ Tarifkomponenten
 
 
 Datenquellen
- Quelle                         Was daraus verwendet wurde                    Zeitraum / Stand
+ Quelle                          Was daraus verwendet wurde                 Zeitraum / Stand
 
  Lastgang
- Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.        01.07.2025 – 30.06.2026 · 365 abgedeckte
- Netzbezugs                     Herkunft: hochgeladener Lastgang, nur         Tage (gerundet aus Messwerte ÷ 96)
-                                Bezug. Monats- und Tagesgrenzen in
-                                Ortszeit Europe/Berlin.
+ Viertelstundenwerte des         Grundlage aller Zahlen dieses Reports.     01.07.2025 – 30.06.2026 · 365 abgedeckte
+ Netzbezugs                      Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96)
+                                 Bezug. Monats- und Tagesgrenzen in
+                                 Ortszeit Europe/Berlin.
 
- Quelldatei                     Dateiname und Upload-Zeitpunkt des            nicht erfasst (in diesem Dokument nicht
-                                Lastgangs.                                    verfügbar)
+ Quelldatei                      Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
+                                 Lastgangs.                                 verfügbar)
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 15 von 18
+    COOLiN ENERGY           Referenzfall DE Gewerbe
+
+
+
 
  Tarif
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und         Zwei Preisblatt-Stände im
@@ -659,26 +678,17 @@ Datenquellen
                                 Vergleich zusätzlich die Netz-Arbeitspreise   bzw. 01.01.2026. Name, Version und
                                 je Zeitfenster.                               Fundstelle des Blatts: nicht erfasst.
 
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 15 von 18
-    COOLiN ENERGY          Referenzfall DE Gewerbe
-
-
-
-
- Lieferanten-Tarif              Arbeitspreis, Grundgebühr und             Kundenrechnung: nicht erfasst.
-                                Einspeisevergütung der Energieseite.      Vergleichstarif aWATTar, gültig
-                                                                          ab 01.01.2025 — Fundstelle:
-                                                                          aWATTar HOURLY, Grundgebühr
-                                                                          laut Endkunden-Preisangabe (5,75 €
-                                                                          brutto/Monat = 4,79 € netto), im Repo
-                                                                          festgehalten am 02.09.2026. Ändert sich
-                                                                          der Satz, kommt ein ZWEITER Eintrag
-                                                                          mit späterem validFrom hinzu — der
-                                                                          bestehende wird nicht editiert. Aufschlag
-                                                                          auf den Börsenpreis: 1,5 ct/kWh netto.
+ Lieferanten-Tarif              Arbeitspreis, Grundgebühr und                 Kundenrechnung: nicht erfasst.
+                                Einspeisevergütung der Energieseite.          Vergleichstarif aWATTar, gültig
+                                                                              ab 01.01.2025 — Fundstelle:
+                                                                              aWATTar HOURLY, Grundgebühr
+                                                                              laut Endkunden-Preisangabe (5,75 €
+                                                                              brutto/Monat = 4,79 € netto), im Repo
+                                                                              festgehalten am 02.09.2026. Ändert sich
+                                                                              der Satz, kommt ein ZWEITER Eintrag
+                                                                              mit späterem validFrom hinzu — der
+                                                                              bestehende wird nicht editiert. Aufschlag
+                                                                              auf den Börsenpreis: 1,5 ct/kWh netto.
 
  Batterie
  Testspeicher mittel            Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand nicht übergeben —
@@ -715,21 +725,23 @@ je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge 
 gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
 der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
 aus einem Rückblick.
-Kappung Ihrer Lastspitzen
-Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am
-abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel der simulierte
-Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers — samt der Gebrauchsabgabe darauf, wo sie
-anfällt, denn mit dem Leistungspreis sinkt auch sie. Der abgerechnete Wert folgt dem Abrechnungsmodell
-Ihres Netzbetreibers und wird von der Mindestleistung nach unten begrenzt. Als Jahresgrösse gehört er zu
-keinem der Beträge darüber dazu. Die Ersparnis enthält den Leistungspreis, die Gebrauchsabgabe darauf
-und den EAG-Förderbeitrag Leistung, der am selben abgerechneten Wert hängt.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 16 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 16 von 18
     COOLiN ENERGY          Referenzfall DE Gewerbe
 
+
+
+
+Netzentgelt-Ersparnis (Leistung und Stufe)
+Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Das Netzentgelt Ihres Anschlusses
+hat zwei Preisstufen, je nach Benutzungsdauer — der Jahresmenge geteilt durch die abgerechnete
+Jahreshöchstleistung. Gerechnet wird ohne und mit Speicher jeweils die günstigere der beiden Stufen. Ein
+Speicher senkt die Spitze; dadurch steigt die Benutzungsdauer, und die Stufe kann wechseln. Die Zahl enthält
+deshalb den Leistungs- und den Arbeitspreisanteil des Netzentgelts und wird pro JAHR verrechnet; als
+Jahresgrösse gehört sie zu keinem der Beträge darüber dazu.
 
 
 
@@ -747,7 +759,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 17 von 18
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

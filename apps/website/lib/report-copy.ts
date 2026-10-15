@@ -88,6 +88,40 @@ export type DispatchMethodInput = {
   withUpperBound: boolean
 }
 
+/** Beschriftung des Leistungs-Anteils bei Netzentgelt-Stufen — eine Zahl aus Leistung UND Stufe. */
+export const NETWORK_TIER_SAVING_LABEL = 'Netzentgelt (Leistung und Stufe)'
+
+/**
+ * Wird der Leistungs-Anteil eines Geräts gezeigt? Ohne Stufen nur, wenn er positiv ist; mit
+ * Netzentgelt-Stufen jeder Wert ≠ 0, auch negativ (er gehört dann zur Gesamtersparnis dazu).
+ */
+export function demandSavingShown(
+  entry: Pick<BatteryResultEntry, 'leistungspreisSavingPerYear' | 'networkTier'>,
+): boolean {
+  return entry.networkTier
+    ? entry.leistungspreisSavingPerYear !== 0
+    : entry.leistungspreisSavingPerYear > 0
+}
+
+/** Beschriftung des Leistungs-Anteils eines Geräts: mit Stufen `NETWORK_TIER_SAVING_LABEL`. */
+export function demandSavingLabel(
+  entry: Pick<BatteryResultEntry, 'networkTier'>,
+  plain: string,
+): string {
+  return entry.networkTier ? NETWORK_TIER_SAVING_LABEL : plain
+}
+
+/**
+ * Hat der Anschluss einen leistungsabhängigen Netzentgelt-Bestandteil? Ein Satz mit abgerechnetem
+ * Wert (Kosten > 0) oder Netzentgelt-Stufen — dort ist `leistungspreisCostPerYear` die
+ * Stufenkorrektur und darf ≤ 0 sein. Die EINE Stelle dieser Bedingung im Report.
+ */
+export function hasDemandChargeComponent(
+  current: Pick<AnalysisResult['current'], 'leistungspreisCostPerYear' | 'networkTier'>,
+): boolean {
+  return current.leistungspreisCostPerYear > 0 || current.networkTier !== undefined
+}
+
 /**
  * Worauf der EINE Fahrplan beruht (§3.6/§3.7, Revisionen 25.09.2026) — Methodik-Kapitel (PDF und
  * Druck) und Ersparnis-Aufschlüsselung lesen denselben Wortlaut.
@@ -107,12 +141,11 @@ export function dispatchMethodText({ analysis, isStandardProfile, withUpperBound
           'Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen ' +
           'Verbrauch des Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, ' +
           'Amortisation und die Reihung der Geräte stammen aus genau diesem Fahrplan.'
-  const peak =
-    analysis.current.leistungspreisCostPerYear > 0
-      ? ' Anders die Spitzenkappung: Kappschwelle und Reserve für die Spitzen sind aus dem ganzen ' +
-        'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungs-Anteil ' +
-        'der Ersparnis ist deshalb eine Obergrenze.'
-      : ''
+  const peak = hasDemandChargeComponent(analysis.current)
+    ? ' Anders die Spitzenkappung: Kappschwelle und Reserve für die Spitzen sind aus dem ganzen ' +
+      'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungs-Anteil ' +
+      'der Ersparnis ist deshalb eine Obergrenze.'
+    : ''
   const hindsight = comparison?.spotWithBatteryHindsightEur
   const upperBoundEur =
     comparison && hindsight

@@ -18,7 +18,7 @@ import {
 import type { AnalysisResult } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { ANNUALIZED_LABEL, isAnnualized } from '@/lib/report-copy'
+import { ANNUALIZED_LABEL, demandSavingLabel, isAnnualized } from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
@@ -157,6 +157,11 @@ function SegmentLabel({ x, y, width, height, value, textColor }: SegmentLabelPro
 // JÄHRLICHEN Ersparnis. Anteile sind über den Horizont konstant (lineares Modell, keine sich
 // ändernden Raten), ein einzelner Balken pro Kategorie genügt (keine 1x-pro-Jahr-Wiederholung nötig).
 function SavingsBreakdownBar({ entry }: { entry: Entry }) {
+  const breakdown = BREAKDOWN.map((b) =>
+    b.key === 'leistungspreisSavingPerYear'
+      ? { ...b, label: demandSavingLabel(entry, b.label) }
+      : b,
+  )
   const row = {
     name: 'Ersparnis/Jahr',
     leistungspreisSavingPerYear: entry.leistungspreisSavingPerYear,
@@ -173,7 +178,7 @@ function SavingsBreakdownBar({ entry }: { entry: Entry }) {
               isAnimationActive={false}
               formatter={(value, _name, item) => [
                 formatEur(Number(value)),
-                BREAKDOWN.find((b) => b.key === item.dataKey)?.label ?? '',
+                breakdown.find((b) => b.key === item.dataKey)?.label ?? '',
               ]}
             />
             {BREAKDOWN.map((b) => (
@@ -185,7 +190,7 @@ function SavingsBreakdownBar({ entry }: { entry: Entry }) {
         </ResponsiveContainer>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-        {BREAKDOWN.map((b) => (
+        {breakdown.map((b) => (
           <span key={b.key} className="flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 rounded-sm"
