@@ -8,11 +8,12 @@ import {
   tariffWayCosts,
   VAT_INCLUSIVE_LABEL,
   type Country,
+  type LevyComponentLabel,
   type MonthlyTariffComparison,
 } from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, monthlyBatteryRef, vatNote } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, levyNamesOf, monthlyBatteryRef, vatNote } from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { useId } from 'react'
@@ -197,6 +198,7 @@ export function MonthlyTariffChart({
   isExisting,
   storageNote = null,
   country,
+  levyComponents,
 }: {
   comparison: MonthlyTariffComparison
   /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
@@ -208,12 +210,15 @@ export function MonthlyTariffChart({
   storageNote?: string | null
   /** Wählt die Monatsnamen; fehlt = Vorgabeland. */
   country?: Country
+  /** `assumptions.levyComponents`; fehlt = bisheriger Wortlaut der Abgaben-Zeile. */
+  levyComponents?: readonly LevyComponentLabel[]
 }) {
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
   const gross = displayedPriceBasis(comparison) === 'gross'
   const fixed = comparison.fixedCosts
+  const levyNames = levyNamesOf({ levyComponents })
   const { rows, totals, hasControlled, hasCurrent } = monthlyChartData(comparison, country)
   const series = SERIES.filter(
     (s) =>
@@ -348,14 +353,21 @@ export function MonthlyTariffChart({
               allen drei Reihen, der Zähler hängt am Anschluss.
             </li>
           )}
-          <li>
-            <strong>Abgaben auf den Bezug</strong>: Elektrizitätsabgabe und EAG-Förderbeitrag je
-            Kilowattstunde, die EAG-Pauschale anteilig mit{' '}
-            <Num className="text-ink">{formatEur2(fixed.eagFlatFeeEur)}</Num> — unabhängig vom
-            Lieferanten und deshalb in allen drei Reihen gleich hoch. Dazu, wo sie anfällt, die
-            Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren; sie folgt dem
-            Energiepreis der jeweiligen Reihe.
-          </li>
+          {levyNames ? (
+            <li>
+              <strong>Abgaben auf den Bezug</strong>: {levyNames.text} je Kilowattstunde —
+              unabhängig vom Lieferanten und deshalb in allen drei Reihen gleich hoch.
+            </li>
+          ) : (
+            <li>
+              <strong>Abgaben auf den Bezug</strong>: Elektrizitätsabgabe und EAG-Förderbeitrag je
+              Kilowattstunde, die EAG-Pauschale anteilig mit{' '}
+              <Num className="text-ink">{formatEur2(fixed.eagFlatFeeEur)}</Num> — unabhängig vom
+              Lieferanten und deshalb in allen drei Reihen gleich hoch. Dazu, wo sie anfällt, die
+              Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren; sie folgt dem
+              Energiepreis der jeweiligen Reihe.
+            </li>
+          )}
           <li>
             <strong>Grundgebühr Ihres heutigen Lieferanten</strong>:{' '}
             {fixed.supplierFeeEurPerMonth > 0 ? (

@@ -7,6 +7,8 @@ import {
   CONTROLLED_WAY_LABEL,
   dynamicTariffHintKind,
   hasDemandChargeComponent,
+  levyNamesOf,
+  type LevyNames,
 } from '@/lib/report-copy'
 import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
@@ -233,6 +235,8 @@ export function buildMonthly(
   current: PdfReportAnalysis['current'],
   /** Gerät, Investition und Urteil zur Speicherreihe (`catalogStorageNote`); `null` beim Bestand. */
   storageNote: string | null = null,
+  /** Abgaben-Namen aus dem Ergebnis (`levyNamesOf`); `null` = bisheriger Wortlaut. */
+  levyNames: LevyNames | null = null,
 ): MonthlyChapter {
   const fixed = comparison.fixedCosts
   /*
@@ -353,7 +357,7 @@ export function buildMonthly(
        */
       amount: null,
       rows,
-      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate${monthsMissing ? ' — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr' : ''}. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate${monthsMissing ? ' — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr' : ''}. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (${levyNames ? levyNames.text : 'Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis'}) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
     },
   }
 }
@@ -486,7 +490,7 @@ export function buildDetailChapter(
       ? null
       : plan.cost.kind === 'monthly'
         ? /* `detailChartPlan` wählt `monthly` ausschliesslich im Bestandsfall — s. dort. */
-          buildMonthly(plan.cost.comparison, analysis.current)
+          buildMonthly(plan.cost.comparison, analysis.current, null, levyNamesOf(analysis.assumptions))
         : buildCumulative(plan.cost)
 
   return {
@@ -537,7 +541,12 @@ export function hasMonthlyChapter(analysis: PdfReportAnalysis): boolean {
 export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter | null {
   const comparison = monthlyComparisonOf(analysis)
   return comparison
-    ? buildMonthly(comparison, analysis.current, catalogStorageNote(analysis))
+    ? buildMonthly(
+        comparison,
+        analysis.current,
+        catalogStorageNote(analysis),
+        levyNamesOf(analysis.assumptions),
+      )
     : null
 }
 

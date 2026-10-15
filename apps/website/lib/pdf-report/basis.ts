@@ -33,6 +33,8 @@ import {
   rteSourceNote,
   SUBSIDY_CAP_LABEL,
   taxAssumptionLines,
+  levyNamesOf,
+  levySideLabel,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
@@ -297,10 +299,9 @@ export function buildDataQuality(analysis: PdfReportAnalysis, hasPv?: boolean): 
  * kein Freitext aus dem Befund: `TariffOptimizationBlocker` trägt `side` als Aufzählung, damit die
  * Anzeige nicht an einem Satz erkennen muss, worum es geht.
  */
-const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'levy' | 'dynamic_tariff', string> = {
+const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'dynamic_tariff', string> = {
   grid_tariff: 'Netzentgelte Ihres Netzbetreibers',
   spot_price: 'Börsen-Strompreise',
-  levy: 'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)',
   dynamic_tariff: 'Konditionen dynamischer Tarif',
 }
 
@@ -361,7 +362,7 @@ export function buildBlocker(analysis: PdfReportAnalysis, timeZone: string): Rep
     id: 'tariff_blocker',
     tone: 'warning',
     title: 'Vergleich mit Börsen-Strompreisen: nicht berechenbar',
-    body: `Für diesen Teil zeigen wir bewusst keine Zahl. Betroffen ist die Seite „${SIDE_LABEL[status.side]}".`,
+    body: `Für diesen Teil zeigen wir bewusst keine Zahl. Betroffen ist die Seite „${status.side === 'levy' ? levySideLabel(levyNamesOf(analysis.assumptions)) : SIDE_LABEL[status.side]}".`,
     list:
       status.ranges.length > 0
         ? {
@@ -1348,11 +1349,14 @@ export type BasisMethodItem = {
  */
 const FEED_IN_SENTENCE = 'Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet.'
 
+/** Die Abgaben im gemeinsamen Absatz, wenn das Ergebnis keine Namen trägt (`levyNamesOf`). */
+const SHARED_METHOD_LEVIES_AT =
+  'Elektrizitätsabgabe, EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis'
+
 const SHARED_METHOD_BODY =
   'Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
   'dem Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in ' +
-  'das sie fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, ' +
-  'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die ' +
+  `das sie fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (${SHARED_METHOD_LEVIES_AT}). Dazu die ` +
   'verbrauchsunabhängigen Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, ' +
   'tagesanteilig nach den tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. ' +
   FEED_IN_SENTENCE +
@@ -1381,11 +1385,13 @@ export function sharedMethodItem(
   gridProfileContainsPv = false,
 ): BasisMethodItem | null {
   if (!hasWaysChapter(analysis)) return null
+  const body = gridProfileContainsPv ? SHARED_METHOD_BODY_GRID_ONLY : SHARED_METHOD_BODY
+  const levyNames = levyNamesOf(analysis.assumptions)
   return {
     id: 'method_shared',
     kind: 'text',
     title: 'Was für alle Wege gleich gerechnet ist',
-    body: gridProfileContainsPv ? SHARED_METHOD_BODY_GRID_ONLY : SHARED_METHOD_BODY,
+    body: levyNames ? body.replace(SHARED_METHOD_LEVIES_AT, levyNames.text) : body,
   }
 }
 
@@ -1483,19 +1489,26 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
     displayedPriceBasis(analysis) === 'gross'
       ? `Gerechnet wird netto; ausgewiesen sind alle Beträge ${VAT_INCLUSIVE_LABEL}.`
       : null
+  const levyNames = levyNamesOf(analysis.assumptions)
   const hints: string[] = [
     analysis.tariffOptimization?.computable === true
       ? (basisSentence ?? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer.') +
         ` Die Abgaben auf den Bezug sind ${basisSentence ? 'ebenfalls' : 'dagegen'} enthalten: ` +
-        'Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
-        'Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren stecken in den ' +
-        'Monatskosten und damit in den ' +
-        'Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so ' +
-        'wie er auf der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie ' +
-        'anfällt.'
+        (levyNames
+          ? `${levyNames.text} ${levyNames.plural ? 'stecken' : 'steckt'} in den Monatskosten und ` +
+            'damit in den Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl da, so wie er ' +
+            'auf der Netzrechnung steht.'
+          : 'Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
+            'Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren stecken in den ' +
+            'Monatskosten und damit in den ' +
+            'Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so ' +
+            'wie er auf der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie ' +
+            'anfällt.')
       : (basisSentence ?? 'Gerechnet wird durchgängig netto.') +
-        ' Verbrauchsabgaben — Elektrizitätsabgabe, ' +
-        'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
+        (levyNames
+          ? ` Verbrauchsabgaben — ${levyNames.text} — sind in keiner Zahl dieses `
+          : ' Verbrauchsabgaben — Elektrizitätsabgabe, ' +
+            'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ') +
         'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
   ]
 

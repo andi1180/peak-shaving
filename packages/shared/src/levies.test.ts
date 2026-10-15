@@ -7,6 +7,7 @@ import {
   buildLevySchedule,
   findLevyPeriod,
   levyCoverageEnd,
+  levyComponentLabels,
   levyCoverageStatus,
   levyGapYearBeyondCoverage,
   perKwhComponentsCtPerKwh,
@@ -288,6 +289,24 @@ describe('buildLevySchedule — Abgabenposten je kWh nach Land', () => {
     const spanning = buildLevySchedule('x', 7, '2026-06-01', '2027-03-31', null, DE)
     expect(findLevyPeriod(spanning.periods, '2026-12-31')).not.toBeNull()
     expect(findLevyPeriod(spanning.periods, '2027-01-01')).toBeNull()
+  })
+})
+
+describe('levyComponentLabels — Namen der verwendeten Posten je kWh', () => {
+  const DE = { category: 'gewerbe', postalCode: '10115', country: 'DE' } as const
+
+  it('DE über den Jahreswechsel: eindeutig je key, Reihenfolge der Tabelle; ausserhalb leer; AT leer', () => {
+    const de = buildLevySchedule('x', 7, '2025-01-01', '2026-12-31', null, DE)
+    expect(levyComponentLabels(de.periods, '2025-12-15', '2026-01-15')).toEqual([
+      { key: 'de_stromsteuer', label: 'Stromsteuer' },
+      { key: 'de_kwkg', label: 'KWKG-Aufschlag' },
+      { key: 'de_par19', label: 'Aufschlag für besondere Netznutzung (§ 19 StromNEV)' },
+      { key: 'de_offshore', label: 'Offshore-Netzumlage' },
+      { key: 'de_konzession', label: 'Konzessionsabgabe (Sondervertrag)' },
+    ])
+    expect(levyComponentLabels(de.periods, '2027-01-01', '2027-03-31')).toEqual([])
+    const at = buildLevySchedule('wiener_netze', 7, '2025-01-01', '2026-12-31', 'mit_leistungsmessung', GEWERBE)
+    expect(levyComponentLabels(at.periods, '2025-01-01', '2026-12-31')).toEqual([])
   })
 })
 

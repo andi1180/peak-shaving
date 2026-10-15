@@ -7,6 +7,8 @@ import {
   type EstimatedPvSummary,
   type ExistingBatteryAnalysis,
   type FinancialParams,
+  levyComponentLabels,
+  type LevyComponentLabel,
   type LevySchedule,
   type LoadProfile,
   type PvProfile,
@@ -16,6 +18,7 @@ import {
 } from 'shared'
 
 import type { DataQuality } from './parser'
+import { utcMsToLocalFields } from './parser/datetime'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
@@ -230,6 +233,21 @@ type ExistingBatteryOutcome = {
 /** Der Abgabenplan der Analyse: der des Tarifvergleichs, sonst der eigenständige. */
 function leviesOf(payload: CalculatorPayload): LevySchedule | undefined {
   return payload.tariffPricing?.levies ?? payload.levies ?? undefined
+}
+
+/** Die Abgabenposten je kWh der Zeiträume, die der Lastgang berührt (Ortsdaten wie in `tou.ts`). */
+function levyComponentsOf(
+  loadProfile: LoadProfile,
+  levies: LevySchedule | undefined,
+): LevyComponentLabel[] {
+  const first = loadProfile.readings[0]
+  const last = loadProfile.readings[loadProfile.readings.length - 1]
+  if (!levies || !first || !last) return []
+  const localDate = (ts: string) => {
+    const { year, month, day } = utcMsToLocalFields(Date.parse(ts), loadProfile.timezoneMeta)
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+  return levyComponentLabels(levies.periods, localDate(first.ts), localDate(last.ts))
 }
 
 function buildExistingBatteryAnalysis(
@@ -551,6 +569,9 @@ export function computeAnalysis(
       }
     : baseTariffOptimization
 
+  // Nur Namen, mitgeschrieben fürs Report; ein leerer Plan (Österreich) lässt das Feld weg.
+  const levyComponents = levyComponentsOf(loadProfile, leviesOf(payload))
+
   return {
     current:
       eagGrundpreisCostPerYear === undefined
@@ -577,6 +598,7 @@ export function computeAnalysis(
       ...(leviesOf(payload)?.locationAssumed
         ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),
+      ...(levyComponents.length > 0 ? { levyComponents } : {}),
       ...(taxAssumptions ? { tax: taxAssumptions } : {}),
       ...(subsidyPrograms ? { subsidyPrograms } : {}),
     },

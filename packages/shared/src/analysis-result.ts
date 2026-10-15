@@ -1,6 +1,7 @@
 import type { AnnualScenario } from './annual-scenario'
 import type { AnnualTariffProjection } from './annual-projection'
 import type { BatteryCandidate } from './battery'
+import type { LevyComponentLabel } from './levies'
 import type { PvValueScenario } from './pv-value'
 import type { BillingModel } from './tariff'
 import type { TariffOptimizationStatus } from './tariff-pricing'
@@ -473,6 +474,11 @@ export type AnalysisResult = {
      * (`LevySchedule.locationAssumed`). Optional und additiv — kein Bündel-Versionssprung.
      */
     levyLocationAssumed?: 'vienna'
+    /**
+     * Die im Rechenzeitraum verwendeten Abgabenposten je kWh (`LevyPeriodInput.perKwhComponents`),
+     * nur Namen. Fehlt das Feld, nennt der Report die österreichischen Abgaben (Fassung ≤ 18).
+     */
+    levyComponents?: LevyComponentLabel[]
     /** Die Steuerangaben der Nach-Steuer-Richtwerte — gesetzt GENAU DANN, wenn sie gerechnet sind. */
     tax?: AnalysisTaxAssumptions
     /** Die Förderprogramme „€ pro kWh" — gesetzt GENAU DANN, wenn mit ihnen gerechnet ist. */

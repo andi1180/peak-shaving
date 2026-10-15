@@ -2452,7 +2452,29 @@
   "horizonYears": 10,
   "billingModel": "annual_max",
   "energyPriceCtPerKwh": 20,
-  "einspeiseverguetungCtPerKwh": 0
+  "einspeiseverguetungCtPerKwh": 0,
+  "levyComponents": [
+   {
+    "key": "de_stromsteuer",
+    "label": "Stromsteuer"
+   },
+   {
+    "key": "de_kwkg",
+    "label": "KWKG-Aufschlag"
+   },
+   {
+    "key": "de_par19",
+    "label": "Aufschlag für besondere Netznutzung (§ 19 StromNEV)"
+   },
+   {
+    "key": "de_offshore",
+    "label": "Offshore-Netzumlage"
+   },
+   {
+    "key": "de_konzession",
+    "label": "Konzessionsabgabe (Sondervertrag)"
+   }
+  ]
  },
  "tariffOptimization": {
   "computable": true,

@@ -9,6 +9,7 @@ import {
   hasEnteredSubsidy,
   isAnnualized,
   storagePaysOff,
+  levyNamesOf,
 } from '@/lib/report-copy'
 import { formatIsoDate, operatorLabelOf } from './basis'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
@@ -413,10 +414,14 @@ function provenanceSentences(input: PdfReportInput): string[] {
   if (grid) sentences.push(grid)
 
   if (computable) {
+    const levyNames = levyNamesOf(analysis.assumptions)
     sentences.push(
-      'Elektrizitätsabgabe, EAG-Förderbeitrag, EAG-Pauschale und Gebrauchsabgabe sind mit den ' +
-        'Verordnungssätzen gerechnet, die für Ihren Netzbetreiber und Ihre Netzebene im ' +
-        'ausgewerteten Zeitraum galten.',
+      levyNames
+        ? `${levyNames.text} ${levyNames.plural ? 'sind' : 'ist'} mit den Sätzen gerechnet, die im ` +
+            'ausgewerteten Zeitraum galten.'
+        : 'Elektrizitätsabgabe, EAG-Förderbeitrag, EAG-Pauschale und Gebrauchsabgabe sind mit den ' +
+            'Verordnungssätzen gerechnet, die für Ihren Netzbetreiber und Ihre Netzebene im ' +
+            'ausgewerteten Zeitraum galten.',
       'Die aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — ' +
         'keine Prognose und kein Durchschnittswert.',
     )
