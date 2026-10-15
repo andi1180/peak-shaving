@@ -29,10 +29,19 @@ export function primaryBatteryEntry(
  * Weg 5 — die Kappungs-Ersparnis eines Eintrags pro Jahr: Leistungspreis inkl. Gebrauchsabgabe
  * plus EAG-Förderbeitrag Leistung. 0, wenn der Leistungspreis-Anteil nicht positiv ist (Gründe:
  * `peakShavingBlockers`). Hauptreport und Jahres-Hochrechnung rechnen beide hierüber.
+ *
+ * Mit Netzentgelt-Stufen (`networkTier`) ist der Anteil die Netzentgelt-Ersparnis aus Leistung UND
+ * Stufe und wird mit Vorzeichen übernommen — sonst passte Weg 5 nicht mehr zur Gesamtersparnis.
  */
 export function peakShavingSavingPerYearOf(
-  entry: Pick<BatteryResultEntry, 'leistungspreisSavingPerYear' | 'eagDemandSavingPerYear'> | undefined,
+  entry:
+    | Pick<
+        BatteryResultEntry,
+        'leistungspreisSavingPerYear' | 'eagDemandSavingPerYear' | 'networkTier'
+      >
+    | undefined,
 ): number {
-  if (!entry || !(entry.leistungspreisSavingPerYear > 0)) return 0
+  if (!entry) return 0
+  if (!entry.networkTier && !(entry.leistungspreisSavingPerYear > 0)) return 0
   return entry.leistungspreisSavingPerYear + (entry.eagDemandSavingPerYear ?? 0)
 }

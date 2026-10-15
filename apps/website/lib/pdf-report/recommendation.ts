@@ -21,6 +21,7 @@ import {
   ANNUALIZED_LABEL,
   batteryNoteTexts,
   CONTROLLED_WAY_LABEL,
+  demandSavingShown,
   dynamicTariffHintKind,
   dynamicTariffHintText,
   ENERGY_PRICE_ONLY_NOTE,
@@ -138,7 +139,7 @@ function capRows(
   entry: BatteryResultEntry,
   loadProfile: RecommendationLoadProfile,
 ): ReportRow[] {
-  if (!(entry.leistungspreisSavingPerYear > 0)) return []
+  if (!demandSavingShown(entry)) return []
   const billingModel = effectiveBillingModel(analysis.assumptions.billingModel)
   const caps = coveredFiniteCaps(entry, billingModel, loadProfile)
   if (caps.length === 0) return []

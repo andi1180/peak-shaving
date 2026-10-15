@@ -28,7 +28,10 @@ export function KeyMetric({
             {formatEur(current.leistungspreisCostPerYear)}
           </Num>
           <p className="mt-1 text-sm text-text-muted">
-            Leistungspreis-Kosten pro Jahr (abgerechnet: <Num>{formatKw(current.billedKw)}</Num>)
+            {current.networkTier
+              ? 'Netzentgelt Leistung/Stufe pro Jahr'
+              : 'Leistungspreis-Kosten pro Jahr'}{' '}
+            (abgerechnet: <Num>{formatKw(current.billedKw)}</Num>)
           </p>
         </div>
       </div>

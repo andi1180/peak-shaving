@@ -18,6 +18,8 @@ import {
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import {
+  demandSavingShown,
+  hasDemandChargeComponent,
   catalogStorageEntry,
   catalogStorageNote,
   dynamicTariffHintKind,
@@ -158,21 +160,6 @@ export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry
     (id === undefined ? undefined : analysis.perBattery.find((p) => p.battery.id === id)) ??
     analysis.perBattery[0]
   )
-}
-
-/**
- * Hat dieser Tarif überhaupt einen Leistungspreis?
- *
- * ⚠ [ABGELEITET, keine Contract-Zahl] — gerechnet wird `leistungspreisCostPerYear = Satz × billedKw`
- * (§3.4). Ein Ergebnis > 0 heisst: es gibt einen Satz UND einen abgerechneten Wert. Ein Anschluss
- * ohne Leistungsmessung (Netzebene 7) hat den Posten überhaupt nicht.
- *
- * ⚠ EXPORTIERT FÜR `detail.ts`: der Monatsvergleich sagt in seiner Bildunterschrift, dass der
- * Leistungspreis NICHT enthalten ist — derselbe Vorbehalt wie an der Ist-Kosten-Kopfzahl unten,
- * und deshalb an derselben Bedingung. (`prerequisites.ts` hält seine eigene Fassung, s. dort.)
- */
-export function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
-  return current.leistungspreisCostPerYear > 0
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -373,13 +360,20 @@ export function recommendationVerdictOf(
   )
 }
 
+/** Bezugszeile der Kopfzahlen: was in den Ist-Kosten NICHT steckt. */
+function withoutDemandCharge(current: PdfReportAnalysis['current']): string {
+  return current.networkTier ? 'ohne Netzentgelt aus Leistung und Stufe' : 'ohne Leistungspreis'
+}
+
 /** Die Kopfzahlen bei unbekanntem Liefertarif: absolute Kosten, keine Ersparnis. */
 export function buildUnknownTariffKpis(
   analysis: PdfReportAnalysis,
   ways: UnknownTariffWays,
 ): SummaryKpi[] {
   const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
-  const basis = hasLeistungspreis(analysis.current) ? `${days}, ohne Leistungspreis` : days
+  const basis = hasDemandChargeComponent(analysis.current)
+    ? `${days}, ${withoutDemandCharge(analysis.current)}`
+    : days
   const kpis: SummaryKpi[] = [
     {
       id: 'cost_awattar',
@@ -435,7 +429,9 @@ export function buildSummaryKpis(
       caption: [
         // Passt in eine Zeile (145,7 pt bei 8,5 pt Inter, Zelle 228,8 pt).
         gridProfileContainsPv ? 'Ihre Stromkosten heute (Netzbezug)' : 'Ihre Stromkosten heute',
-        hasLeistungspreis(analysis.current) ? `${days}, ohne Leistungspreis` : days,
+        hasDemandChargeComponent(analysis.current)
+          ? `${days}, ${withoutDemandCharge(analysis.current)}`
+          : days,
       ],
       tone: 'ink',
     },
@@ -625,8 +621,8 @@ function unknownTariffOverview(analysis: PdfReportAnalysis, ways: UnknownTariffW
   const verdict = recommendationVerdictOf(analysis)
   const primary = primaryEntryOf(analysis)
   const peakPart: ReportText =
-    primary && primary.leistungspreisSavingPerYear > 0
-      ? t` Die Kappung Ihrer Lastspitzen ist in diesen Zahlen nicht enthalten: sie hängt am Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag${ref(
+    primary && demandSavingShown(primary)
+      ? t` ${peakSubject(primary)} ist in diesen Zahlen nicht enthalten: sie hängt am ${peakDriver(primary)} Ihres Netzbetreibers und nicht am Stromvertrag${ref(
           block('recommendation'),
           `, und was ein Speicher dabei leistet, steht ${REF_PLACE}`,
           '',
@@ -646,6 +642,14 @@ function unknownTariffOverview(analysis: PdfReportAnalysis, ways: UnknownTariffW
 
   return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar)${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${storage}${peakPart}`
 }
+
+/** Subjekt des Weg-5-Satzes — mit Netzentgelt-Stufen umfasst die Zahl Leistung UND Stufe. */
+const peakSubject = (entry: BatteryResultEntry): string =>
+  entry.networkTier
+    ? 'Die Netzentgelt-Ersparnis aus Leistung und Stufe'
+    : 'Die Kappung Ihrer Lastspitzen'
+const peakDriver = (entry: BatteryResultEntry): string =>
+  entry.networkTier ? 'Netzentgelt' : 'Leistungspreis'
 
 /**
  * Der eine Absatz der Zusammenfassung.
@@ -690,8 +694,8 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
 
   const primary = primaryEntryOf(analysis)
   const peakPart: ReportText =
-    primary && primary.leistungspreisSavingPerYear > 0
-      ? t` Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht enthalten: sie hängt am Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag${ref(
+    primary && demandSavingShown(primary)
+      ? t` ${peakSubject(primary)} ist in dieser Spanne nicht enthalten: sie hängt am ${peakDriver(primary)} Ihres Netzbetreibers und nicht am Stromvertrag${ref(
           block('recommendation'),
           `, und was Ihr Speicher dabei leistet, steht ${REF_PLACE}`,
           '',
@@ -852,7 +856,7 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
     return null
   }
   /* Ohne Leistungspreis hat der Hinweis keinen Gegenstand: es gibt den Posten gar nicht. */
-  if (!hasLeistungspreis(analysis.current)) return null
+  if (!hasDemandChargeComponent(analysis.current)) return null
 
   return {
     id: 'partial_year',
@@ -887,7 +891,7 @@ export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice |
   if (!(slots > LARGE_GAP_SLOTS_THRESHOLD)) return null
 
   const days = Math.round(slots / 96)
-  const consequence = hasLeistungspreis(analysis.current)
+  const consequence = hasDemandChargeComponent(analysis.current)
     ? `Eine Lastspitze, die in diesen ${days} Tagen aufgetreten ist, kann in keiner Zahl dieses ` +
       'Reports vorkommen: der abgerechnete Leistungswert und die daraus abgeleitete Ersparnis ' +
       'sind für diesen Datensatz eher zu niedrig als zu hoch.'
@@ -929,7 +933,7 @@ export function buildStandardProfileNotice(
 ): ReportNotice | null {
   if (loadProfile.source !== 'standard_profile') return null
 
-  const withLeistungspreis = hasLeistungspreis(current)
+  const withLeistungspreis = hasDemandChargeComponent(current)
 
   return {
     id: 'standard_profile',

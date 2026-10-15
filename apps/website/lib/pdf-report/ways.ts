@@ -1,7 +1,7 @@
 import { displayedPriceLabel, peakShavingSavingPerYearOf } from 'shared'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { formatEur } from '@/lib/format'
+import { formatEur, formatHours } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, monthlyBatteryRef, storageJudgementText } from '@/lib/report-copy'
 import { netOverHorizonRow, subsidyRows, totalInvestmentRow } from './investment-rows'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
@@ -144,7 +144,7 @@ export function hasWaysChapter(analysis: PdfReportAnalysis): boolean {
  * Stelle und wird von beiden gelesen (dasselbe Muster wie `context.hasWays`).
  */
 export function waysCountOf(analysis: PdfReportAnalysis): number {
-  const peak = peakShavingSavingOf(analysis) > 0 ? 1 : 0
+  const peak = peakWayShown(analysis) ? 1 : 0
   const ways = summaryWaysOf(analysis)
   if (!ways) {
     const unknown = unknownTariffWaysOf(analysis)
@@ -167,12 +167,59 @@ export function peakShavingSavingOf(analysis: PdfReportAnalysis): number {
   return peakShavingSavingPerYearOf(primaryEntryOf(analysis))
 }
 
+/** Steht Weg 5 im Dokument? Ohne Netzentgelt-Stufen nur positiv, mit Stufen jeder Wert ≠ 0. */
+export function peakWayShown(analysis: PdfReportAnalysis): boolean {
+  const value = peakShavingSavingOf(analysis)
+  return primaryEntryOf(analysis)?.networkTier ? value !== 0 : value > 0
+}
+
+/** Die Beschriftung von Weg 5 in diesem Dokument — mit Netzentgelt-Stufen eine eigene. */
+export function peakShavingWayLabel(analysis: PdfReportAnalysis): string {
+  return primaryEntryOf(analysis)?.networkTier ? NETWORK_TIER_WAY_LABEL : PEAK_SHAVING_WAY_LABEL
+}
+
+/** Stunden pro Jahr, ganzzahlig gerundet; `null` (keine abgerechnete Leistung) als „keine Angabe". */
+function hoursText(value: number | null): string {
+  return value === null ? 'keine Angabe' : formatHours(value)
+}
+
+/**
+ * Weg 5 bei Netzentgelt-Stufen: EINE Zeile aus Leistung und Stufe — die Engine liefert keine
+ * Aufteilung in Leistungspreis und Abgaben, und eine erfundene wäre falsch. Darunter Stufe und
+ * Benutzungsdauer heute und mit Speicher, als Angabe.
+ */
+function networkTierRows(analysis: PdfReportAnalysis): ReportRow[] | null {
+  const entry = primaryEntryOf(analysis)
+  const today = analysis.current.networkTier
+  const withStorage = entry?.networkTier
+  if (!today || !withStorage) return null
+  const neutral = (label: string, value: string): ReportRow => ({ label, value, tone: 'neutral' })
+  return [
+    {
+      ...neutral(
+        'Netzentgelt aus Leistung und Stufe',
+        formatEur(Math.round(peakShavingSavingOf(analysis))),
+      ),
+      total: true,
+    },
+    // Ohne Pfeilzeichen: die Report-Schrift trägt „→" nicht (am PDF gemessen).
+    neutral('Netzentgelt-Stufe', `heute ${today.tier}, mit Speicher ${withStorage.tier}`),
+    neutral(
+      'Benutzungsdauer',
+      `heute ${hoursText(today.usageHours)} h/a, mit Speicher ${hoursText(withStorage.usageHours)} h/a ` +
+        `(Schwelle ${hoursText(withStorage.thresholdHours)} h)`,
+    ),
+  ]
+}
+
 /**
  * Die Aufschlüsselung von Weg 5: Leistungspreis netto, Gebrauchsabgabe darauf, EAG-Förderbeitrag
  * Leistung, Summe. Gerundet wird je Zeile, die Gebrauchsabgabe ist der Rest bis zur gerundeten
  * Summe — so ergeben die gezeigten Zahlen genau die gezeigte Summe.
  */
 function peakShavingRows(analysis: PdfReportAnalysis): ReportRow[] {
+  const tierRows = networkTierRows(analysis)
+  if (tierRows) return tierRows
   const entry = primaryEntryOf(analysis)
   const { billedKw, leistungspreisCostPerYear } = analysis.current
   if (!entry || !(billedKw > 0)) return []
@@ -207,6 +254,9 @@ const wayById = (ways: SummaryWays, id: SummaryWay['id']): SummaryWay | undefine
  * `CONTROLLED_WAY_LABEL` für Weg 4 bereits behoben hat.
  */
 export const PEAK_SHAVING_WAY_LABEL = 'Kappung Ihrer Lastspitzen'
+
+/** Weg 5 bei Netzentgelt-Stufen: die Zahl umfasst Leistung UND Stufe, nicht nur die Kappung. */
+export const NETWORK_TIER_WAY_LABEL = 'Netzentgelt-Ersparnis (Leistung und Stufe)'
 
 /**
  * Der Hinweis zur vorausschauenden Ladesteuerung.
@@ -270,6 +320,19 @@ const PREDICTIVE_METHOD =
  * anderen Grösse (dem abgerechneten kW-Wert) und über einen anderen Bezugszeitraum (ein Jahr).
  * Als weitere Zeile derselben Liste läse sie sich wie ein vierter Tarif.
  */
+/**
+ * Weg 5 bei Netzentgelt-Stufen. Ohne Abgabennamen: die Zahl ist allein das Netzentgelt aus
+ * Leistungs- und Arbeitspreisanteil der gewählten Stufe.
+ */
+const NETWORK_TIER_METHOD =
+  'Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Das Netzentgelt Ihres ' +
+  'Anschlusses hat zwei Preisstufen, je nach Benutzungsdauer — der Jahresmenge geteilt durch die ' +
+  'abgerechnete Jahreshöchstleistung. Gerechnet wird ohne und mit Speicher jeweils die günstigere ' +
+  'der beiden Stufen. Ein Speicher senkt die Spitze; dadurch steigt die Benutzungsdauer, und die ' +
+  'Stufe kann wechseln. Die Zahl enthält deshalb den Leistungs- und den Arbeitspreisanteil des ' +
+  'Netzentgelts und wird pro JAHR verrechnet; als Jahresgrösse gehört sie zu keinem der Beträge ' +
+  'darüber dazu.'
+
 const PEAK_SHAVING_METHOD =
   'Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am ' +
   'abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel ' +
@@ -331,6 +394,7 @@ export function buildWaysChapter(
      Balken noch als Absatz. `waysCountOf` zählt ihn aus derselben Liste und ist damit schon mit. */
   const controlWay = wayById(ways, 'controlled')
   const peakSavingPerYear = peakShavingSavingOf(analysis)
+  const tiered = primaryEntryOf(analysis)?.networkTier !== undefined
 
   /* Weg 1 ist der erste Balken und der erste Absatz — nicht mehr nur die Kopfzahl in Kapitel 1. */
   const bars: WaysBar[] = [
@@ -457,10 +521,10 @@ export function buildWaysChapter(
     )
   }
 
-  if (peakSavingPerYear > 0) {
+  if (peakWayShown(analysis)) {
     addWay({
       id: 'ways_peak_shaving',
-      title: PEAK_SHAVING_WAY_LABEL,
+      title: peakShavingWayLabel(analysis),
       amount: null,
       rows: peakShavingRows(analysis),
       /*
@@ -468,14 +532,14 @@ export function buildWaysChapter(
        * `monthlyBatteryRef`) und trägt deshalb nur nach „mit" — als Satzsubjekt ergäbe sie
        * „der empfohlenen Batterie senkt…". Am erzeugten PDF gemessen, nicht vermutet.
        */
-      body: peakShavingBody(whose, peakSavingPerYear, days, true),
+      body: peakShavingBody(whose, peakSavingPerYear, days, true, tiered),
     },
-      PEAK_SHAVING_METHOD,
+      tiered ? NETWORK_TIER_METHOD : PEAK_SHAVING_METHOD,
       true,
     )
   }
 
-  const wayCount = 1 + ways.ways.length + (peakSavingPerYear > 0 ? 1 : 0)
+  const wayCount = 1 + ways.ways.length + (peakWayShown(analysis) ? 1 : 0)
 
   return {
     bars,
@@ -486,8 +550,8 @@ export function buildWaysChapter(
     figure: {
       caption:
         `Was Sie über die ${days} gemessenen Tage tatsächlich gezahlt hätten — je Weg ein Balken. ` +
-        (peakSavingPerYear > 0
-          ? 'Die Kappung Ihrer Lastspitzen ist hier nicht enthalten (Jahresgrösse, s. unten). '
+        (peakWayShown(analysis)
+          ? `Die ${peakShavingWayLabel(analysis)} ist hier nicht enthalten (Jahresgrösse, s. unten). `
           : '') +
         /* Kein `⚠` in Kundentext: die Report-Schrift trägt das Zeichen nicht, es verschwindet
            beim Rendern spurlos (am erzeugten PDF gemessen). */
@@ -504,11 +568,19 @@ function peakShavingBody(
   peakSavingPerYear: number,
   days: string,
   inSummarySpan: boolean,
+  tiered: boolean,
 ): string {
+  const effect = tiered
+    ? `${whose} die abgerechnete Jahreshöchstleistung; daran und an der Benutzungsdauer hängt das ` +
+      'Netzentgelt Ihres Netzbetreibers. ' +
+      (peakSavingPerYear >= 0
+        ? `Das senkt es um ${formatEur(peakSavingPerYear)} pro Jahr. `
+        : `Das erhöht es um ${formatEur(-peakSavingPerYear)} pro Jahr. `)
+    : `${whose} den abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis ` +
+      `verrechnet. Das bringt ${formatEur(peakSavingPerYear)} pro Jahr. `
   return (
     'Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit ' +
-    `${whose} den abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis ` +
-    `verrechnet. Das bringt ${formatEur(peakSavingPerYear)} pro Jahr. ` +
+    effect +
     'Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als ' +
     `die ${days} Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert` +
     (inSummarySpan ? ' und steht auch nicht in der Ersparnis-Spanne der Zusammenfassung' : '') +
@@ -542,6 +614,7 @@ function buildUnknownTariffWaysChapter(
   const days = String(ways.coveredDays)
   const baseline = ways.baseline
   const peakSavingPerYear = peakShavingSavingOf(analysis)
+  const tiered = primaryEntryOf(analysis)?.networkTier !== undefined
 
   /** Gegenüber dem Vergleichstarif — leer ohne ihn. */
   const againstBaseline = (costEur: number): string => {
@@ -630,16 +703,16 @@ function buildUnknownTariffWaysChapter(
     )
   }
 
-  if (peakSavingPerYear > 0) {
+  if (peakWayShown(analysis)) {
     addWay(
       {
         id: 'ways_peak_shaving',
-        title: PEAK_SHAVING_WAY_LABEL,
+        title: peakShavingWayLabel(analysis),
         amount: null,
         rows: peakShavingRows(analysis),
-        body: peakShavingBody(whose, peakSavingPerYear, days, false),
+        body: peakShavingBody(whose, peakSavingPerYear, days, false, tiered),
       },
-      PEAK_SHAVING_METHOD,
+      tiered ? NETWORK_TIER_METHOD : PEAK_SHAVING_METHOD,
       true,
     )
   }
@@ -653,8 +726,8 @@ function buildUnknownTariffWaysChapter(
     figure: {
       caption:
         `Was Ihr Strom über die ${days} gemessenen Tage gekostet hätte — je Weg ein Balken. ` +
-        (peakSavingPerYear > 0
-          ? 'Die Kappung Ihrer Lastspitzen ist hier nicht enthalten (Jahresgrösse, s. unten). '
+        (peakWayShown(analysis)
+          ? `Die ${peakShavingWayLabel(analysis)} ist hier nicht enthalten (Jahresgrösse, s. unten). `
           : '') +
         `Alle Beträge ${displayedPriceLabel(analysis)}.`,
       note: null,

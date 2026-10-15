@@ -3,6 +3,7 @@ import type { BatteryResultEntry, BatteryRoiEntry, BatteryRoiSummary } from 'sha
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import {
+  hasDemandChargeComponent,
   ANNUALIZED_LABEL,
   dynamicTariffHintKind,
   hasEnteredSubsidy,
@@ -17,7 +18,7 @@ import type { AnnualScenarioPvInput } from './annual-scenario'
 import { annualCatalogEntriesOf, headlineStorageOf } from './headline-storage'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
-import { hasLeistungspreis, recommendedEntryOf } from './summary'
+import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -209,7 +210,7 @@ export function noPayoffReasonOf(
   hasPv: boolean | undefined,
 ): string | null {
   if (!noCatalogDevicePaysOff(analysis) || hasPv !== false) return null
-  if (hasLeistungspreis(analysis.current)) return null
+  if (hasDemandChargeComponent(analysis.current)) return null
   if (!analysis.perBattery.every((c) => c.energySavingBasis === 'full_price')) return null
   return NO_PAYOFF_REASON
 }

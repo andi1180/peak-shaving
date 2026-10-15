@@ -251,7 +251,14 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
     ),
     runAt: '2026-10-15T08:00:00.000Z',
     executiveSummary: DE_EXECUTIVE_SUMMARY[stufe],
-    textChecks: { contains: ['Deutschland', 'Niederspannung'], absent: ['Jän'] },
+    textChecks: {
+      contains: ['Deutschland', 'Niederspannung', 'Benutzungsdauer', 'Stufe'],
+      absent: [
+        'Jän',
+        'Gebrauchsabgabe darauf',
+        ...(stufe === 'stufe2' ? ['ohne Leistungsmessung', 'keinen Leistungspreis'] : []),
+      ],
+    },
     screen: {
       tariffFile: path.join(DE_GOLDEN, 'tariff.json'),
       batteryCatalogFile: path.join(DE_GOLDEN, 'battery-catalog.json'),
@@ -583,6 +590,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       checkSnapshot(`${c.name}.pdf.txt`, pdfText)
       for (const text of c.textChecks?.contains ?? []) expect(pdfText, text).toContain(text)
       for (const text of c.textChecks?.absent ?? []) expect(pdfText, text).not.toContain(text)
+      // Ein Leistungspreis-Satz mit negativem Betrag wäre ein zurückgerechneter Stufenwert.
+      if (c.textChecks) expect(pdfText).not.toMatch(/-€\s?[\d.,]+ \/ kW·a/)
       if (c.screen) {
         const { tariff } = JSON.parse(readFileSync(c.screen.tariffFile, 'utf8')) as {
           tariff: TariffParams

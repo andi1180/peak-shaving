@@ -1,4 +1,4 @@
-import { countryDisplay } from 'shared'
+import { countryDisplay, type BillingModel } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { aboutYears } from './break-even-band'
@@ -156,10 +156,17 @@ function totalBox(s: ExecutiveSummary): ExecutiveSummaryCopy['totalBox'] {
   }
 }
 
+/** Welche Spitze die Gebühr bestimmt — je Abrechnungsmodell. */
+const PEAK_FEE_SENTENCE: Record<BillingModel, string> = {
+  annual_max: 'Die höchste Viertelstunde im Abrechnungsjahr bestimmt die Spitzengebühr',
+  monthly_max_average: 'Der höchste Balken im Monat bestimmt die Spitzengebühr',
+  monthly_max_sum: 'Der höchste Balken im Monat bestimmt die Spitzengebühr',
+}
+
 function loadSentence(s: ExecutiveSummary): string {
   const base = 'Die Balken zeigen Ihre höchste Leistung pro Tag.'
   if (!s.hasLeistungspreis) return base
-  const fee = `${base} Der höchste Balken im Monat bestimmt die Spitzengebühr`
+  const fee = `${base} ${PEAK_FEE_SENTENCE[s.billingModel ?? 'monthly_max_sum']}`
   return s.storage?.upperBound
     ? `${fee}; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).`
     : `${fee}.`

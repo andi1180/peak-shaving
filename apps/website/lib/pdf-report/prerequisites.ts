@@ -2,6 +2,7 @@ import { DEFAULT_COUNTRY, displayedPriceLabel, netzebeneLabel } from 'shared'
 import type { Country, PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
+import { hasDemandChargeComponent } from '@/lib/report-copy'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
@@ -27,11 +28,6 @@ import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from '.
 
 function neutralRow(label: string, value: string): ReportRow {
   return { label, value, tone: 'neutral' }
-}
-
-/** Bewusste Doppelung zu `summary.ts` — dieselbe Bedingung, eigenständig gehalten (s. dort). */
-function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
-  return current.leistungspreisCostPerYear > 0
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -108,7 +104,7 @@ function gridConnectionRow(
     level === undefined
       ? 'Netzebene nicht erfasst'
       : netzebeneLabel(country ?? DEFAULT_COUNTRY, level)
-  const measurement = hasLeistungspreis(analysis.current)
+  const measurement = hasDemandChargeComponent(analysis.current)
     ? 'mit Leistungsmessung'
     : 'ohne Leistungsmessung'
 
@@ -150,7 +146,7 @@ const NO_LEISTUNGSPREIS_HEAD =
  * Leistungspreis > 0 bislang).
  */
 export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: boolean): ReportNotice {
-  const body = hasLeistungspreis(analysis.current)
+  const body = hasDemandChargeComponent(analysis.current)
     ? hasBattery
       ? 'Ihr Anschluss hat einen Leistungspreis-Bestandteil. Ihre Batterie kann hier zusätzlich ' +
         'Kosten senken, indem sie Verbrauchsspitzen kappt — ein Hebel unabhängig vom gewählten Tarif.'

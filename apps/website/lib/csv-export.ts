@@ -1,7 +1,7 @@
 import type { AnalysisResult } from 'shared'
 
 import { formatEur, formatYears } from './format'
-import { batteryNoteTexts } from './report-copy'
+import { batteryNoteTexts, NETWORK_TIER_SAVING_LABEL } from './report-copy'
 
 type Entry = AnalysisResult['perBattery'][number]
 
@@ -45,7 +45,7 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
     'Modell',
     'Klasse',
     'Investition',
-    'Leistungspreis-Anteil pro Jahr',
+    `${perBattery.some((entry) => entry.networkTier) ? NETWORK_TIER_SAVING_LABEL : 'Leistungspreis-Anteil'} pro Jahr`,
     'Energie-Anteil pro Jahr',
     'Abgedeckte Tage',
     'Hochrechnungsfaktor',

@@ -434,7 +434,7 @@ export function Report({
   // perioden-spezifische Umrechnung (monthly_* → ÷12) macht das Chart selbst am
   // `billingModel`. `null` bei billedKw = 0 (leeres/rein einspeisendes Profil) — dann keine Spitzen.
   const leistungspreisRatePerKwYear =
-    result.current.billedKw > 0
+    result.current.billedKw > 0 && !result.current.networkTier
       ? result.current.leistungspreisCostPerYear /
         demandChargeKwPerYear(
           result.current.billedKw,
