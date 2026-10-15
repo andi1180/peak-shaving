@@ -60,3 +60,32 @@ export function findGridTariffRow<T extends Pick<GridTariffRowInput, 'validFrom'
   }
   return best
 }
+
+/** Die drei Stufen-Spalten einer `grid_tariffs`-Zeile, wie PostgREST sie liefert. */
+export type GridTariffTierColumns = {
+  tier_threshold_hours?: number | string | null
+  tier2_leistungspreis_eur_per_kw_year?: number | string | null
+  tier2_arbeitspreis_ct_per_kwh?: number | string | null
+}
+
+type GridTariffTierFields = Pick<
+  GridTariffRowInput,
+  'tierThresholdHours' | 'tier2LeistungspreisEurPerKwYear' | 'tier2ArbeitspreisCtPerKwh'
+>
+
+/**
+ * Benutzungsdauer-Stufen einer DB-Zeile als Teilobjekt zum Einmischen. Ohne Stufen (AT) ein leeres
+ * Objekt — die Schlüssel fehlen dann, statt `undefined` zu tragen, damit Zeilenobjekte ohne Stufen
+ * unverändert bleiben.
+ */
+export function gridTariffTierFields(row: GridTariffTierColumns): GridTariffTierFields {
+  const hours = row.tier_threshold_hours
+  const kw = row.tier2_leistungspreis_eur_per_kw_year
+  const ct = row.tier2_arbeitspreis_ct_per_kwh
+  if (hours == null || kw == null || ct == null) return {}
+  return {
+    tierThresholdHours: Number(hours),
+    tier2LeistungspreisEurPerKwYear: Number(kw),
+    tier2ArbeitspreisCtPerKwh: Number(ct),
+  }
+}

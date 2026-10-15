@@ -757,8 +757,12 @@ describe('B21-2e — die Funktion ist so verschlossen wie ihre Geschwister', () 
       'p_messpreis_unit',
       // 20261015090000: das Land, hinten angehängt (SQL-Vorgabe 'AT' nur für Rückwärtskompatibilität).
       'p_country',
+      // 20261015120000: die Benutzungsdauer-Stufen, hinten angehängt (alle optional).
+      'p_tier_threshold_hours',
+      'p_tier2_leistungspreis_eur_per_kw_year',
+      'p_tier2_arbeitspreis_ct_per_kwh',
     ])
-    expect(Number(rows[0]?.defaults)).toBe(4)
+    expect(Number(rows[0]?.defaults)).toBe(7)
   })
 
   it('KEIN neues Tabellenrecht — die Rechtefläche ist unverändert die aus B21-2b/2c', async () => {

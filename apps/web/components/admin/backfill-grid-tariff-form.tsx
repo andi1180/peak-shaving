@@ -66,6 +66,7 @@ import {
   formatDate,
 } from './ui'
 import { AMOUNT_PLACEHOLDER, RateWindowFields } from './grid-tariff-form'
+import { GridTariffTierFields } from './grid-tariff-tier-fields'
 
 /** Eine Fensterzeile: stabiler Schlüssel statt Array-Index (Begründung wie im Anlageformular). */
 type WindowRow = { key: number }
@@ -285,6 +286,8 @@ export function BackfillGridTariffForm({ oldest }: { oldest: GridTariffRow }) {
           ))}
         </AdminSelect>
       </div>
+
+      <GridTariffTierFields formId={formId} defaults={state.values} errors={state.fieldErrors} />
 
       {/* ── Zeitfenster ─────────────────────────────────────────────────────────────────────────── */}
       <div className="border-t border-line pt-4">

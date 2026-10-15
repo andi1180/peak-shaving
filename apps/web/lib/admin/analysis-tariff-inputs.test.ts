@@ -143,6 +143,57 @@ describe('readGridTariffRowsForAnalysis', () => {
     expect(calls).toContainEqual({ method: 'is', args: ['metering_variant', null] })
   })
 
+  it('reicht Benutzungsdauer-Stufen durch; ohne Stufen fehlen die Schlüssel ganz', async () => {
+    const base = {
+      netzverlust_ct_per_kwh: '0',
+      grundpreis_amount: '20.5',
+      grundpreis_unit: 'eur_per_kw_year',
+      price_basis: 'net',
+      valid_until: null,
+      grid_tariff_rate_windows: [],
+    }
+    const { supabase, calls } = stubClient([
+      {
+        data: [
+          {
+            ...base,
+            valid_from: '2025-01-01',
+            tier_threshold_hours: '2500',
+            tier2_leistungspreis_eur_per_kw_year: '110.4',
+            tier2_arbeitspreis_ct_per_kwh: '1.9',
+          },
+          {
+            ...base,
+            valid_from: '2026-01-01',
+            tier_threshold_hours: null,
+            tier2_leistungspreis_eur_per_kw_year: null,
+            tier2_arbeitspreis_ct_per_kwh: null,
+          },
+        ],
+        error: null,
+      },
+    ])
+
+    const [withTiers, without] = await readGridTariffRowsForAnalysis(supabase, {
+      operatorId: 'gate_de',
+      netzebene: 5,
+      meteringVariant: null,
+      country: 'DE',
+      window: WINDOW,
+    })
+
+    expect(withTiers).toMatchObject({
+      tierThresholdHours: 2500,
+      tier2LeistungspreisEurPerKwYear: 110.4,
+      tier2ArbeitspreisCtPerKwh: 1.9,
+    })
+    expect(Object.keys(without!)).not.toContain('tierThresholdHours')
+    expect(Object.keys(without!)).not.toContain('tier2LeistungspreisEurPerKwYear')
+    expect(Object.keys(without!)).not.toContain('tier2ArbeitspreisCtPerKwh')
+    const select = calls.find((c) => c.method === 'select')?.args[0] as string
+    expect(select).toContain('tier_threshold_hours')
+  })
+
   it('wirft bei einem Datenbankfehler, statt eine Fehlanzeige im Preisblatt zu behaupten', async () => {
     const { supabase } = stubClient([{ data: null, error: { message: 'connection reset' } }])
 

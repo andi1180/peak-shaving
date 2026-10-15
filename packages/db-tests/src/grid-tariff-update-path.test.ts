@@ -11,7 +11,7 @@ import { assertStackReachable, createUser, deleteUser, pool, runAs, type TestUse
 
 const OP = 'gate-grid-update'
 const SIG =
-  'public.update_grid_tariff(uuid, text, text, numeric, text, numeric, text, date, date, jsonb, numeric, text)'
+  'public.update_grid_tariff(uuid, text, text, numeric, text, numeric, text, date, date, jsonb, numeric, text, numeric, numeric, numeric)'
 
 let admin: TestUser
 let plain: TestUser

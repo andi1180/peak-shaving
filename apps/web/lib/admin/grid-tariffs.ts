@@ -138,6 +138,10 @@ export type GridTariffRow = {
   /** Messentgelt. `null` = für diese Zeile nicht erfasst — dann rechnet der Rechner keines ein. */
   messpreis_amount: number | null
   messpreis_unit: string | null
+  /** Benutzungsdauer-Stufe 2 (20261015120000): alle drei oder `null`. */
+  tier_threshold_hours: number | null
+  tier2_leistungspreis_eur_per_kw_year: number | null
+  tier2_arbeitspreis_ct_per_kwh: number | null
   netzverlust_ct_per_kwh: number
   price_basis: string
   valid_from: string
@@ -302,6 +306,20 @@ export function messpreisLabel(row: Pick<GridTariffRow, 'messpreis_amount' | 'me
   if (row.messpreis_amount == null || row.messpreis_unit == null) return null
   const unit = MESSPREIS_UNIT_LABELS[row.messpreis_unit as MesspreisUnit] ?? row.messpreis_unit
   return `${row.messpreis_amount} ${unit}`
+}
+
+/** „ab 2500 h/a: 110,4 €/kW·a · 1,9 ct/kWh" — `null`, wo die Zeile keine Stufen trägt. */
+export function tierLabel(
+  row: Pick<
+    GridTariffRow,
+    'tier_threshold_hours' | 'tier2_leistungspreis_eur_per_kw_year' | 'tier2_arbeitspreis_ct_per_kwh'
+  >,
+): string | null {
+  const hours = row.tier_threshold_hours
+  const kw = row.tier2_leistungspreis_eur_per_kw_year
+  const ct = row.tier2_arbeitspreis_ct_per_kwh
+  if (hours == null || kw == null || ct == null) return null
+  return `ab ${hours} h/a: ${kw} €/kW·a · ${ct} ct/kWh`
 }
 
 export function priceBasisLabel(value: string): string {

@@ -75,10 +75,14 @@ const timeField = z
 
 /** Ein Betrag: Zahl, nicht negativ, endlich. Keine erfundene Obergrenze (s. Kopf). */
 function amountField(label: string) {
-  return z.coerce
-    .number({ invalid_type_error: `Bitte ${label} als Zahl angeben.` })
-    .finite(`Bitte ${label} als Zahl angeben.`)
-    .min(0, `${label} kann nicht negativ sein.`)
+  // Dezimalkomma ist die österreichische/deutsche Schreibweise der Preisblätter.
+  return z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().replace(',', '.') : v),
+    z.coerce
+      .number({ invalid_type_error: `Bitte ${label} als Zahl angeben.` })
+      .finite(`Bitte ${label} als Zahl angeben.`)
+      .min(0, `${label} kann nicht negativ sein.`),
+  )
 }
 
 /**
@@ -197,6 +201,12 @@ const gridTariffFields = z.object({
     })
     .optional(),
   netzverlustCtPerKwh: amountField('das Netzverlustentgelt'),
+  // Benutzungsdauer-Stufe 2 (DE): alle drei oder keines (`requireTiers`).
+  tierThresholdHours: amountField('die Schwelle')
+    .refine((n) => n > 0, 'Die Schwelle muss grösser als 0 sein.')
+    .optional(),
+  tier2LeistungspreisEurPerKwYear: amountField('den Leistungspreis ab Schwelle').optional(),
+  tier2ArbeitspreisCtPerKwh: amountField('den Arbeitspreis ab Schwelle').optional(),
   priceBasis: z.enum(PRICE_BASES, {
     errorMap: () => ({ message: 'Bitte angeben, ob die Beträge netto oder brutto sind.' }),
   }),
@@ -230,6 +240,65 @@ function requireMesspreisPair(
       code: z.ZodIssueCode.custom,
       path: ['messpreisAmount'],
       message: 'Zur Einheit gehört ein Messpreis-Betrag.',
+    })
+  }
+}
+
+const TIER_FIELDS = [
+  'tierThresholdHours',
+  'tier2LeistungspreisEurPerKwYear',
+  'tier2ArbeitspreisCtPerKwh',
+] as const
+
+/**
+ * Benutzungsdauer-Stufen: alle drei Felder oder keines, nur bei Leistungspreis in €/kW·a, und die
+ * Zeile trägt dann genau ein ganzjähriges, ganztägiges Fenster (= Stufe 1). Dieselben Regeln setzen
+ * CHECKs und Wrapper in der Datenbank durch.
+ */
+function requireTiers(
+  v: {
+    tierThresholdHours?: number
+    tier2LeistungspreisEurPerKwYear?: number
+    tier2ArbeitspreisCtPerKwh?: number
+    grundpreisUnit: string
+    windows: { monthDayFrom?: string; monthDayTo?: string; timeFrom: string; timeTo: string }[]
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const set = TIER_FIELDS.filter((f) => v[f] !== undefined)
+  if (set.length === 0) return
+  if (set.length < TIER_FIELDS.length) {
+    for (const f of TIER_FIELDS.filter((f) => v[f] === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [f],
+        message: 'Benutzungsdauer-Stufen: alle drei Felder oder keines.',
+      })
+    }
+    return
+  }
+  if (v.grundpreisUnit !== 'eur_per_kw_year') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['tierThresholdHours'],
+      message: 'Benutzungsdauer-Stufen gibt es nur bei einem Leistungspreis in €/kW·a.',
+    })
+  }
+  const [only] = v.windows
+  const singleFullYear =
+    v.windows.length === 1 &&
+    only !== undefined &&
+    only.monthDayFrom === undefined &&
+    only.monthDayTo === undefined &&
+    only.timeFrom === '00:00' &&
+    only.timeTo === '24:00'
+  if (!singleFullYear) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['tierThresholdHours'],
+      message:
+        'Mit Benutzungsdauer-Stufen braucht die Zeile genau ein ganzjähriges, ganztägiges ' +
+        'Arbeitspreis-Fenster (00:00–24:00, ohne Saison).',
     })
   }
 }
@@ -295,6 +364,7 @@ export const gridTariffSchema = gridTariffFields
   })
   .superRefine(requireMeteringVariantMatch)
   .superRefine(requireMesspreisPair)
+  .superRefine(requireTiers)
   .superRefine(requireCatalogCountry)
 
 export type GridTariffInput = z.infer<typeof gridTariffSchema>
@@ -312,6 +382,7 @@ export const backfillGridTariffSchema = gridTariffFields
   .extend({ country: countryField })
   .superRefine(requireMeteringVariantMatch)
   .superRefine(requireMesspreisPair)
+  .superRefine(requireTiers)
   .superRefine(requireCatalogCountry)
 
 export type BackfillGridTariffInput = z.infer<typeof backfillGridTariffSchema>
@@ -334,6 +405,7 @@ export const updateGridTariffSchema = gridTariffFields
   })
   .superRefine(requireMeteringVariantMatch)
   .superRefine(requireMesspreisPair)
+  .superRefine(requireTiers)
   .superRefine((v, ctx) => {
     if (v.validUntil && v.validUntil < v.validFrom) {
       ctx.addIssue({
@@ -401,6 +473,9 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
     grundpreisUnit: str('grundpreisUnit'),
     messpreisAmount: opt('messpreisAmount'),
     messpreisUnit: opt('messpreisUnit'),
+    tierThresholdHours: opt('tierThresholdHours'),
+    tier2LeistungspreisEurPerKwYear: opt('tier2LeistungspreisEurPerKwYear'),
+    tier2ArbeitspreisCtPerKwh: opt('tier2ArbeitspreisCtPerKwh'),
     netzverlustCtPerKwh: str('netzverlustCtPerKwh'),
     priceBasis: str('priceBasis'),
     validFrom: str('validFrom'),
