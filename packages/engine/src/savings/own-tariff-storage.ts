@@ -129,10 +129,16 @@ export function ownTariffDispatch(
   battery: BatteryCandidate,
   tariffParams: TariffParams,
   planning: DispatchPlanning | undefined,
+  pricing?: Pick<TariffPricingInputs, 'gridTariffRows'>,
 ): DispatchResult {
   const physics = toPhysics(battery)
   const draws = drawSeries(loadProfile)
-  const { capForInterval, socFloorKwh } = peakConstraints(loadProfile, battery, tariffParams)
+  const { capForInterval, socFloorKwh } = peakConstraints(
+    loadProfile,
+    battery,
+    tariffParams,
+    pricing,
+  )
   const plan = planning ?? dispatchPlanningFor(loadProfile)
   return runSurplusOptimizedDispatch({
     loadProfile,
@@ -155,9 +161,10 @@ export function ownTariffStorageOf(
   battery: BatteryCandidate,
   tariffParams: TariffParams,
   planning: DispatchPlanning | undefined,
+  pricing?: Pick<TariffPricingInputs, 'gridTariffRows'>,
 ): OwnTariffStorageField {
   if (!context.ok) return { ownTariffStorage: null, ownTariffStorageReason: context.reason }
-  if (peakShavingBlockers(loadProfile, battery, tariffParams).length === 0) {
+  if (peakShavingBlockers(loadProfile, battery, tariffParams, pricing).length === 0) {
     return { ownTariffStorage: null, ownTariffStorageReason: 'peak_shaving_active' }
   }
 
@@ -188,6 +195,7 @@ export function ownTariffStorageOf(
     battery,
     tariffParams,
     planning,
+    pricing,
   )
   const draws = drawSeries(loadProfile)
   const dh = context.prices.deltaHours

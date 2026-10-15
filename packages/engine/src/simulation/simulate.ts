@@ -127,6 +127,7 @@ export function simulateBattery(
     loadProfile,
     battery,
     tariffParams,
+    pricing,
   )
 
   // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das

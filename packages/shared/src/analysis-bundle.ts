@@ -216,7 +216,13 @@ import type { TariffOverridableField } from './tariff-catalog'
  * `perBattery` nach dem Jahreslauf gereiht und die Empfehlung dessen Rang 1. Ohne Jahreskapitel
  * ist ein Ergebnis bitgleich zu Fassung 16.
  */
-export const ANALYSIS_BUNDLE_VERSION = 17
+/**
+ * ── FASSUNG 18 (15.10.2026, Netzentgelt-Stufen nach Benutzungsdauer, Schritt 8b) ──────────────
+ * Neu sind `current.networkTier` und `perBattery[].networkTier` (nur bei Netzentgelt-Zeilen mit
+ * Stufen). Dann ist `leistungspreisCostPerYear` die Stufenkorrektur und die Leistungspreis-Ersparnis
+ * deren Differenz. Ohne Stufen ist ein Ergebnis bitgleich zu Fassung 17.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 18
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -225,7 +231,7 @@ export const ANALYSIS_BUNDLE_VERSION = 17
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -236,7 +242,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.8.0-mvp'
+export const ENGINE_VERSION = '1.9.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

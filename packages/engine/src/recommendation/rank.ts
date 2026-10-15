@@ -134,6 +134,7 @@ function buildPerBatteryEntry(
     newBilledKw: savings.newBilledKw,
     leistungspreisSavingPerYear: savings.leistungspreisSavingPerYear,
     ...eagDemandSavingField(savings.eagDemandSavingPerYear),
+    ...(savings.networkTier ? { networkTier: savings.networkTier } : {}),
     energySavingPerYear: savings.energySavingPerYear,
     energySavingOverCoveredPeriod: savings.energySavingOverCoveredPeriod,
     energySavingBasis: savings.energySavingBasis,

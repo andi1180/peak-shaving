@@ -179,10 +179,26 @@ export type MonthlyChargePrice = {
  */
 export type EnergySavingBasis = 'full_price' | 'energy_price_only'
 
+/**
+ * Benutzungsdauer-Stufen einer Netzreihe (DE, Schritt 8b): gewählte Stufe = die günstigere je
+ * Abrechnungsjahr, `correctionEur` ersetzt LP · P. Fehlt bei Zeilen ohne Stufen.
+ */
+export type NetworkTierSummary = {
+  tier: 1 | 2
+  /** Informativ — entschieden wird über das Kostenminimum, nicht über die Schwelle. */
+  thresholdHours: number
+  usageHours: number | null
+  costTier1Eur: number
+  costTier2Eur: number
+  correctionEur: number
+}
+
 export type BatteryResultEntry = {
   battery: BatteryCandidate
   newBilledKw: number
   leistungspreisSavingPerYear: number
+  /** Stufenergebnis der Speicher-Reihe; nur bei Netzentgelt-Zeilen mit Stufen. */
+  networkTier?: NetworkTierSummary
   /**
    * Senkung des EAG-Förderbeitrags Leistung pro Jahr (ohne Gebrauchsabgabe) am selben `billedKw`.
    * Steckt in `totalSavingPerYear`; fehlt, wenn 0 — ältere Ergebnisse tragen das Feld nicht.
@@ -386,6 +402,8 @@ export type AnalysisResult = {
     monthlyPeaksKw: number[] // 12
     billedKw: number // gem. billingModel (§3.5)
     leistungspreisCostPerYear: number
+    /** Stufenergebnis des Ist-Lastgangs; nur bei Netzentgelt-Zeilen mit Stufen (dann = `correctionEur`). */
+    networkTier?: NetworkTierSummary
     /**
      * Der GRUNDPREIS-Teil des EAG-Förderbeitrags als Jahresbetrag — aber NUR, wenn er ein
      * LEISTUNGSpreis ist (€/kW·Jahr: Netzebene 3–6 und NE 7 mit Leistungsmessung).

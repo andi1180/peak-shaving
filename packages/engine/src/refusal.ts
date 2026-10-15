@@ -1,4 +1,9 @@
-import type { LoadProfile, TariffOptimizationBlocker, TariffParams } from 'shared'
+import type {
+  LoadProfile,
+  NetworkTierErrorReason,
+  TariffOptimizationBlocker,
+  TariffParams,
+} from 'shared'
 
 /**
  * Warum eine Analyse NICHT gerechnet wird — benannte Zustände statt einer Schätzung
@@ -10,6 +15,9 @@ import type { LoadProfile, TariffOptimizationBlocker, TariffParams } from 'share
  *
  * `feed_in_tariff_missing`: der Lastgang speist ein oder PV ist erfasst, aber die
  * Einspeisevergütung fehlt — jede eingespeiste kWh bliebe unbewertet.
+ *
+ * `network_tier_invalid` / `network_tier_requires_annual_max`: Netzentgelt-Zeilen mit
+ * Benutzungsdauer-Stufen, die nicht eindeutig rechenbar sind — kein Rückfall auf den Skalar-LP.
  */
 export type AnalysisRefusal =
   | {
@@ -17,6 +25,8 @@ export type AnalysisRefusal =
       blocker: TariffOptimizationBlocker | null
     }
   | { reason: 'feed_in_tariff_missing' }
+  | { reason: 'network_tier_invalid'; detail: NetworkTierErrorReason }
+  | { reason: 'network_tier_requires_annual_max' }
 
 export class AnalysisRefusedError extends Error {
   constructor(readonly refusal: AnalysisRefusal) {
@@ -32,7 +42,29 @@ const BLOCKER_SIDE_LABEL: Record<TariffOptimizationBlocker['side'], string> = {
   dynamic_tariff: 'Konditionen dynamischer Tarif',
 }
 
+const NETWORK_TIER_DETAIL: Record<NetworkTierErrorReason, string> = {
+  mixed_tier_rows:
+    'im Analysezeitraum gelten teils Netzentgelt-Zeilen mit Benutzungsdauer-Stufen, teils ohne',
+  missing_row: 'für einen Teil des Analysezeitraums ist keine Netzentgelt-Zeile hinterlegt',
+  invalid_tier_row:
+    'eine Netzentgelt-Zeile mit Stufen hat nicht genau ein ganzjähriges Zeitfenster oder ihr ' +
+    'Grundpreis ist kein Leistungspreis (€/kW·a)',
+}
+
 function refusalMessage(refusal: AnalysisRefusal): string {
+  if (refusal.reason === 'network_tier_invalid') {
+    return (
+      `Die Netzentgelte mit Benutzungsdauer-Stufen sind nicht rechenbar: ${NETWORK_TIER_DETAIL[refusal.detail]}. ` +
+      'Bitte die Netzentgelt-Zeilen in der Pflege prüfen; die Analyse wird nicht gerechnet.'
+    )
+  }
+  if (refusal.reason === 'network_tier_requires_annual_max') {
+    return (
+      'Die Netzentgelte haben Benutzungsdauer-Stufen. Die Benutzungsdauer ist eine Jahresgrösse und ' +
+      'setzt das Abrechnungsmodell „Jahreshöchstwert" voraus — bitte das Abrechnungsmodell in der ' +
+      'Rechnung-Station umstellen; die Analyse wird nicht gerechnet.'
+    )
+  }
   if (refusal.reason === 'feed_in_tariff_missing') {
     return (
       'Die Einspeisevergütung fehlt, obwohl eingespeist wird (Einspeisung im Lastgang oder PV ' +

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "test-klein",
+    "name": "Testspeicher klein",
+    "manufacturer": "Test",
+    "class": "commercial",
+    "usableCapacityKwh": 4,
+    "maxPowerKw": 1,
+    "roundTripEfficiency": 0.9,
+    "pricePerKwh": 500,
+    "inverterIncluded": true,
+    "extraInverterCost": 0,
+    "requiresFoundation": false,
+    "controlType": "dynamic"
+  },
+  {
+    "id": "test-mittel",
+    "name": "Testspeicher mittel",
+    "manufacturer": "Test",
+    "class": "commercial",
+    "usableCapacityKwh": 10,
+    "maxPowerKw": 5,
+    "roundTripEfficiency": 0.9,
+    "pricePerKwh": 500,
+    "inverterIncluded": true,
+    "extraInverterCost": 0,
+    "requiresFoundation": false,
+    "controlType": "dynamic"
+  }
+]

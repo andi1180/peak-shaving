@@ -1,0 +1,2513 @@
+{
+ "current": {
+  "annualPeakKw": 49,
+  "monthlyPeaksKw": [
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   17.34,
+   49,
+   17.34
+  ],
+  "billedKw": 49,
+  "leistungspreisCostPerYear": 1114.75
+ },
+ "peaks": {
+  "top": [
+   {
+    "ts": "2025-11-12T09:00:00.000Z",
+    "kw": 49
+   },
+   {
+    "ts": "2025-11-12T09:15:00.000Z",
+    "kw": 49
+   },
+   {
+    "ts": "2025-07-01T04:00:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T04:15:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T04:30:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T04:45:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T05:00:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T05:15:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T05:30:00.000Z",
+    "kw": 17.34
+   },
+   {
+    "ts": "2025-07-01T05:45:00.000Z",
+    "kw": 17.34
+   }
+  ],
+  "distribution": {
+   "byWeekday": [
+    17.34,
+    17.34,
+    49,
+    17.34,
+    17.34,
+    17.34,
+    17.34
+   ],
+   "byHour": [
+    8,
+    8,
+    8,
+    8,
+    8,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    49,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    8,
+    8,
+    8,
+    8
+   ],
+   "byMonth": [
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    17.34,
+    49,
+    17.34
+   ]
+  }
+ },
+ "perBattery": [
+  {
+   "battery": {
+    "id": "test-klein",
+    "name": "Testspeicher klein",
+    "manufacturer": "Test",
+    "class": "commercial",
+    "usableCapacityKwh": 4,
+    "maxPowerKw": 1,
+    "roundTripEfficiency": 0.9,
+    "pricePerKwh": 500,
+    "inverterIncluded": true,
+    "extraInverterCost": 0,
+    "requiresFoundation": false,
+    "controlType": "dynamic"
+   },
+   "newBilledKw": 48.000070571899414,
+   "leistungspreisSavingPerYear": 22.74839448928833,
+   "energySavingPerYear": 81.6774982818788,
+   "energySavingOverCoveredPeriod": 81.6774982818788,
+   "energySavingBasis": "full_price",
+   "annualizationFactor": 1,
+   "coveredDays": 365,
+   "totalSavingPerYear": 104.42589277116713,
+   "totalInvestment": 2000,
+   "subsidyAmount": 0,
+   "taxBenefit": 0,
+   "taxEffectsIncluded": false,
+   "netInvestment": 2000,
+   "amortizationYears": 19.15233805453485,
+   "netSavingOverHorizon": -955.7410722883287,
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 1
+    }
+   ],
+   "dispatchTrace": {
+    "capKwByPeriod": [
+     48.000070571899414
+    ],
+    "caughtPeaks": [
+     {
+      "ts": "2025-11-12T09:00:00.000Z",
+      "originalKw": 49,
+      "residualKw": 48.000070571899414,
+      "caught": true
+     },
+     {
+      "ts": "2025-11-12T09:15:00.000Z",
+      "originalKw": 49,
+      "residualKw": 48.000070571899414,
+      "caught": true
+     }
+    ],
+    "representativeDays": [
+     {
+      "date": "2025-11-12",
+      "label": "worst_caught_peak",
+      "intervals": [
+       {
+        "ts": "2025-11-11T23:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T04:00:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 0.225
+       },
+       {
+        "ts": "2025-11-12T04:15:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 0.45
+       },
+       {
+        "ts": "2025-11-12T04:30:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 0.675
+       },
+       {
+        "ts": "2025-11-12T04:45:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 0.9
+       },
+       {
+        "ts": "2025-11-12T05:00:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 1.125
+       },
+       {
+        "ts": "2025-11-12T05:15:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 1.35
+       },
+       {
+        "ts": "2025-11-12T05:30:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 1.5750000000000002
+       },
+       {
+        "ts": "2025-11-12T05:45:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 1.8000000000000003
+       },
+       {
+        "ts": "2025-11-12T06:00:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 2.0250000000000004
+       },
+       {
+        "ts": "2025-11-12T06:15:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 2.2500000000000004
+       },
+       {
+        "ts": "2025-11-12T06:30:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 2.4750000000000005
+       },
+       {
+        "ts": "2025-11-12T06:45:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 2.7000000000000006
+       },
+       {
+        "ts": "2025-11-12T07:00:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 2.9250000000000007
+       },
+       {
+        "ts": "2025-11-12T07:15:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.150000000000001
+       },
+       {
+        "ts": "2025-11-12T07:30:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.375000000000001
+       },
+       {
+        "ts": "2025-11-12T07:45:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.600000000000001
+       },
+       {
+        "ts": "2025-11-12T08:00:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.825000000000001
+       },
+       {
+        "ts": "2025-11-12T08:15:00.000Z",
+        "gridPowerKw": 18.11777777777777,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0.777777777777773,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T08:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T08:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T09:00:00.000Z",
+        "gridPowerKw": 48.000070571899414,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -0.9999294281005859,
+        "socKwh": 3.7500176429748535
+       },
+       {
+        "ts": "2025-11-12T09:15:00.000Z",
+        "gridPowerKw": 48.000070571899414,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -0.9999294281005859,
+        "socKwh": 3.500035285949707
+       },
+       {
+        "ts": "2025-11-12T09:30:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.725035285949707
+       },
+       {
+        "ts": "2025-11-12T09:45:00.000Z",
+        "gridPowerKw": 18.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1,
+        "socKwh": 3.950035285949707
+       },
+       {
+        "ts": "2025-11-12T10:00:00.000Z",
+        "gridPowerKw": 17.56206539577908,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0.22206539577907908,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T10:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T10:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T10:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T11:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T11:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T11:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T11:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T12:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T12:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T12:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T12:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T13:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T13:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T13:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T13:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T14:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T14:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T14:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T14:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T15:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T15:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T15:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T15:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 4
+       },
+       {
+        "ts": "2025-11-12T16:00:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 3.75
+       },
+       {
+        "ts": "2025-11-12T16:15:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 3.5
+       },
+       {
+        "ts": "2025-11-12T16:30:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 3.25
+       },
+       {
+        "ts": "2025-11-12T16:45:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 3
+       },
+       {
+        "ts": "2025-11-12T17:00:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 2.75
+       },
+       {
+        "ts": "2025-11-12T17:15:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 2.5
+       },
+       {
+        "ts": "2025-11-12T17:30:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 2.25
+       },
+       {
+        "ts": "2025-11-12T17:45:00.000Z",
+        "gridPowerKw": 16.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 2
+       },
+       {
+        "ts": "2025-11-12T18:00:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 1.75
+       },
+       {
+        "ts": "2025-11-12T18:15:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 1.5
+       },
+       {
+        "ts": "2025-11-12T18:30:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 1.25
+       },
+       {
+        "ts": "2025-11-12T18:45:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 1
+       },
+       {
+        "ts": "2025-11-12T19:00:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 0.75
+       },
+       {
+        "ts": "2025-11-12T19:15:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 0.5
+       },
+       {
+        "ts": "2025-11-12T19:30:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 0.25
+       },
+       {
+        "ts": "2025-11-12T19:45:00.000Z",
+        "gridPowerKw": 7,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -1,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       }
+      ]
+     }
+    ],
+    "batteryFlowByHourMonth": [
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      31,
+      28,
+      28,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6,
+      30,
+      31
+     ],
+     [
+      31,
+      28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31
+     ],
+     [
+      31,
+      28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31
+     ],
+     [
+      31,
+      28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31
+     ],
+     [
+      13.777777777777732,
+      12.444444444444404,
+      15.444444444444404,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      27.666666666666657,
+      13.33333333333329,
+      13.777777777777732
+     ],
+     [
+      0,
+      0,
+      1.33333333333333,
+      13.33333333333329,
+      13.777777777777732,
+      13.33333333333329,
+      13.777777777777732,
+      13.777777777777732,
+      13.33333333333329,
+      11.111111111111075,
+      0.00003528594970703125,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.05551634894476977,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      -31,
+      -28,
+      -28,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -6,
+      -30,
+      -31
+     ],
+     [
+      -31,
+      -28,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31
+     ],
+     [
+      -31,
+      -28,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31
+     ],
+     [
+      -31,
+      -28,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31,
+      -31,
+      -30,
+      -31,
+      -30,
+      -31
+     ],
+     [
+      0,
+      0,
+      -3,
+      -30,
+      -31,
+      -30,
+      -31,
+      -31,
+      -30,
+      -25,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "monthlyChargePrice": {
+     "chargeCtPerKwh": [
+      18.14140000000001,
+      18.14140000000005,
+      18.14140000000001,
+      18.141400000000026,
+      18.14140000000001,
+      18.141400000000026,
+      17.846400000000028,
+      17.846400000000028,
+      17.846400000000028,
+      17.846400000000028,
+      17.850629360030318,
+      17.846400000000028
+     ],
+     "dischargeCtPerKwh": [
+      25.70400000000027,
+      25.70400000000023,
+      25.70400000000027,
+      25.704000000000256,
+      25.70400000000027,
+      25.704000000000256,
+      25.3728015873018,
+      25.40900000000021,
+      25.409000000000198,
+      25.40900000000021,
+      25.381508156304157,
+      25.40900000000021
+     ],
+     "averageCtPerKwh": [
+      21.90600000000036,
+      21.906000000000308,
+      21.90330820995998,
+      21.90600000000034,
+      21.906000000000358,
+      21.90600000000034,
+      21.610999999999578,
+      21.610999999999578,
+      21.6109999999996,
+      21.613684563757964,
+      21.610999999999596,
+      21.610999999999574
+     ],
+     "chargedKwh": [
+      137.77777777777777,
+      124.4444444444444,
+      137.77777777777777,
+      133.33333333333331,
+      137.77777777777777,
+      133.33333333333331,
+      137.77777777777777,
+      137.77777777777777,
+      133.33333333333331,
+      137.77777777777777,
+      133.88884968227808,
+      137.77777777777777
+     ],
+     "dischargedKwh": [
+      124,
+      112,
+      124,
+      120,
+      124,
+      120,
+      126,
+      124,
+      120,
+      124,
+      120.4999647140503,
+      124
+     ]
+    }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
+  },
+  {
+   "battery": {
+    "id": "test-mittel",
+    "name": "Testspeicher mittel",
+    "manufacturer": "Test",
+    "class": "commercial",
+    "usableCapacityKwh": 10,
+    "maxPowerKw": 5,
+    "roundTripEfficiency": 0.9,
+    "pricePerKwh": 500,
+    "inverterIncluded": true,
+    "extraInverterCost": 0,
+    "requiresFoundation": false,
+    "controlType": "dynamic"
+   },
+   "newBilledKw": 44.00007247924805,
+   "leistungspreisSavingPerYear": 113.74835109710693,
+   "energySavingPerYear": 215.59485386775123,
+   "energySavingOverCoveredPeriod": 215.59485386775123,
+   "energySavingBasis": "full_price",
+   "annualizationFactor": 1,
+   "coveredDays": 365,
+   "totalSavingPerYear": 329.34320496485816,
+   "totalInvestment": 5000,
+   "subsidyAmount": 0,
+   "taxBenefit": 0,
+   "taxEffectsIncluded": false,
+   "netInvestment": 5000,
+   "amortizationYears": 15.181731168655853,
+   "netSavingOverHorizon": -1706.5679503514184,
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 5
+    }
+   ],
+   "dispatchTrace": {
+    "capKwByPeriod": [
+     44.00007247924805
+    ],
+    "caughtPeaks": [
+     {
+      "ts": "2025-11-12T09:00:00.000Z",
+      "originalKw": 49,
+      "residualKw": 44.00007247924805,
+      "caught": true
+     },
+     {
+      "ts": "2025-11-12T09:15:00.000Z",
+      "originalKw": 49,
+      "residualKw": 44.00007247924805,
+      "caught": true
+     }
+    ],
+    "representativeDays": [
+     {
+      "date": "2025-11-12",
+      "label": "worst_caught_peak",
+      "intervals": [
+       {
+        "ts": "2025-11-11T23:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-11T23:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T00:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T01:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T02:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T03:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T04:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T04:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T04:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T04:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T05:00:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 1.125
+       },
+       {
+        "ts": "2025-11-12T05:15:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 2.25
+       },
+       {
+        "ts": "2025-11-12T05:30:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 3.375
+       },
+       {
+        "ts": "2025-11-12T05:45:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 4.5
+       },
+       {
+        "ts": "2025-11-12T06:00:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 5.625
+       },
+       {
+        "ts": "2025-11-12T06:15:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 6.75
+       },
+       {
+        "ts": "2025-11-12T06:30:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 7.875
+       },
+       {
+        "ts": "2025-11-12T06:45:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 9
+       },
+       {
+        "ts": "2025-11-12T07:00:00.000Z",
+        "gridPowerKw": 21.784444444444446,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 4.444444444444445,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T07:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T07:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T07:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T08:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T08:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T08:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T08:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T09:00:00.000Z",
+        "gridPowerKw": 44.00007247924805,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -4.999927520751953,
+        "socKwh": 8.750018119812012
+       },
+       {
+        "ts": "2025-11-12T09:15:00.000Z",
+        "gridPowerKw": 44.00007247924805,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -4.999927520751953,
+        "socKwh": 7.500036239624023
+       },
+       {
+        "ts": "2025-11-12T09:30:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 8.625036239624023
+       },
+       {
+        "ts": "2025-11-12T09:45:00.000Z",
+        "gridPowerKw": 22.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 5,
+        "socKwh": 9.750036239624023
+       },
+       {
+        "ts": "2025-11-12T10:00:00.000Z",
+        "gridPowerKw": 18.45095004611545,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 1.1109500461154513,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T10:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T10:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T10:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T11:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T11:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T11:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T11:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T12:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T12:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T12:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T12:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T13:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T13:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T13:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T13:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T14:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T14:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T14:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T14:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T15:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T15:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T15:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T15:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T16:00:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T16:15:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T16:30:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T16:45:00.000Z",
+        "gridPowerKw": 17.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 10
+       },
+       {
+        "ts": "2025-11-12T17:00:00.000Z",
+        "gridPowerKw": 12.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 8.75
+       },
+       {
+        "ts": "2025-11-12T17:15:00.000Z",
+        "gridPowerKw": 12.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 7.5
+       },
+       {
+        "ts": "2025-11-12T17:30:00.000Z",
+        "gridPowerKw": 12.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 6.25
+       },
+       {
+        "ts": "2025-11-12T17:45:00.000Z",
+        "gridPowerKw": 12.34,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 5
+       },
+       {
+        "ts": "2025-11-12T18:00:00.000Z",
+        "gridPowerKw": 3,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 3.75
+       },
+       {
+        "ts": "2025-11-12T18:15:00.000Z",
+        "gridPowerKw": 3,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 2.5
+       },
+       {
+        "ts": "2025-11-12T18:30:00.000Z",
+        "gridPowerKw": 3,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 1.25
+       },
+       {
+        "ts": "2025-11-12T18:45:00.000Z",
+        "gridPowerKw": 3,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": -5,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T19:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T19:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T19:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T19:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T20:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T21:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:00:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:15:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:30:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       },
+       {
+        "ts": "2025-11-12T22:45:00.000Z",
+        "gridPowerKw": 8,
+        "pvGenerationKw": 0,
+        "batteryPowerKw": 0,
+        "socKwh": 0
+       }
+      ]
+     }
+    ],
+    "batteryFlowByHourMonth": [
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -5,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      155,
+      140,
+      140,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      30,
+      150,
+      155
+     ],
+     [
+      155,
+      140,
+      155,
+      150,
+      155,
+      150,
+      155,
+      155,
+      150,
+      155,
+      150,
+      155
+     ],
+     [
+      34.44444444444444,
+      31.111111111111104,
+      46.1111111111111,
+      150,
+      155,
+      150,
+      155,
+      155,
+      150,
+      131.66666666666669,
+      33.33333333333333,
+      34.44444444444444
+     ],
+     [
+      0,
+      0,
+      3.3333333333333335,
+      33.33333333333333,
+      34.44444444444444,
+      33.33333333333333,
+      34.44444444444444,
+      34.44444444444444,
+      33.33333333333333,
+      27.77777777777777,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.0000362396240234375,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.27773751152886283,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      -155,
+      -140,
+      -140,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -30,
+      -150,
+      -155
+     ],
+     [
+      -155,
+      -140,
+      -155,
+      -150,
+      -155,
+      -150,
+      -155,
+      -155,
+      -150,
+      -155,
+      -150,
+      -155
+     ],
+     [
+      0,
+      0,
+      -15,
+      -150,
+      -155,
+      -150,
+      -155,
+      -155,
+      -150,
+      -125,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    ],
+    "monthlyChargePrice": {
+     "chargeCtPerKwh": [
+      17.980799999999945,
+      17.980799999999952,
+      17.980799999999945,
+      17.98079999999995,
+      17.980799999999945,
+      17.98079999999995,
+      17.68580000000005,
+      17.68580000000005,
+      17.68580000000005,
+      17.68580000000005,
+      17.69555183664428,
+      17.68580000000005
+     ],
+     "dischargeCtPerKwh": [
+      25.837999999999898,
+      25.837999999999916,
+      25.837999999999898,
+      25.837999999999905,
+      25.837999999999898,
+      25.837999999999905,
+      25.512333333333356,
+      25.543000000000024,
+      25.543000000000024,
+      25.543000000000024,
+      25.487133034562866,
+      25.543000000000024
+     ],
+     "averageCtPerKwh": [
+      21.90600000000036,
+      21.906000000000308,
+      21.90330820995998,
+      21.90600000000034,
+      21.906000000000358,
+      21.90600000000034,
+      21.610999999999578,
+      21.610999999999578,
+      21.6109999999996,
+      21.613684563757964,
+      21.610999999999596,
+      21.610999999999574
+     ],
+     "chargedKwh": [
+      344.44444444444434,
+      311.1111111111111,
+      344.44444444444434,
+      333.33333333333326,
+      344.44444444444434,
+      333.33333333333326,
+      344.44444444444434,
+      344.44444444444434,
+      333.33333333333326,
+      344.44444444444434,
+      336.11107084486207,
+      344.44444444444434
+     ],
+     "dischargedKwh": [
+      310,
+      280,
+      310,
+      300,
+      310,
+      300,
+      315,
+      310,
+      300,
+      310,
+      302.499963760376,
+      310
+     ]
+    }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
+  }
+ ],
+ "recommendation": {
+  "batteryId": "test-klein",
+  "rationale": {
+   "code": "best_net_saving",
+   "totalSavingPerYear": 104.42589277116713,
+   "amortizationYears": 19.15233805453485,
+   "netSavingOverHorizon": -955.7410722883287,
+   "horizonYears": 10
+  }
+ },
+ "assumptions": {
+  "roundTripEfficiency": 0.9,
+  "horizonYears": 10,
+  "billingModel": "annual_max",
+  "energyPriceCtPerKwh": 20,
+  "einspeiseverguetungCtPerKwh": 0
+ },
+ "tariffOptimization": {
+  "computable": true,
+  "monthlyComparison": {
+   "currentTariffEur": [
+    3292.429573600117,
+    2973.8073568001,
+    3289.7970936001166,
+    3186.222168000111,
+    3292.429573600117,
+    3186.222168000111,
+    3262.913171599925,
+    3262.913171599925,
+    3157.6579079999287,
+    3265.522051599925,
+    3162.820229299929,
+    3262.913171599925
+   ],
+   "spotWithoutControlEur": [
+    2163.80888240001,
+    1954.871571200007,
+    2161.8964024000093,
+    2094.163112000009,
+    2163.808882400009,
+    2094.163112000009,
+    2134.2924803999854,
+    2134.2924803999854,
+    2065.5988519999814,
+    2136.181360399986,
+    2068.5722008999824,
+    2134.2924803999863
+   ],
+   "spotWithBatteryEur": [
+    2156.9307401777996,
+    1948.6590556444642,
+    2155.0182601777988,
+    2087.5068453333565,
+    2156.9307401777987,
+    2087.5068453333565,
+    2126.911123733319,
+    2127.373693733319,
+    2058.903251999984,
+    2129.2625737333196,
+    2061.8874948389366,
+    2127.3736937333197
+   ],
+   "coveredMonths": 12,
+   "fixedCosts": {
+    "networkBaseFeeEur": 0,
+    "meteringFeeEur": 0,
+    "eagFlatFeeEur": 0,
+    "usageChargeOnFixedEur": 0,
+    "supplierBaseFeeEur": 0,
+    "awattarBaseFeeEur": 57.47999999999999,
+    "supplierFeeEurPerMonth": 0,
+    "awattarFeeEurPerMonth": 4.79,
+    "coveredDays": 365
+   },
+   "spotWithBatteryHindsightEur": [
+    2156.9307401777996,
+    1948.6590556444642,
+    2155.0182601777988,
+    2087.5068453333565,
+    2156.9307401777987,
+    2087.5068453333565,
+    2126.911123733319,
+    2127.373693733319,
+    2058.903251999984,
+    2129.2625737333196,
+    2061.8874948389366,
+    2127.3736937333197
+   ]
+  }
+ },
+ "dataQuality": {
+  "coveredDays": 365,
+  "coveredMonths": 12,
+  "gapsInterpolated": 0,
+  "largestGapSlots": 0,
+  "warnings": []
+ }
+}

@@ -1,4 +1,6 @@
-import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, TariffParams, TariffPricingInputs } from 'shared'
+
+import { hasTieredDemandCharge } from '../tariff/network-tier'
 
 /**
  * Wann wird die Spitzenkappung NICHT gerechnet und NICHT kreditiert (Delta 3, Delta 8) —
@@ -60,6 +62,7 @@ export function peakShavingBlockers(
   loadProfile: LoadProfile,
   battery: BatteryCandidate,
   tariffParams: TariffParams,
+  pricing?: Pick<TariffPricingInputs, 'gridTariffRows'>,
 ): PeakShavingBlocker[] {
   const blockers: PeakShavingBlocker[] = []
   if (battery.controlType === 'static') blockers.push('static_control')
@@ -73,7 +76,12 @@ export function peakShavingBlockers(
    * Blocker gäbe.
    */
   if (loadProfile.pvSource === 'estimated') blockers.push('estimated_pv')
-  if (tariffParams.leistungspreisEurPerKwYear === 0) blockers.push('no_demand_charge')
+  // Eine Netzentgelt-Zeile mit Benutzungsdauer-Stufen hat einen Leistungsteil, auch bei Entwurfs-LP 0.
+  if (
+    tariffParams.leistungspreisEurPerKwYear === 0 &&
+    !hasTieredDemandCharge(loadProfile, tariffParams, pricing)
+  )
+    blockers.push('no_demand_charge')
   return blockers
 }
 
@@ -82,6 +90,7 @@ export function isPeakShavingDisabled(
   loadProfile: LoadProfile,
   battery: BatteryCandidate,
   tariffParams: TariffParams,
+  pricing?: Pick<TariffPricingInputs, 'gridTariffRows'>,
 ): boolean {
-  return peakShavingBlockers(loadProfile, battery, tariffParams).length > 0
+  return peakShavingBlockers(loadProfile, battery, tariffParams, pricing).length > 0
 }
