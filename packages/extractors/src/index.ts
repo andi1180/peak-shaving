@@ -160,6 +160,14 @@ export { lookupBatterySpec, type BatteryLookupOutcome } from './battery-lookup/e
 export { MAX_LOAD_PROFILE_FILE_BYTES } from './load-profile/limits'
 export { readLoadProfile, type LoadProfileOutcome } from './load-profile/extract'
 
+// Stündliche Anlagenberichte (Wechselrichter-Portal) — derselbe Ausgang wie der Lastgang-Leser.
+export {
+  parseHourlyPlantReports,
+  type HourlyPlantReportDiagnostics,
+  type HourlyPlantReportResult,
+  type PlantReportFile,
+} from 'engine'
+
 /*
  * ── PV-Erzeugungs-Leser (B24, Teil 1 — der Ja-Zweig der PV-Station) ───────────────────────────
  * Der ZWEITE Extraktor ohne Modellaufruf und aus denselben Gruenden wie der Lastgang-Leser
