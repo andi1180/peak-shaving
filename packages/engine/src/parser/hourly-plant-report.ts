@@ -1,0 +1,243 @@
+import type { HourlyEnergyReading } from './combine-hourly-export'
+import { toIsoUtc, utcMsToLocalFields } from './datetime'
+import { extractTable } from './table'
+import type { RawCell } from './types'
+
+const MS_PER_HOUR = 60 * 60 * 1000
+const HEADER_SEARCH_ROWS = 10
+
+/** Pflichtspalten des stündlichen Anlagenberichts — exakte Namen, keine Stichwörter. */
+const TIME_HEADER = 'Statistischer Zeitraum'
+const EXPORT_HEADER = 'Netzeinspeisung (kWh)'
+const IMPORT_HEADER = 'Netzbezug (kWh)'
+
+export type PlantReportFile = { name: string; data: ArrayBuffer | Uint8Array }
+
+export type PlantReportFileSummary = {
+  name: string
+  from: string | null
+  to: string | null
+  hours: number
+}
+
+export type HourlyPlantReportDiagnostics = {
+  files: number
+  /** Stunden mit mindestens einem Wert (Einspeisung oder Bezug). */
+  hours: number
+  /** Erste Stunde bis Ende der letzten (exklusiv), UTC-ISO; `null` ohne Stunde. */
+  range: { from: string; to: string } | null
+  /** Dieselbe Stunde in mehreren Dateien — die erste bleibt. */
+  duplicateHours: number
+  /** Winterzeit-Stunde nur einmal vorhanden — als Sommerzeit gewertet. */
+  ambiguousHours: number
+  /** Zeile mit unlesbarer oder nicht existierender Zeit, negativem oder nicht endlichem Wert. */
+  skippedRows: number
+  perFile: PlantReportFileSummary[]
+}
+
+export type HourlyPlantReportResult =
+  | {
+      exportHourly: HourlyEnergyReading[]
+      importHourly: HourlyEnergyReading[]
+      diagnostics: HourlyPlantReportDiagnostics
+    }
+  | { error: 'unknown_format' | 'no_rows'; file: string }
+
+type Wall = { y: number; mo: number; d: number; h: number; mi: number; s: number }
+
+const RE_WALL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+
+function cellText(cell: RawCell | undefined): string {
+  return cell == null ? '' : String(cell).trim()
+}
+
+function parseWall(cell: RawCell | undefined): Wall | null {
+  if (typeof cell === 'number' && Number.isFinite(cell)) {
+    // Excel-Serial als naive Wanduhr (Serial 25569 = 1970-01-01).
+    const dt = new Date(Math.round((cell - 25569) * 86_400_000))
+    return {
+      y: dt.getUTCFullYear(),
+      mo: dt.getUTCMonth() + 1,
+      d: dt.getUTCDate(),
+      h: dt.getUTCHours(),
+      mi: dt.getUTCMinutes(),
+      s: dt.getUTCSeconds(),
+    }
+  }
+  const m = RE_WALL.exec(cellText(cell))
+  if (!m) return null
+  return { y: +m[1]!, mo: +m[2]!, d: +m[3]!, h: +m[4]!, mi: +m[5]!, s: +(m[6] ?? 0) }
+}
+
+function matchesWall(utcMs: number, wall: Wall, timeZone: string): boolean {
+  const f = utcMsToLocalFields(utcMs, timeZone)
+  return (
+    f.year === wall.y &&
+    f.month === wall.mo &&
+    f.day === wall.d &&
+    f.hour === wall.h &&
+    f.minute === wall.mi
+  )
+}
+
+function offsetAt(utcMs: number, timeZone: string): number {
+  const f = utcMsToLocalFields(utcMs, timeZone)
+  return Date.UTC(f.year, f.month - 1, f.day, f.hour, f.minute) - (utcMs - (utcMs % 60_000))
+}
+
+/** Alle UTC-Instants, die diese Wanduhrzeit tragen, aufsteigend: 0 (Sommerzeit-Lücke), 1 oder 2 (Doppelstunde). */
+function wallToUtcCandidates(wall: Wall, timeZone: string): number[] {
+  const naive = Date.UTC(wall.y, wall.mo - 1, wall.d, wall.h, wall.mi, wall.s)
+  const offsets = new Set([
+    offsetAt(naive - 3 * MS_PER_HOUR, timeZone),
+    offsetAt(naive + 3 * MS_PER_HOUR, timeZone),
+  ])
+  return [...offsets]
+    .map((offset) => naive - offset)
+    .filter((ms) => matchesWall(ms, wall, timeZone))
+    .sort((a, b) => a - b)
+}
+
+/** Wert einer Zelle: `undefined` = leer (fehlt), `NaN` = ungültig, sonst die Zahl. */
+function cellValue(cell: RawCell | undefined): number | undefined {
+  if (typeof cell === 'number') return cell
+  const text = cellText(cell)
+  if (text === '') return undefined
+  return /^[+-]?\d+(\.\d+)?$/.test(text) ? Number(text) : Number.NaN
+}
+
+type FileRows = {
+  rows: { ms: number; exportKwh?: number; importKwh?: number }[]
+  ambiguous: number
+  skipped: number
+}
+
+function readFile(
+  file: PlantReportFile,
+  timeZone: string,
+): FileRows | 'unknown_format' | 'no_rows' {
+  const { matrix } = extractTable({ content: file.data, fileName: file.name, format: 'xlsx' })
+  const headerIndex = matrix
+    .slice(0, HEADER_SEARCH_ROWS)
+    .findIndex((row) => row.some((cell) => cellText(cell) === TIME_HEADER))
+  if (headerIndex < 0) return 'unknown_format'
+  const header = matrix[headerIndex]!.map(cellText)
+  const timeCol = header.indexOf(TIME_HEADER)
+  const exportCol = header.indexOf(EXPORT_HEADER)
+  const importCol = header.indexOf(IMPORT_HEADER)
+  if (exportCol < 0 || importCol < 0) return 'unknown_format'
+
+  const dataRows = matrix
+    .slice(headerIndex + 1)
+    .filter((row) => row.some((cell) => cellText(cell) !== ''))
+  if (dataRows.length === 0) return 'no_rows'
+
+  const result: FileRows = { rows: [], ambiguous: 0, skipped: 0 }
+  // Je mehrdeutiger Wanduhrzeit: wie oft schon gesehen (erste = Sommerzeit, zweite = Winterzeit).
+  const ambiguousSeen = new Map<string, number>()
+  for (const row of dataRows) {
+    const wall = parseWall(row[timeCol])
+    const exportKwh = cellValue(row[exportCol])
+    const importKwh = cellValue(row[importCol])
+    const invalid = [exportKwh, importKwh].some(
+      (v) => v !== undefined && !(Number.isFinite(v) && v >= 0),
+    )
+    const candidates = wall ? wallToUtcCandidates(wall, timeZone) : []
+    if (invalid || candidates.length === 0) {
+      result.skipped++
+      continue
+    }
+    let ms = candidates[0]!
+    if (candidates.length > 1) {
+      const key = `${wall!.y}-${wall!.mo}-${wall!.d}-${wall!.h}-${wall!.mi}`
+      const seen = ambiguousSeen.get(key) ?? 0
+      if (seen >= candidates.length) {
+        result.skipped++
+        continue
+      }
+      ambiguousSeen.set(key, seen + 1)
+      ms = candidates[seen]!
+    }
+    result.rows.push({
+      ms,
+      ...(exportKwh !== undefined ? { exportKwh } : {}),
+      ...(importKwh !== undefined ? { importKwh } : {}),
+    })
+  }
+  for (const seen of ambiguousSeen.values()) if (seen === 1) result.ambiguous++
+  return result
+}
+
+function rangeOf(hours: readonly number[]): { from: string; to: string } | null {
+  if (hours.length === 0) return null
+  let min = hours[0]!
+  let max = hours[0]!
+  for (const ms of hours) {
+    if (ms < min) min = ms
+    if (ms > max) max = ms
+  }
+  return { from: toIsoUtc(min), to: toIsoUtc(max + MS_PER_HOUR) }
+}
+
+/**
+ * Stündliche Anlagenberichte eines Wechselrichter-Portals (je Monat eine xlsx) → Einspeisung und
+ * Bezug je Stunde für `combineImportWithHourlyExport`.
+ *
+ * Spalten über ihren exakten Namen, nicht über Stichwörter: „Verbrauch" und „Eigenverbrauch" träfen
+ * das Bezugs-Stichwort der Lastgang-Erkennung. Eine leere Zelle ist ein fehlender Wert, keine 0.
+ */
+export function parseHourlyPlantReports(
+  files: readonly PlantReportFile[],
+  timezone = 'Europe/Vienna',
+): HourlyPlantReportResult {
+  const exportByHour = new Map<number, number>()
+  const importByHour = new Map<number, number>()
+  const seenHours = new Set<number>()
+  const perFile: PlantReportFileSummary[] = []
+  let duplicateHours = 0
+  let ambiguousHours = 0
+  let skippedRows = 0
+
+  for (const file of files) {
+    const read = readFile(file, timezone)
+    if (read === 'unknown_format' || read === 'no_rows') return { error: read, file: file.name }
+    ambiguousHours += read.ambiguous
+    skippedRows += read.skipped
+    const fileHours: number[] = []
+    for (const row of read.rows) {
+      if (seenHours.has(row.ms)) {
+        duplicateHours++
+        continue
+      }
+      seenHours.add(row.ms)
+      if (row.exportKwh !== undefined) exportByHour.set(row.ms, row.exportKwh)
+      if (row.importKwh !== undefined) importByHour.set(row.ms, row.importKwh)
+      if (row.exportKwh !== undefined || row.importKwh !== undefined) fileHours.push(row.ms)
+    }
+    const range = rangeOf(fileHours)
+    perFile.push({
+      name: file.name,
+      from: range?.from ?? null,
+      to: range?.to ?? null,
+      hours: fileHours.length,
+    })
+  }
+
+  const toReadings = (map: Map<number, number>): HourlyEnergyReading[] =>
+    [...map].sort((a, b) => a[0] - b[0]).map(([ms, kwh]) => ({ ts: toIsoUtc(ms), kwh }))
+  const valued = [...seenHours].filter((ms) => exportByHour.has(ms) || importByHour.has(ms))
+
+  return {
+    exportHourly: toReadings(exportByHour),
+    importHourly: toReadings(importByHour),
+    diagnostics: {
+      files: files.length,
+      hours: valued.length,
+      range: rangeOf(valued),
+      duplicateHours,
+      ambiguousHours,
+      skippedRows,
+      perFile,
+    },
+  }
+}
