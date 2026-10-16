@@ -76,6 +76,9 @@ describe('Zählpunkte anlegen — Vorbelegung dynamischer Tarif', () => {
         markupCtPerKwh: 1.5,
         baseFeeEurPerMonth: 4.79,
       })
+      // Vorbelegung ist keine Angabe des Kunden: Herkunft „Annahme".
+      const provenance = point.draft._provenance as Record<string, { source: string }>
+      for (const key of KEYS) expect(provenance[key]?.source).toBe('assumed')
     }
   })
 

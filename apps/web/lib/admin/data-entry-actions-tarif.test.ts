@@ -362,6 +362,26 @@ describe('Tarif-Station — dynamischer Tarif (alle Länder)', () => {
     },
   )
 
+  it('Speichern über die Maske macht vorbelegte Werte zur Nutzereingabe (Herkunft measured)', async () => {
+    const at = '2026-10-01T00:00:00.000Z'
+    draft = {
+      dynamicSupplierName: 'aWATTar HOURLY',
+      dynamicMarkupCtPerKwh: 1.5,
+      dynamicBaseFeeEurPerMonth: 4.79,
+      _provenance: Object.fromEntries(KEYS.map((key) => [key, { source: 'assumed', at }])),
+    }
+
+    const state = await saveMeteringPointDynamicTariffAction(
+      {},
+      dynamicForm({ supplierName: 'aWATTar HOURLY', markupCtPerKwh: '1,8', baseFeeEurPerMonth: '4,79' }),
+    )
+
+    expect(state.formError).toBeUndefined()
+    expect(draft.dynamicMarkupCtPerKwh).toBe(1.8)
+    const provenance = draft._provenance as Record<string, { source: string }>
+    for (const key of KEYS) expect(provenance[key]?.source).toBe('measured')
+  })
+
   it.each([
     ['nur ein Wert', { ...VALID, baseFeeEurPerMonth: '' }],
     ['negativer Wert', { ...VALID, markupCtPerKwh: '-1' }],
