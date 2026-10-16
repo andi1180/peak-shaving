@@ -130,6 +130,7 @@ function ExportReportsSummary({ stored }: { stored: StoredExportReports }) {
     ['Fehlende Stunden', String(summary.missingHours)],
     ['Doppelte Stunden', String(summary.duplicateHours)],
     ['Mehrdeutige Stunden (Zeitumstellung)', String(summary.ambiguousHours)],
+    ['Übersprungene Zeilen', String(summary.skippedRows)],
   ]
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
