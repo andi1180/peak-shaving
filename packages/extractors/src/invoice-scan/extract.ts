@@ -9,6 +9,7 @@ import {
 } from 'shared'
 
 import { INVOICE_SCAN_MODEL, createInvoiceScanClient } from './ai-client'
+import { INVOICE_SCAN_MIN_ATTEMPT_MS } from './limits'
 
 /**
  * Delta 9b-2a — DER EINZIGE EXTERNE KI-AUFRUF DIESER APP.
@@ -38,7 +39,8 @@ import { INVOICE_SCAN_MODEL, createInvoiceScanClient } from './ai-client'
 /** Was aus einem Scan herauskommen kann. Diskriminiert — der Aufrufer muss verzweigen. */
 export type InvoiceScanOutcome =
   | { ok: true; extraction: InvoiceExtraction }
-  | { ok: false; reason: 'not_configured' | 'api_error' | 'unreadable' }
+  /** `timeout`: das Zeitbudget (je Versuch bzw. gesamt) war erschöpft, bevor eine Antwort kam. */
+  | { ok: false; reason: 'not_configured' | 'api_error' | 'unreadable' | 'timeout' }
 
 /**
  * Die Anweisung an das Modell.
@@ -436,11 +438,17 @@ const USER_PROMPT =
  *                     Fehler — und ausdrücklich der Fall einer leeren oder unlesbaren PDF. Er
  *                     kommt hier als eigener Ausgang zurück, damit der Aufrufer nicht ein leeres
  *                     Formular vorlegt und so tut, als hätte der Scan funktioniert.
+ *   `timeout`         Das Zeitbudget (120 s je Versuch, 240 s gesamt bzw. die `deadline` des
+ *                     Aufrufers) war erschöpft. Ein eigener Ausgang, damit die Oberfläche das
+ *                     sagen kann, statt dass die Plattform die Anfrage mit 504 abschneidet.
  *
  * Es gibt bewusst KEINEN vierten Ausgang für „teilweise erkannt": ein Ergebnis mit drei von zehn
  * Feldern ist ein normaler Erfolg. Welche Felder fehlen, steht im Ergebnis selbst.
  */
-export async function extractInvoiceData(pdfBase64: string): Promise<InvoiceScanOutcome> {
+export async function extractInvoiceData(
+  pdfBase64: string,
+  options: { deadline?: number } = {},
+): Promise<InvoiceScanOutcome> {
   let client
   try {
     client = createInvoiceScanClient()
@@ -452,45 +460,54 @@ export async function extractInvoiceData(pdfBase64: string): Promise<InvoiceScan
     return { ok: false, reason: 'not_configured' }
   }
 
+  // Ein Aufrufer mit mehreren Scans in einer Function (Wizard-Upload) reicht seine eigene Frist herein.
+  const deadline = Math.min(Date.now() + TOTAL_BUDGET_MS, options.deadline ?? Infinity)
   const fileBytes = Math.floor((pdfBase64.length * 3) / 4)
-  const first = await attemptExtraction(client, pdfBase64, MAX_TOKENS)
+  const first = await attemptExtraction(client, pdfBase64, attemptTimeout(deadline))
   if (first.kind === 'ok') return outcomeFrom(first.raw)
-  if (first.kind === 'refusal' || first.kind === 'fatal') {
-    logFailure(first, 1, fileBytes)
-    return { ok: false, reason: first.kind === 'refusal' ? 'unreadable' : 'api_error' }
-  }
+  logFailure(first, 1, fileBytes)
+  if (first.kind === 'refusal') return { ok: false, reason: 'unreadable' }
+  if (first.kind === 'fatal') return { ok: false, reason: 'api_error' }
 
   /*
-   * GENAU EIN Wiederholversuch: bei leerer/abgeschnittener Antwort sofort (bei `max_tokens` mit mehr
-   * Platz), bei einem vorübergehenden API-Fehler (429, 5xx, Verbindung) nach kurzer Pause.
+   * GENAU EIN Wiederholversuch (leer/abgeschnitten, Zeitüberschreitung, 429/5xx/Verbindung) — aber
+   * nur, wenn das Zeitbudget dafür noch reicht; sonst endete der Aufruf am Funktionslimit (504).
    */
-  logFailure(first, 1, fileBytes)
   if (first.kind === 'transient') await wait(RETRY_DELAY_MS)
-  const second = await attemptExtraction(
-    client,
-    pdfBase64,
-    first.kind === 'incomplete' && first.diag.stopReason === 'max_tokens'
-      ? MAX_TOKENS_RETRY
-      : MAX_TOKENS,
-  )
+  if (deadline - Date.now() < INVOICE_SCAN_MIN_ATTEMPT_MS) {
+    console.error('[invoice-scan] Kein Wiederholversuch — Zeitbudget erschöpft:', {
+      remainingMs: Math.max(0, deadline - Date.now()),
+    })
+    return { ok: false, reason: first.kind === 'timeout' ? 'timeout' : 'api_error' }
+  }
+  const second = await attemptExtraction(client, pdfBase64, attemptTimeout(deadline))
   if (second.kind === 'ok') return outcomeFrom(second.raw)
   logFailure(second, 2, fileBytes)
-  return { ok: false, reason: second.kind === 'refusal' ? 'unreadable' : 'api_error' }
+  if (second.kind === 'refusal') return { ok: false, reason: 'unreadable' }
+  return { ok: false, reason: second.kind === 'timeout' ? 'timeout' : 'api_error' }
 }
 
 /*
- * ⚠ `claude-sonnet-5` denkt ohne `thinking`-Parameter adaptiv, und die Denk-Tokens zählen gegen
- * `max_tokens`. Mit 4096 blieb für das JSON bei einer dichten Rechnung nichts übrig (29.09.2026:
- * drei von fünf Rechnungen „Unexpected end of JSON input"). Die Antwort selbst ist klein (≤ ~2.000
- * Tokens auch mit 40 Energiepreis-Zeilen); 16000 lässt dem Denken Platz. Die Wiederholung nach
- * `max_tokens` nimmt 20000 — nicht mehr, denn der SDK verweigert nicht-gestreamte Aufrufe ab ~21.333
- * (10-Minuten-Regel in `calculateNonstreamingTimeout`).
+ * ⚠ `claude-sonnet-5` denkt OHNE `thinking`-Parameter adaptiv, und die Denk-Tokens zählen gegen
+ * `max_tokens`: am 16.10.2026 endete ein Scan nach ~150 s mit 16000 Ausgabe-Tokens und 0 Zeichen
+ * Text. Die Extraktion ist Ablesen gegen ein erzwungenes Schema, kein Schlussfolgern — deshalb
+ * `thinking: disabled` (für dieses Modell zulässig). Die Antwort selbst bleibt klein (≤ ~2.000
+ * Tokens auch mit 40 Energiepreis-Zeilen); 16000 ist nur noch die Obergrenze.
  */
 const MAX_TOKENS = 16000
-const MAX_TOKENS_RETRY = 20000
 const RETRY_DELAY_MS = 2000
+/** Abbruch je Versuch und Deckel über alle Versuche — sicher unter `maxDuration` 300 s. */
+const ATTEMPT_TIMEOUT_MS = 120_000
+const TOTAL_BUDGET_MS = 240_000
+
+function attemptTimeout(deadline: number): number {
+  return Math.max(0, Math.min(ATTEMPT_TIMEOUT_MS, deadline - Date.now()))
+}
 
 type AttemptDiag = {
+  durationMs: number
+  /** Nur die Typen der Antwortblöcke (z. B. `thinking,text`) — nie ihr Inhalt. */
+  blockTypes: string | null
   stopReason: string | null
   outputTokens: number | null
   textLength: number | null
@@ -507,49 +524,87 @@ type Attempt =
   | { kind: 'transient'; diag: AttemptDiag }
   /** 400 und andere 4xx — nie wiederholen. */
   | { kind: 'fatal'; diag: AttemptDiag }
+  /** Nach `timeoutMs` abgebrochen — einmal wiederholbar, wenn das Budget reicht. */
+  | { kind: 'timeout'; diag: AttemptDiag }
 
-const NO_RESPONSE = { stopReason: null, outputTokens: null, textLength: null } as const
+const NO_RESPONSE = {
+  blockTypes: null,
+  stopReason: null,
+  outputTokens: null,
+  textLength: null,
+} as const
+
+class AttemptTimeout extends Error {}
 
 async function attemptExtraction(
   client: ReturnType<typeof createInvoiceScanClient>,
   pdfBase64: string,
-  maxTokens: number,
+  timeoutMs: number,
 ): Promise<Attempt> {
+  const startedAt = Date.now()
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  // Eigener Timer zusätzlich zum SDK-`timeout`: er greift auch dann, wenn die Anfrage das Signal ignoriert.
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new AttemptTimeout())
+    }, timeoutMs)
+  })
   let response
   try {
-    response = await client.messages.create({
-      model: INVOICE_SCAN_MODEL,
-      max_tokens: maxTokens,
-      system: SYSTEM_PROMPT,
-      /*
-       * Das Schema wird von der API erzwungen (`json_schema` mit `additionalProperties: false` und
-       * vollständigen `required`-Listen, s. `shared/invoice-scan.ts`). Die Antwort ist damit
-       * strukturell garantiert — der Inhalt der Felder selbstverständlich nicht, deshalb läuft sie
-       * unten trotzdem durch `parseInvoiceExtraction`.
-       */
-      output_config: { format: { type: 'json_schema', schema: INVOICE_SCAN_JSON_SCHEMA } },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            /*
-             * Das Dokument steht VOR dem Text — die von Anthropic dokumentierte Reihenfolge für
-             * Dokument-Eingaben.
-             */
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-            },
-            { type: 'text', text: USER_PROMPT },
-          ],
-        },
-      ],
-    })
+    const request = client.messages.create(
+      {
+        model: INVOICE_SCAN_MODEL,
+        max_tokens: MAX_TOKENS,
+        thinking: { type: 'disabled' },
+        system: SYSTEM_PROMPT,
+        /*
+         * Das Schema wird von der API erzwungen (`json_schema` mit `additionalProperties: false` und
+         * vollständigen `required`-Listen, s. `shared/invoice-scan.ts`). Die Antwort ist damit
+         * strukturell garantiert — der Inhalt der Felder selbstverständlich nicht, deshalb läuft sie
+         * unten trotzdem durch `parseInvoiceExtraction`.
+         */
+        output_config: { format: { type: 'json_schema', schema: INVOICE_SCAN_JSON_SCHEMA } },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              /*
+               * Das Dokument steht VOR dem Text — die von Anthropic dokumentierte Reihenfolge für
+               * Dokument-Eingaben.
+               */
+              {
+                type: 'document',
+                source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+              },
+              { type: 'text', text: USER_PROMPT },
+            ],
+          },
+        ],
+      },
+      { signal: controller.signal, timeout: timeoutMs },
+    )
+    // Verliert die Anfrage das Rennen, wird sie später verworfen — ohne unbehandelte Ablehnung.
+    request.catch(() => {})
+    response = await Promise.race([request, timedOut])
   } catch (cause) {
+    const durationMs = Date.now() - startedAt
+    if (
+      cause instanceof AttemptTimeout ||
+      cause instanceof Anthropic.APIConnectionTimeoutError ||
+      controller.signal.aborted
+    ) {
+      return {
+        kind: 'timeout',
+        diag: { ...NO_RESPONSE, durationMs, status: null, error: 'timeout' },
+      }
+    }
     const status = cause instanceof Anthropic.APIError ? (cause.status ?? null) : null
     // Nur Klassenname, Status und SDK-Meldung (Statuscode + API-Fehlertext) — nie die Nutzlast.
     const diag = {
       ...NO_RESPONSE,
+      durationMs,
       status,
       error:
         cause instanceof Anthropic.APIError
@@ -562,13 +617,18 @@ async function attemptExtraction(
       cause instanceof Anthropic.APIConnectionError ||
       (status !== null && (status === 429 || status >= 500))
     return { kind: transient ? 'transient' : 'fatal', diag }
+  } finally {
+    clearTimeout(timer)
   }
 
+  // Ausschliesslich `text`-Blöcke: `thinking`-Blöcke tragen bei diesem Modell keinen Antwortinhalt.
   const text = response.content
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('')
   const diag = {
+    durationMs: Date.now() - startedAt,
+    blockTypes: response.content.map((block) => block.type).join(','),
     stopReason: response.stop_reason,
     outputTokens: response.usage?.output_tokens ?? null,
     textLength: text.length,

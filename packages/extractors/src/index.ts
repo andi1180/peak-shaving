@@ -75,7 +75,7 @@
  */
 
 // ── Rechnungs-Scan (Delta 9b-2a) ──────────────────────────────────────────────────────────────
-export { MAX_INVOICE_FILE_BYTES } from './invoice-scan/limits'
+export { INVOICE_SCAN_MIN_ATTEMPT_MS, MAX_INVOICE_FILE_BYTES } from './invoice-scan/limits'
 export { extractInvoiceData, type InvoiceScanOutcome } from './invoice-scan/extract'
 
 // ── PV-Auslegungs-Scan (B22c) ─────────────────────────────────────────────────────────────────

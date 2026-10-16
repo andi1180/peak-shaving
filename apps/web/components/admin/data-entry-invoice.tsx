@@ -109,9 +109,16 @@ import {
   supplierPriceBasisOf,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
+import {
+  MAX_INVOICE_UPLOAD_REQUEST_BYTES,
+  guardInvoiceUpload,
+} from '@/lib/admin/invoice-upload-guard'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
+
+// Ein 504/413 der Plattform darf die Station nicht abstürzen lassen (s. `guardInvoiceUpload`).
+const guardedUploadAction = guardInvoiceUpload(uploadMeteringPointInvoicesAction)
 import { AdminError, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-rechnungen'
@@ -149,7 +156,7 @@ export function DataEntryInvoice({
   nextHref: string | null
 }) {
   const [state, formAction, isPending] = useActionState(
-    uploadMeteringPointInvoicesAction,
+    guardedUploadAction,
     ADMIN_INITIAL_STATE,
   )
   /*
@@ -330,7 +337,7 @@ export function DataEntryInvoice({
           </div>
           <FieldHint id={`${FIELD_ID}-hint`} tone={error ? 'error' : 'muted'}>
             {error ??
-              `PDF, je bis ${Math.floor(maxBytes / (1024 * 1024))} MB, höchstens ${MAX_INVOICES_PER_UPLOAD} pro Vorgang. ` +
+              `PDF, zusammen bis ${Math.floor(Math.min(maxBytes, MAX_INVOICE_UPLOAD_REQUEST_BYTES) / (1024 * 1024))} MB, höchstens ${MAX_INVOICES_PER_UPLOAD} pro Vorgang. ` +
                 'Jede Rechnung wird im Projekt abgelegt und ausgelesen; bereits gelesene bleiben erhalten. ' +
                 'Zum Auslesen wird sie an Anthropic übertragen und dort nicht gespeichert.'}
           </FieldHint>

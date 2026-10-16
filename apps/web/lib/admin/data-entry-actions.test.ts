@@ -525,6 +525,12 @@ describe('uploadMeteringPointInvoicesAction', () => {
     expect(draft.energyPriceCtPerKwh).toBe(24.5)
   })
 
+  it('Zeitüberschreitung beim Auslesen wird je Datei benannt, statt den Vorgang zu werfen', async () => {
+    extractInvoiceData.mockResolvedValue({ ok: false, reason: 'timeout' })
+    const state = await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('lang.pdf')]))
+    expect(state.fieldErrors?.files).toContain('„lang.pdf": Das Auslesen hat zu lange gedauert')
+  })
+
   it('⚠ ERGÄNZT beim zweiten Vorgang, statt die bestehende Liste zu ersetzen', async () => {
     extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
     await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('erste.pdf')]))
