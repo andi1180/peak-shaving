@@ -35,6 +35,16 @@ export type {
   PvParseOutcome,
 } from './types'
 export { DEFAULT_LIMITS } from './limits'
+// Bytec S9-1: 15-min-Bezug + stündliche Einspeisung → signierte Netzlast (noch ohne Aufrufer).
+export { combineImportWithHourlyExport } from './combine-hourly-export'
+export type {
+  CombineDiagnostics,
+  CombineImportWithHourlyExportInput,
+  CombineImportWithHourlyExportResult,
+  HourlyEnergyReading,
+  HourOffset,
+  ImportCheck,
+} from './combine-hourly-export'
 // D6 Teil 2b: die Zeitzonen-Umrechnung in BEIDE Richtungen. Der synthetische Lückenausschnitt der
 // Jahres-Hochrechnung entsteht an echten Kalendertagen und muss dafür lokale Mitternacht in einen
 // UTC-Instant übersetzen — bisher paketintern, `packages/extractors` kam sonst nicht daran.
