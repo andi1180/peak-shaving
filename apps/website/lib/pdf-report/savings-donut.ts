@@ -20,10 +20,15 @@ export type SavingsDonutSegment = {
   labelInChart: boolean
 }
 
+/** Ein Anteil < 0 €: kein Segment, sondern eine Hinweiszeile unter dem Ring. */
+export type SavingsDonutNegative = { key: SavingsDonutSegmentKey; label: string; eur: number }
+
 export type SavingsDonut = {
   title: string
+  /** Ringmitte: Summe ALLER Anteile, negative eingerechnet (Nettowert). */
   totalEur: number
   segments: SavingsDonutSegment[]
+  negatives: SavingsDonutNegative[]
   storageEur: number
   storagePercent: number
   caption: string
@@ -58,8 +63,9 @@ export function largestRemainderPercents(values: readonly number[]): number[] {
 }
 
 /**
- * Die Segmente aus den Tabellenzeilen — oder `null`, wenn ein Anteil ≤ 0 € ist (ein Ring kann
- * keinen negativen Anteil zeigen; dann steht nur die Tabelle). Kappung 0 heisst zwei Segmente.
+ * Die Segmente aus den Tabellenzeilen. Ein Ring kann keinen negativen Anteil zeigen: Anteile < 0 €
+ * stehen in `negatives` und sind in der Ringmitte verrechnet, Anteile = 0 € entfallen; Prozente
+ * beziehen sich auf die Summe der positiven Anteile. `null` nur, wenn kein Anteil > 0 € bleibt.
  */
 export function buildSavingsDonut(parts: {
   switchEur: number
@@ -67,15 +73,15 @@ export function buildSavingsDonut(parts: {
   peakEur: number
 }): SavingsDonut | null {
   const { switchEur, controlEur, peakEur } = parts
-  if (switchEur <= 0 || controlEur <= 0 || peakEur < 0) return null
-
-  const raw: { key: SavingsDonutSegmentKey; label: string; eur: number }[] = [
+  const all: SavingsDonutNegative[] = [
     { key: 'switch', label: 'Tarifwechsel', eur: switchEur },
     { key: 'control', label: 'Ladesteuerung', eur: controlEur },
-    ...(peakEur > 0
-      ? [{ key: 'peak' as const, label: 'Spitzenkappung (Obergrenze)', eur: peakEur }]
-      : []),
+    { key: 'peak', label: 'Spitzenkappung (Obergrenze)', eur: peakEur },
   ]
+  const raw = all.filter((s) => s.eur > 0)
+  if (raw.length === 0) return null
+  const negatives = all.filter((s) => s.eur < 0)
+
   const percents = largestRemainderPercents(raw.map((s) => s.eur))
   const segments = raw.map((s, i) => ({
     ...s,
@@ -89,14 +95,20 @@ export function buildSavingsDonut(parts: {
 
   return {
     title: SAVINGS_DONUT_TITLE,
-    totalEur: segments.reduce((sum, s) => sum + s.eur, 0),
+    totalEur: all.reduce((sum, s) => sum + s.eur, 0),
     segments,
+    negatives,
     storageEur,
     storagePercent,
     caption:
       `Davon durch den Speicher: ${formatEur(storageEur)} (${storagePercent} %).` +
       (peakEur > 0 ? ' Spitzenkappung ist eine Obergrenze.' : ''),
   }
+}
+
+/** Hinweiszeile eines negativen Anteils unter dem Ring. */
+export function savingsDonutNegativeText(label: string, eur: number): string {
+  return `${label} allein: −${formatEur(Math.abs(eur))} pro Jahr, in der Gesamtzahl berücksichtigt.`
 }
 
 /** Legendenzeile eines Segments — Name, Euro und Prozent als Text, nicht nur als Farbe. */

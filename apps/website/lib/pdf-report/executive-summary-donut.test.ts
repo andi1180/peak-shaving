@@ -5,8 +5,12 @@ import { EXECUTIVE_SUMMARY_CASES as CASES } from '@/test/executive-summary-cases
 import { lineCount, textWidthPt } from '@/test/pdf-text-lines'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
 import { executiveSummaryCopy } from './executive-summary-copy'
-import { EXEC_DONUT_LEGEND_LABEL_WIDTH, execDonutOf } from './executive-summary-donut'
-import { EXEC_SLOTS } from './executive-summary-layout'
+import {
+  EXEC_DONUT_LEGEND_LABEL_WIDTH,
+  EXEC_DONUT_NOTE_PT,
+  execDonutOf,
+} from './executive-summary-donut'
+import { EXEC_SLOTS, EXEC_STORAGE } from './executive-summary-layout'
 
 const summary = (name: string) => buildExecutiveSummary(CASES[name]!)!
 
@@ -92,5 +96,48 @@ describe('execDonutOf', () => {
       }
       expect(textWidthPt(donut.total, 13, true), name).toBeLessThanOrEqual(88 - 2 * 15 - 4)
     }
+  })
+
+  it('Tarifwechsel negativ: Hinweiszeile statt Segment, Mitte netto, Hinweis passt in die Box', () => {
+    const base = summary('jahr (Müldür)')
+    const s: ExecutiveSummary = {
+      ...base,
+      stages: base.stages.map((st) =>
+        st.id === 'ohne-anschaffung' ? { ...st, savingPerYearEur: -107 } : st,
+      ),
+    }
+    const donut = execDonutOf(s)!
+    expect(donut.segments.map((seg) => seg.key)).toEqual(['control', 'peak'])
+    expect(donut.segments.at(-1)!.endDeg).toBeCloseTo(360, 9)
+    expect(donut.totalEur).toBe(-107 + s.storage!.loadShiftEur + s.storage!.peakEur)
+    expect(donut.negativeNotes.map((n) => n.replace(/\u00a0/g, ' '))).toEqual([
+      'Wechsel zu aWATTar allein: −€ 107 pro Jahr, in der Gesamtzahl berücksichtigt.',
+    ])
+    // Platz unter dem Ring: Boxhöhe − Padding − Titel − Abstand − Ring-Platz.
+    const spare = EXEC_STORAGE.height - 2 * 10 - 15 - 3 - EXEC_SLOTS.donut.height
+    const lines = lineCount(donut.negativeNotes[0]!, EXEC_DONUT_NOTE_PT, EXEC_SLOTS.donut.width)
+    expect(2 + lines * EXEC_DONUT_NOTE_PT * 1.2).toBeLessThanOrEqual(spare)
+    expect(execDonutOf(base)!.negativeNotes).toEqual([])
+  })
+})
+
+describe('Box „Ersparnis pro Jahr": Unterzeile bei Tarifwechsel ≤ 0', () => {
+  it('L1: Speicher und Tarifwechsel ≤ 0 → „Speicher mit {dynamischer Tarif}"', () => {
+    const base = summary('jahr (Müldür)')
+    for (const eur of [0, -107]) {
+      const s: ExecutiveSummary = {
+        ...base,
+        stages: base.stages.map((st) =>
+          st.id === 'ohne-anschaffung' ? { ...st, savingPerYearEur: eur } : st,
+        ),
+      }
+      expect(executiveSummaryCopy(s).savingBox.sub, String(eur)).toBe('Speicher mit aWATTar')
+    }
+  })
+
+  it('L2: Tarifwechsel > 0 → bisherige Unterzeile', () => {
+    expect(executiveSummaryCopy(summary('jahr (Müldür)')).savingBox.sub).toBe(
+      `davon ${formatEur(8025)} ohne Investition (Tarifwechsel)`,
+    )
   })
 })

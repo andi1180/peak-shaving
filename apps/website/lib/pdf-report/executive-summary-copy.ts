@@ -104,6 +104,10 @@ function switchShareBesidePayback(s: ExecutiveSummary): number | null {
   return stage && stage.savingPerYearEur > 0 ? stage.savingPerYearEur : null
 }
 
+/** Mit Speicher, aber der Tarifwechsel allein spart nichts: die Ersparnis kommt vom Speicher. */
+const switchAloneSavesNothing = (s: ExecutiveSummary): boolean =>
+  (s.stages.find((st) => st.id === 'ohne-anschaffung')?.savingPerYearEur ?? Infinity) <= 0
+
 function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
   const label = 'Ersparnis pro Jahr'
   const total = s.header.savingPerYearEur
@@ -121,6 +125,8 @@ function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
       ? `davon ${formatEur(switchShare)} ohne Investition (Tarifwechsel)`
       : s.variant === 'tarif-unbekannt'
       ? `durch einen Speicher gegenüber ${spotName(s)} ohne Speicher`
+      : s.storage && switchAloneSavesNothing(s)
+        ? `Speicher mit ${spotName(s) || 'dynamischem Tarif'}`
       : s.storage
         ? 'Tarifwechsel plus Speicher'
         : `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`

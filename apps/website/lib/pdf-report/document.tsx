@@ -67,6 +67,7 @@ import { ANNUAL_SAVINGS_STATEMENT_ID, buildAnnualScenarioChapter } from './annua
 import {
   SAVINGS_DONUT_COLORS,
   savingsDonutLegendText,
+  savingsDonutNegativeText,
   type SavingsDonut,
 } from './savings-donut'
 import { buildPvValueChapter } from './pv-value'
@@ -75,7 +76,7 @@ import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summary-charts'
 import { execHeroSideWidth, execHeroValuePt } from './executive-summary-layout'
-import { ExecSavingsDonut, execDonutOf } from './executive-summary-donut'
+import { ExecSavingsDonut, ExecSavingsDonutNotes, execDonutOf } from './executive-summary-donut'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
   EXEC_DIVIDER_GAP_PT,
@@ -991,6 +992,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
               <View style={{ marginTop: 3 }}>
                 <ExecSavingsDonut donut={donut} slot={EXEC_SLOTS.donut} />
               </View>
+              <ExecSavingsDonutNotes notes={donut.negativeNotes} width={EXEC_SLOTS.donut.width} />
             </View>
           )}
         </View>
@@ -2220,6 +2222,11 @@ function SavingsDonutFigure({ donut, raster }: { donut: SavingsDonut; raster: Ch
         ))}
       </View>
       <Text style={styles.figureCaption}>{donut.caption}</Text>
+      {donut.negatives.map((n) => (
+        <Text key={n.key} style={styles.figureCaption}>
+          {savingsDonutNegativeText(n.label, n.eur)}
+        </Text>
+      ))}
     </View>
   )
 }

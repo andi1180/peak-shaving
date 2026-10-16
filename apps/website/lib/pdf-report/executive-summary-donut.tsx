@@ -5,7 +5,11 @@ import { FALLBACK_DYNAMIC_TARIFF } from '@/lib/report-copy'
 import { fitFontSize } from './executive-summary-charts'
 import type { ExecutiveSummary } from './executive-summary'
 import { DOT_COLOR } from './executive-summary-load-chart'
-import { buildSavingsDonut, type SavingsDonutSegmentKey } from './savings-donut'
+import {
+  buildSavingsDonut,
+  savingsDonutNegativeText,
+  type SavingsDonutSegmentKey,
+} from './savings-donut'
 import { CHART_COLORS, PDF_COLORS } from './theme'
 
 /**
@@ -41,11 +45,13 @@ export type ExecDonut = {
   total: string
   totalEur: number
   segments: ExecDonutSegment[]
+  /** Je negativem Anteil eine Hinweiszeile unter dem Ring; sonst leer. */
+  negativeNotes: string[]
 }
 
 /**
- * Nur mit Speicherblock, wenn Tarifwechsel und Speicher etwas beitragen (`buildSavingsDonut` verlangt
- * beides); bei unbekanntem Tarif gibt es keinen Tarifwechsel-Anteil und damit keinen Ring.
+ * Nur mit Speicherblock und Tarifwechsel-Stufe; ein negativer Anteil steht als Hinweiszeile statt
+ * als Segment (`buildSavingsDonut`), die Mitte ist der Nettowert.
  */
 export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
   const st = summary.storage
@@ -57,12 +63,14 @@ export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
     peakEur: st.peakEur,
   })
   if (!donut) return null
+  const tariffName = summary.tariffName ?? FALLBACK_DYNAMIC_TARIFF.name
+  const positiveEur = donut.segments.reduce((sum, s) => sum + s.eur, 0)
   let angle = 0
   const segments = donut.segments.map((s) => {
-    const sweep = (s.eur / donut.totalEur) * 360
+    const sweep = (s.eur / positiveEur) * 360
     const segment = {
       key: s.key,
-      label: labelOf(s.key, summary.tariffName ?? FALLBACK_DYNAMIC_TARIFF.name),
+      label: labelOf(s.key, tariffName),
       eur: s.eur,
       amount: formatEur(s.eur),
       color: COLORS[s.key],
@@ -77,6 +85,9 @@ export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
     total: formatEur(donut.totalEur),
     totalEur: donut.totalEur,
     segments,
+    negativeNotes: donut.negatives.map((n) =>
+      savingsDonutNegativeText(labelOf(n.key, tariffName), n.eur),
+    ),
   }
 }
 
@@ -104,6 +115,24 @@ export function arcPath(
 }
 
 const small = { fontSize: 8, lineHeight: 1.2, color: PDF_COLORS.textMuted }
+export const EXEC_DONUT_NOTE_PT = 6.5
+
+/** Die Hinweiszeilen negativer Anteile, unter dem Ring über die volle Breite des Platzes. */
+export function ExecSavingsDonutNotes({ notes, width }: { notes: string[]; width: number }) {
+  if (notes.length === 0) return null
+  return (
+    <View style={{ width, marginTop: 2 }}>
+      {notes.map((note) => (
+        <Text
+          key={note}
+          style={{ fontSize: EXEC_DONUT_NOTE_PT, lineHeight: 1.2, color: PDF_COLORS.textMuted }}
+        >
+          {note}
+        </Text>
+      ))}
+    </View>
+  )
+}
 
 export function ExecSavingsDonut({
   donut,
