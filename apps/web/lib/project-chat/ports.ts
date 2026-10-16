@@ -252,7 +252,7 @@ export interface ProjectDocumentContent {
  */
 export type ExtractorOutcome<T> =
   | { ok: true; extraction: T }
-  | { ok: false; reason: 'not_configured' | 'api_error' | 'unreadable' }
+  | { ok: false; reason: 'not_configured' | 'api_error' | 'unreadable' | 'timeout' }
 
 export interface ChatExtractors {
   /** `apps/website/lib/upload-classification/extract.ts` — antwortet ohne `unreadable`. */

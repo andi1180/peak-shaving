@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
+import { INVOICE_SCAN_MIN_ATTEMPT_MS, MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
 import {
   BILLING_MODELS,
   COUNTRY_LABELS,
@@ -55,6 +55,8 @@ import {
 
 /** Höchstens so viele Rechnungs-Scans gleichzeitig je Upload-Vorgang. */
 const INVOICE_SCAN_CONCURRENCY = 4
+/** Zeit für alle Scans eines Vorgangs; der Rest von `maxDuration` 300 s bleibt fürs Ablegen und den Entwurf. */
+const INVOICE_UPLOAD_BUDGET_MS = 250_000
 
 // ── Rechnungen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -74,7 +76,16 @@ const INVOICE_SCAN_CONCURRENCY = 4
  * Wahl und eine Falschauskunft: „wir konnten die Rechnung nicht auslesen" schickte den Admin die
  * Datei prüfen, obwohl das Auslesen gar nicht stattgefunden hat.
  */
-type InvoiceFileFailure = 'no_file' | 'wrong_type' | 'too_large' | 'not_configured' | 'unreadable' | 'unavailable' | 'upload_failed'
+type InvoiceFileFailure =
+  | 'no_file'
+  | 'wrong_type'
+  | 'too_large'
+  | 'not_configured'
+  | 'unreadable'
+  | 'unavailable'
+  | 'timeout'
+  | 'not_started'
+  | 'upload_failed'
 
 /**
  * Der Grund je Datei, in einem Satz.
@@ -97,6 +108,10 @@ const INVOICE_FAILURE_TEXT: Record<InvoiceFileFailure, string> = {
   unreadable:
     'Auf diesem Dokument war keine der gesuchten Angaben zu finden — das kann an der Bildqualität liegen, aber auch daran, dass es keine Strom- oder Netzrechnung ist.',
   unavailable: 'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen.',
+  timeout:
+    'Das Auslesen hat zu lange gedauert und wurde abgebrochen; die Datei ist abgelegt. Bitte diese Rechnung einzeln noch einmal hochladen.',
+  not_started:
+    'Nicht mehr gelesen — die Zeit für diesen Vorgang war aufgebraucht; nichts abgelegt. Bitte in einem eigenen Vorgang hochladen.',
   upload_failed:
     'Die Datei liess sich nicht in der Ablage des Projekts speichern; sie wurde deshalb gar nicht erst ausgelesen.',
 }
@@ -197,8 +212,9 @@ export async function uploadMeteringPointInvoicesAction(
 
   // Höchstens vier Scans gleichzeitig (Ratelimit, Speicher); der eine Wiederholversuch je Rechnung
   // läuft in `extractInvoiceData` und damit im selben Platz. Vorher: alle zwölf auf einmal.
+  const deadline = Date.now() + INVOICE_UPLOAD_BUDGET_MS
   const results = await mapWithConcurrency(files, INVOICE_SCAN_CONCURRENCY, (file) =>
-    readOneInvoice(projectId, file),
+    readOneInvoice(projectId, file, deadline),
   )
 
   /*
@@ -337,7 +353,11 @@ export async function uploadMeteringPointInvoicesAction(
  * Ketten liesse `mapWithConcurrency` scheitern und nähme die anderen elf mit, obwohl sie längst gelesen
  * (und bezahlt) sind.
  */
-async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFileResult> {
+async function readOneInvoice(
+  projectId: string,
+  file: File,
+  deadline: number,
+): Promise<InvoiceFileResult> {
   const filename = file.name.trim() === '' ? 'Unbenannte Datei' : file.name
 
   // ── Schritt 1: prüfen. Rein, vor jedem Netzweg und vor jedem abrechenbaren Aufruf.
@@ -349,6 +369,10 @@ async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFil
    */
   if (file.type !== PDF_MEDIA_TYPE) return { ok: false, filename, reason: 'wrong_type' }
   if (file.size > MAX_INVOICE_FILE_BYTES) return { ok: false, filename, reason: 'too_large' }
+  // Erst prüfen, dann ablegen: eine Datei, die nicht mehr gelesen werden kann, soll nicht im Projekt landen.
+  if (deadline - Date.now() < INVOICE_SCAN_MIN_ATTEMPT_MS) {
+    return { ok: false, filename, reason: 'not_started' }
+  }
 
   const bytes = await file.arrayBuffer()
 
@@ -367,7 +391,7 @@ async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFil
   }
 
   // ── Schritt 3: auslesen. Der einzige abrechenbare Aufruf dieser Kette.
-  const outcome = await extractInvoiceData(Buffer.from(bytes).toString('base64'))
+  const outcome = await extractInvoiceData(Buffer.from(bytes).toString('base64'), { deadline })
 
   if (!outcome.ok) {
     /*
@@ -378,6 +402,7 @@ async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFil
      */
     if (outcome.reason === 'not_configured') return { ok: false, filename, reason: 'not_configured' }
     if (outcome.reason === 'unreadable') return { ok: false, filename, reason: 'unreadable' }
+    if (outcome.reason === 'timeout') return { ok: false, filename, reason: 'timeout' }
     return { ok: false, filename, reason: 'unavailable' }
   }
 

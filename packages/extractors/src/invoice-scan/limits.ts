@@ -30,3 +30,9 @@
  * steht dort. Die beiden werden bewusst getrennt geführt und nicht voneinander importiert.
  */
 export const MAX_INVOICE_FILE_BYTES = 6 * 1024 * 1024
+
+/**
+ * Mindestzeit für einen Scan-Versuch. Bleibt weniger Budget, startet kein (weiterer) Versuch —
+ * auch der Wizard-Upload beginnt dann keine weitere Rechnung mehr.
+ */
+export const INVOICE_SCAN_MIN_ATTEMPT_MS = 60_000

@@ -38,13 +38,13 @@ describe('extractInvoiceData — leere/abgeschnittene Antwort und API-Fehler', (
     expect(create).toHaveBeenCalledTimes(2)
   })
 
-  it('(b) stop_reason max_tokens → Wiederholversuch mit grösserem max_tokens → ok', async () => {
+  it('(b) stop_reason max_tokens → ein Wiederholversuch mit derselben Obergrenze → ok', async () => {
     create
       .mockResolvedValueOnce(response('{"netzebene": 7, "rat', 'max_tokens', 16000))
       .mockResolvedValueOnce(response(VALID_JSON))
     const outcome = await extractInvoiceData(PDF)
     expect(outcome.ok).toBe(true)
-    expect(create.mock.calls.map(([body]) => body.max_tokens)).toEqual([16000, 20000])
+    expect(create.mock.calls.map(([body]) => body.max_tokens)).toEqual([16000, 16000])
   })
 
   it('(c) HTTP 400 → kein Wiederholversuch, api_error', async () => {
@@ -86,5 +86,58 @@ describe('extractInvoiceData — leere/abgeschnittene Antwort und API-Fehler', (
     create.mockResolvedValueOnce(response('', 'refusal'))
     expect(await extractInvoiceData(PDF)).toEqual({ ok: false, reason: 'unreadable' })
     expect(create).toHaveBeenCalledTimes(1)
+  })
+
+  it('Thinking-Block + Text-Block → der Text wird gelesen; Thinking ist ausdrücklich aus', async () => {
+    create.mockResolvedValueOnce({
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'text', text: VALID_JSON },
+      ],
+      stop_reason: 'end_turn',
+      usage: { output_tokens: 400 },
+    })
+    const outcome = await extractInvoiceData(PDF)
+    expect(outcome.ok).toBe(true)
+    const [body, options] = create.mock.calls[0]!
+    expect(body.thinking).toEqual({ type: 'disabled' })
+    expect(body.max_tokens).toBe(16000)
+    expect(options.timeout).toBe(120_000)
+    expect(options.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('max_tokens ohne Text bei knappem Budget → definierter Fehler, kein zweiter Versuch', async () => {
+    create.mockResolvedValueOnce(response('', 'max_tokens', 16000))
+    const outcome = await extractInvoiceData(PDF, { deadline: Date.now() + 30_000 })
+    expect(outcome).toEqual({ ok: false, reason: 'api_error' })
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(create.mock.calls[0]![1].timeout).toBeLessThanOrEqual(30_000)
+  })
+
+  it('hängende Antwort → Abbruch je Versuch nach 120 s, höchstens 2 Versuche, Ergebnis timeout', async () => {
+    vi.useFakeTimers()
+    const signals: AbortSignal[] = []
+    create.mockImplementation((_body, options: { signal: AbortSignal }) => {
+      signals.push(options.signal)
+      return new Promise(() => {})
+    })
+    const started = Date.now()
+    let settled = false
+    const pending = extractInvoiceData(PDF).finally(() => {
+      settled = true
+    })
+
+    await vi.advanceTimersByTimeAsync(119_999)
+    expect(create).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(signals[0]!.aborted).toBe(true)
+    expect(create).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(settled).toBe(true)
+    expect(await pending).toEqual({ ok: false, reason: 'timeout' })
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(signals[1]!.aborted).toBe(true)
+    expect(Date.now() - started).toBe(240_000)
   })
 })
