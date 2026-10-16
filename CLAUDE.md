@@ -796,9 +796,11 @@ beantworten verschiedene Fragen und sind **nicht** gegeneinander austauschbar.
 
 **(e) Weg 5 steht im Ersparnis-Kasten, nicht in der Kostentabelle**, und der Kasten ist die **einzige
 Stelle im ganzen Report, an der Weg 5 addiert werden darf** (dort sind alle Zahlen Jahresgrössen —
-im Kapitel davor ausdrücklich nicht). **Keine der Zahlen erreicht die Ersparnis-Spanne der
-Zusammenfassung** (D8): `summary.ts` liest `annualScenario` nirgends, ein Test pinnt die
-Bit-Gleichheit der Kopfzahlen mit und ohne Szenario.
+im Kapitel davor ausdrücklich nicht). **Zusammenfassung (D8/D6 e revidiert 16.10.2026):** gibt es
+eine Vorderseite, zeigt „Mögliche Ersparnis" deren Gesamtzahl (`header.savingPerYearEur`) mit
+Aufschlüsselung Tarifwechsel / Ladesteuerung / Netzentgelt (Leistung/Stufe); ohne Vorderseite oder
+bei Ersparnis vorne ≤ 0 bleibt die Spanne über den gemessenen Zeitraum. Ein Test pinnt die
+Gleichheit mit der Kopfzahl. Die Trennung Messzeitraum/Jahr steht nur in der Methodik.
 
 **(f) Kein Chart** — eine zyklisch wiederholte Woche als Heatmap sähe aus wie ein gemessener
 Jahresgang.

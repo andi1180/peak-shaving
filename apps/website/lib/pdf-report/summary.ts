@@ -35,6 +35,7 @@ import {
 } from '@/lib/report-copy'
 import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
 import type { ReportBuildContext } from './context'
+import type { ExecutiveSummary } from './executive-summary'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
@@ -93,6 +94,8 @@ export type SummaryKpi = {
   id: 'cost_today' | 'possible_saving' | 'cost_awattar' | 'cost_controlled'
   value: string
   caption: readonly [string, string]
+  /** Aufschlüsselung der Jahreszahl der Vorderseite, nur bei mehr als einem Anteil ≠ 0. */
+  breakdown?: { label: string; value: string }[]
   /** Eine Zeile unter der Bezugszeile: Investition und Urteil zu einem Betrag „mit Speicher". */
   note?: string
   tone: 'ink' | 'accent'
@@ -363,7 +366,7 @@ export function recommendationVerdictOf(
 }
 
 /** Bezugszeile der Kopfzahlen: was in den Ist-Kosten NICHT steckt. */
-function withoutDemandCharge(current: PdfReportAnalysis['current']): string {
+export function withoutDemandCharge(current: PdfReportAnalysis['current']): string {
   return current.networkTier ? 'ohne Netzentgelt aus Leistung und Stufe' : 'ohne Leistungspreis'
 }
 
@@ -402,6 +405,87 @@ export function buildUnknownTariffKpis(
   return kpis
 }
 
+/**
+ * Die Gesamtzahl der Vorderseite für „Mögliche Ersparnis" (D8/D6 e revidiert, 16.10.2026):
+ * übernommen aus Kopfzahl und Stufen, nicht neu gerechnet. `null` ohne Vorderseite, ohne Ersparnis
+ * dort oder ohne Tarifvergleich — dann bleibt die Spanne über den gemessenen Zeitraum.
+ */
+export type SummaryAnnualTotal = {
+  totalEur: number
+  upperBound: boolean
+  basis: ExecutiveSummary['header']['basis']
+  /** Anteile ≠ 0 € in der Reihenfolge der Vorderseite; negative mit Vorzeichen. */
+  shares: { key: 'switch' | 'control' | 'peak'; label: string; eur: number }[]
+  switchToComparison: boolean
+}
+
+export function summaryAnnualTotalOf(
+  analysis: PdfReportAnalysis,
+  executiveSummary: ExecutiveSummary | null | undefined,
+): SummaryAnnualTotal | null {
+  const s = executiveSummary
+  if (!s || s.header.savingPerYearEur <= 0 || !summaryWaysOf(analysis)) return null
+  const shares: SummaryAnnualTotal['shares'] = [
+    {
+      key: 'switch' as const,
+      label: 'Tarifwechsel',
+      eur: s.stages.find((st) => st.id === 'ohne-anschaffung')?.savingPerYearEur ?? 0,
+    },
+    { key: 'control' as const, label: 'Ladesteuerung', eur: s.storage?.loadShiftEur ?? 0 },
+    { key: 'peak' as const, label: 'Netzentgelt (Leistung/Stufe)', eur: s.storage?.peakEur ?? 0 },
+  ].filter((share) => Math.round(share.eur) !== 0)
+  return {
+    totalEur: s.header.savingPerYearEur,
+    upperBound: s.confidence.hasUpperBound,
+    basis: s.header.basis,
+    shares,
+    switchToComparison: s.ways.find((way) => way.isRecommended)?.id === 'comparison',
+  }
+}
+
+/** Ob Fliesstext und Methodik die Trennung Jahr/Messzeitraum erklären — eine Bedingung für beide. */
+export function summaryExplainsAnnualTotal(
+  analysis: PdfReportAnalysis,
+  total: SummaryAnnualTotal | null,
+): boolean {
+  if (!total) return false
+  const primary = primaryEntryOf(analysis)
+  return total.shares.length > 1 || (primary !== undefined && demandSavingShown(primary))
+}
+
+function annualTotalKpi(total: SummaryAnnualTotal, note: string | undefined): SummaryKpi {
+  const projected = total.basis !== 'annual'
+  const only = total.shares.length === 1 ? total.shares[0] : undefined
+  const how =
+    only === undefined
+      ? 'alle Maßnahmen zusammen'
+      : only.key === 'control'
+        ? 'mit gezielter Ladesteuerung'
+        : only.key === 'peak'
+          ? 'durch weniger Netzentgelt aus Leistung/Stufe'
+          : total.switchToComparison
+            ? 'mit dem von Ihnen gefundenen Tarif'
+            : 'durch einen Tarifwechsel'
+  return {
+    id: 'possible_saving',
+    value: `${total.upperBound ? 'bis zu ' : ''}${formatEur(total.totalEur)}`,
+    caption: [
+      'Mögliche Ersparnis',
+      `${how}, ${projected ? 'pro Jahr hochgerechnet' : only ? 'im selben Zeitraum' : 'pro Jahr'}`,
+    ],
+    ...(only
+      ? {}
+      : {
+          breakdown: total.shares.map((share) => ({
+            label: share.label,
+            value: formatEur(share.eur),
+          })),
+        }),
+    ...(note ? { note } : {}),
+    tone: 'accent',
+  }
+}
+
 /** Die Wege, auf denen im gemessenen Zeitraum tatsächlich etwas zu sparen war. */
 function positiveWays(ways: SummaryWays): SummaryWay[] {
   return ways.ways.filter((way) => way.eur > 0)
@@ -422,6 +506,7 @@ export function buildSummaryKpis(
   analysis: PdfReportAnalysis,
   ways: SummaryWays,
   gridProfileContainsPv = false,
+  annualTotal: SummaryAnnualTotal | null = null,
 ): SummaryKpi[] {
   const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
   const kpis: SummaryKpi[] = [
@@ -455,6 +540,11 @@ export function buildSummaryKpis(
       ` (${unprofitable.battery.name}). ` +
       storageJudgementText(unprofitable, analysis.assumptions.horizonYears)
     : undefined
+
+  if (annualTotal) {
+    kpis.push(annualTotalKpi(annualTotal, note))
+    return kpis
+  }
 
   const positive = positiveWays(ways).filter((way) => !(unprofitable && way.id === 'controlled'))
   if (positive.length === 0) {
@@ -661,7 +751,11 @@ const peakDriver = (entry: BatteryResultEntry): string =>
  * Gewerbekunden eine Zahl mit der Überschrift „Mögliche Ersparnis", die seinen grössten Hebel
  * auslässt. Der Satz entsteht nur, wo der Speicher den abgerechneten Leistungswert wirklich senkt.
  */
-export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput): ReportText {
+export function buildOverview(
+  analysis: PdfReportAnalysis,
+  input: SummaryInput,
+  annualTotal: SummaryAnnualTotal | null = null,
+): ReportText {
   const existing = analysis.existingBatteryAnalysis
   const equipment = equipmentSentence(
     existing?.entry.battery,
@@ -695,8 +789,10 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
   }
 
   const primary = primaryEntryOf(analysis)
-  const peakPart: ReportText =
-    primary && demandSavingShown(primary)
+  const peakPart: ReportText = summaryExplainsAnnualTotal(analysis, annualTotal)
+    ? ' Die Gesamtzahl entspricht der Seite „Auf einen Blick“ (Jahreswerte). Wie sich die Werte ' +
+      'im gemessenen Zeitraum zusammensetzen, steht in der Methodik.'
+    : !annualTotal && primary && demandSavingShown(primary)
       ? t` ${peakSubject(primary)} ist in dieser Spanne nicht enthalten: sie hängt am ${peakDriver(primary)} Ihres Netzbetreibers und nicht am Stromvertrag${ref(
           block('recommendation'),
           `, und was Ihr Speicher dabei leistet, steht ${REF_PLACE}`,
@@ -1046,15 +1142,16 @@ export function buildReportSummary(
   const unknownWays = unknownTariffWaysOf(analysis)
   /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
   const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
+  const annualTotal = summaryAnnualTotalOf(analysis, context?.executiveSummary)
 
   return {
     kpis: ways
-      ? buildSummaryKpis(analysis, ways, input.gridProfileContainsPv === true)
+      ? buildSummaryKpis(analysis, ways, input.gridProfileContainsPv === true, annualTotal)
       : unknownWays
         ? buildUnknownTariffKpis(analysis, unknownWays)
         : [],
     notices: buildNotices(input),
-    overview: buildOverview(analysis, input),
+    overview: buildOverview(analysis, input, annualTotal),
     /* ⚠ `context ? … : …` wie bei `entry` darüber — der Prüfstand fährt ohne Kontext. */
     pvPointer: buildPvPointer(
       input.hasPv,

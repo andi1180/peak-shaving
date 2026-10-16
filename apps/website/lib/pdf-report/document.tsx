@@ -109,7 +109,7 @@ import {
   type ReportTable,
   type ReportTone,
 } from './statement'
-import { ADDON_ID, buildReportSummary } from './summary'
+import { ADDON_ID, buildReportSummary, summaryAnnualTotalOf } from './summary'
 import { chartCellColor, PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
 
@@ -495,6 +495,9 @@ const styles = StyleSheet.create({
     fontSize: PDF_TYPE.small,
     color: PDF_COLORS.textMuted,
   },
+  headlineBreakdown: { marginTop: 4, width: 180 },
+  headlineBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  headlineBreakdownText: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.ink },
   headlineNote: {
     ...LEADING,
     marginTop: 4,
@@ -1863,6 +1866,18 @@ function ResultsChapter({
                   {line}
                 </Text>
               ))}
+              {kpi.breakdown && (
+                <View style={styles.headlineBreakdown}>
+                  {kpi.breakdown.map((row) => (
+                    <View key={row.label} style={styles.headlineBreakdownRow}>
+                      <Text style={styles.headlineBreakdownText}>{row.label}</Text>
+                      <Text style={[styles.headlineBreakdownText, { fontWeight: 700 }]}>
+                        {row.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               {kpi.note && <Text style={styles.headlineNote}>{kpi.note}</Text>}
             </View>
           ))}
@@ -2119,7 +2134,11 @@ function WaysChapter({
   context: ReportBuildContext
   layout: ReportLayout
 }) {
-  const chapter = buildWaysChapter(input.analysis, input)
+  const chapter = buildWaysChapter(
+    input.analysis,
+    input,
+    summaryAnnualTotalOf(input.analysis, context.executiveSummary) !== null,
+  )
   const peakData = peakShavingChartData(input.analysis, input.loadProfile, chapter)
 
   return (

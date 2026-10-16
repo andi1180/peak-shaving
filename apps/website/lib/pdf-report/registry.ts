@@ -441,7 +441,9 @@ export function buildReportRegistry(
      * Auswahl-Zusage, die die Seite nicht einlösen kann (dieselbe Grenze wie bei den Textblöcken
      * der Zusammenfassung und den übrigen Absätzen des PV-Kapitels).
      */
-    method('method_shared', () => sharedMethodItem(analysis, input.gridProfileContainsPv === true)),
+    method('method_shared', () =>
+      sharedMethodItem(analysis, input.gridProfileContainsPv === true, context.executiveSummary),
+    ),
     method('method_pv_outage', () =>
       context.pvOutage && input.pvOutageMonths ? pvOutageMethodItem(input.pvOutageMonths) : null,
     ),
