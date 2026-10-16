@@ -7,6 +7,8 @@ import { DataEntryBattery } from '@/components/admin/data-entry-battery'
 import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
 import { DataEntryInvoice } from '@/components/admin/data-entry-invoice'
 import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
+import { DataEntryExportReports } from '@/components/admin/data-entry-export-reports'
+import { readStoredExportReports } from '@/lib/admin/export-reports'
 import { DataEntryPv } from '@/components/admin/data-entry-pv'
 import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
 import { DataEntryTarif } from '@/components/admin/data-entry-tarif'
@@ -427,6 +429,18 @@ export default async function AdminProjectDataEntryPage({
               segment={currentSegment}
             />
           )}
+
+          {/* Einspeisung gehört zu einem gemessenen Bezug; ein gespeicherter Satz bleibt sichtbar und entfernbar. */}
+          {station.kind === 'zaehlpunkt-schritt' &&
+            lastgang !== null &&
+            (lastgang.point.profileSource === 'upload' ||
+              readStoredExportReports(lastgang.point.draft) !== null) && (
+              <DataEntryExportReports
+                projectId={project.id}
+                meteringPointId={lastgang.point.id}
+                stored={readStoredExportReports(lastgang.point.draft)}
+              />
+            )}
 
           {station.kind === 'zaehlpunkt-schritt' && rechnung !== null && (
             /*
