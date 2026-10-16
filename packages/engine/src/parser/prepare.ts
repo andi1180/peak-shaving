@@ -1,5 +1,6 @@
 import { toIsoUtc } from './datetime'
 import type { RawReading } from './normalize'
+import { fillZeroDays, zeroDayWarning, type ZeroDayFill } from './zero-days'
 
 const STEP_MS = 15 * 60 * 1000
 const SLOTS_PER_DAY = 96
@@ -15,6 +16,8 @@ export type PrepareResult = {
   /** Längste ZUSAMMENHÄNGENDE interpolierte Lücke in 15-min-Slots (0 = keine). S. `DataQuality`. */
   largestGapSlots: number
   warnings: string[]
+  /** Ganztägig 0 gemessene Ortszeit-Tage, als Lücke gefüllt (nur mit `timeZone`). */
+  zeroDays: ZeroDayFill[]
 }
 
 function round3(n: number): number {
@@ -59,7 +62,12 @@ export function shiftToIntervalStart(readings: RawReading[]): RawReading[] {
  * §3.3-Aufbereitung: sortieren, deduplizieren, Intervall bestimmen, lückenlosen 15-min-Vektor
  * bauen (kleine Lücken still interpolieren, große markieren), Plausibilität prüfen.
  */
-export function prepareSeries(readings: RawReading[], maxInterpolationGap: number): PrepareResult {
+export function prepareSeries(
+  readings: RawReading[],
+  maxInterpolationGap: number,
+  /** Nur für Lastgänge: erkennt ganztägige Nulltage als Lücke. PV-Reihen dürfen echte Nulltage haben. */
+  timeZone?: string,
+): PrepareResult {
   const warnings: string[] = []
 
   const sorted = [...readings].sort((a, b) => a.ms - b.ms)
@@ -88,6 +96,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
       gapsInterpolated: 0,
       largestGapSlots: 0,
       warnings,
+      zeroDays: [],
     }
   }
   // Nur bei 15-min füllen wir das Gitter; anderes Intervall meldet der Orchestrator als Fehler.
@@ -99,6 +108,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
       gapsInterpolated: 0,
       largestGapSlots: 0,
       warnings,
+      zeroDays: [],
     }
   }
 
@@ -112,6 +122,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
     const idx = Math.round((r.ms - first) / STEP_MS)
     if (idx >= 0 && idx < totalSlots) grid[idx] = r.value
   }
+  const zero = timeZone ? fillZeroDays(grid, first, timeZone) : null
 
   // Lücken füllen (linear). Klein (≤ maxInterpolationGap) still, groß mit Warnung.
   let gapsInterpolated = 0
@@ -144,6 +155,11 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
       if (runLength > maxInterpolationGap) largeGaps++
     }
   }
+  if (zero) {
+    gapsInterpolated += zero.copiedSlots
+    largestGapSlots = Math.max(largestGapSlots, zero.largestCopiedRun)
+    if (zero.days.length > 0) warnings.push(zeroDayWarning(zero.days))
+  }
   if (largeGaps > 0) {
     warnings.push(
       `${largeGaps} größere Datenlücke(n) interpoliert (> ${maxInterpolationGap} Intervalle) — im Report als Datenqualitäts-Hinweis kennzeichnen.`,
@@ -166,7 +182,15 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
 
   const coveredDays = Math.round(totalSlots / SLOTS_PER_DAY)
 
-  return { slots, intervalMinutes, coveredDays, gapsInterpolated, largestGapSlots, warnings }
+  return {
+    slots,
+    intervalMinutes,
+    coveredDays,
+    gapsInterpolated,
+    largestGapSlots,
+    warnings,
+    zeroDays: zero?.days ?? [],
+  }
 }
 
 export function slotsToIso(slots: PreparedSlot[]): { ms: number; iso: string; value: number }[] {
