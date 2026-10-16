@@ -381,6 +381,8 @@ function controlledDeviceOf(
 export function buildWaysChapter(
   analysis: PdfReportAnalysis,
   pv?: AnnualScenarioPvInput,
+  /** Die Zusammenfassung zeigt die Jahreszahl der Vorderseite statt der Spanne (`summaryAnnualTotalOf`). */
+  summaryShowsAnnualTotal = false,
 ): WaysChapter | null {
   const comparison = monthlyComparisonOf(analysis)
   if (!comparison) return null
@@ -539,7 +541,7 @@ export function buildWaysChapter(
        * `monthlyBatteryRef`) und trägt deshalb nur nach „mit" — als Satzsubjekt ergäbe sie
        * „der empfohlenen Batterie senkt…". Am erzeugten PDF gemessen, nicht vermutet.
        */
-      body: peakShavingBody(whose, peakSavingPerYear, days, true, tiered),
+      body: peakShavingBody(whose, peakSavingPerYear, days, !summaryShowsAnnualTotal, tiered),
     },
       tiered ? NETWORK_TIER_METHOD : PEAK_SHAVING_METHOD,
       true,

@@ -3,7 +3,15 @@ import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
 import { reportLayoutOf } from './layout'
 import { resolveReportText } from './report-text'
-import { buildPvPointer, buildReportSummary, type SummaryInput } from './summary'
+import { EXECUTIVE_SUMMARY_CASES } from '@/test/executive-summary-cases'
+import { buildReportContext } from './context'
+import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
+import {
+  buildPvPointer,
+  buildReportSummary,
+  summaryAnnualTotalOf,
+  type SummaryInput,
+} from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -290,5 +298,40 @@ describe('Teiljahres-Hinweis', () => {
     expect(notice.body).toContain('der Leistungs-Anteil nach Monaten (6 von 12)')
     expect(notice.body).not.toContain('nicht aussagekräftig')
     expect(notice.body).not.toContain('Jahreshöchstwert')
+  })
+})
+
+describe('„Mögliche Ersparnis" mit Vorderseite (D8/D6 e revidiert, 16.10.2026)', () => {
+  const plain = (value: string) => value.replace(/\u00a0/g, ' ')
+  const input = EXECUTIVE_SUMMARY_CASES['jahr (Müldür)']!
+  const front = buildExecutiveSummary(input)!
+
+  it('negativer Tarifwechsel: Gesamtzahl netto, drei Zeilen, eine mit Vorzeichen', () => {
+    const negative: ExecutiveSummary = {
+      ...front,
+      header: { ...front.header, savingPerYearEur: 1640 },
+      stages: front.stages.map((st) =>
+        st.id === 'ohne-anschaffung' ? { ...st, savingPerYearEur: -107 } : st,
+      ),
+      storage: { ...front.storage!, loadShiftEur: 1572, peakEur: 175 },
+    }
+    const kpi = buildReportSummary(input, {
+      ...buildReportContext(input),
+      executiveSummary: negative,
+    }).kpis.find((k) => k.id === 'possible_saving')!
+    expect(plain(kpi.value)).toBe('bis zu € 1.640')
+    expect(kpi.breakdown!.map((row) => [row.label, plain(row.value)])).toEqual([
+      ['Tarifwechsel', '-€ 107'],
+      ['Ladesteuerung', '€ 1.572'],
+      ['Netzentgelt (Leistung/Stufe)', '€ 175'],
+    ])
+  })
+
+  it('ohne Vorderseite: keine Jahreszahl, die Spanne bleibt', () => {
+    const analysis = input.analysis
+    expect(summaryAnnualTotalOf(analysis, null)).toBeNull()
+    const kpi = buildReportSummary(input).kpis.find((k) => k.id === 'possible_saving')!
+    expect(kpi.breakdown).toBeUndefined()
+    expect(kpi.caption[1]).toContain('im selben Zeitraum')
   })
 })

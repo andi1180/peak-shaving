@@ -39,7 +39,13 @@ import {
   type DynamicTariffView,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
-import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
+import {
+  REPORT_SECTIONS,
+  reportDisclaimer,
+  SECTION_ID,
+  waysSectionTitle,
+  type ReportSection,
+} from './content'
 import type { ReportBuildContext } from './context'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { hasPvValueChapter } from './pv-value'
@@ -51,8 +57,16 @@ import type {
   ReportTable,
   ReportTableRow,
 } from './statement'
-import { primaryEntryOf, recommendedEntryOf } from './summary'
-import { buildWaysChapter, hasWaysChapter } from './ways'
+import type { ExecutiveSummary } from './executive-summary'
+import {
+  primaryEntryOf,
+  recommendedEntryOf,
+  summaryAnnualTotalOf,
+  summaryExplainsAnnualTotal,
+  summaryWaysOf,
+  withoutDemandCharge,
+} from './summary'
+import { buildWaysChapter, hasWaysChapter, waysCountOf } from './ways'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
   PdfReportAnalysis,
@@ -1379,6 +1393,9 @@ const SHARED_METHOD_BODY =
   ' Der Leistungspreis steht in keiner dieser Zahlen: er ist eine Jahresgrösse und würde hier ein ' +
   'zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.'
 
+/** Vor diesem Satz steht der Hinweis auf die Jahreswerte der Zusammenfassung. */
+const SHARED_METHOD_NOTE_AT = ' Darunter steht je Weg nur noch'
+
 /** Bestands-PV nur im Netzbezug: der Einspeisungs-Satz des gemeinsamen Absatzes, ausgetauscht. */
 const SHARED_METHOD_BODY_GRID_ONLY = SHARED_METHOD_BODY.replace(
   FEED_IN_SENTENCE,
@@ -1399,9 +1416,11 @@ const SHARED_METHOD_BODY_GRID_ONLY = SHARED_METHOD_BODY.replace(
 export function sharedMethodItem(
   analysis: PdfReportAnalysis,
   gridProfileContainsPv = false,
+  executiveSummary: ExecutiveSummary | null = null,
 ): BasisMethodItem | null {
   if (!hasWaysChapter(analysis)) return null
-  const body = gridProfileContainsPv ? SHARED_METHOD_BODY_GRID_ONLY : SHARED_METHOD_BODY
+  const shared = gridProfileContainsPv ? SHARED_METHOD_BODY_GRID_ONLY : SHARED_METHOD_BODY
+  const body = withAnnualTotalNote(analysis, shared, executiveSummary)
   const levyNames = levyNamesOf(analysis.assumptions)
   return {
     id: 'method_shared',
@@ -1409,6 +1428,22 @@ export function sharedMethodItem(
     title: 'Was für alle Wege gleich gerechnet ist',
     body: levyNames ? body.replace(SHARED_METHOD_LEVIES_AT, levyNames.text) : body,
   }
+}
+
+/** Zeigt die Zusammenfassung die Jahreszahl der Vorderseite, sagt die Methodik, wo der Zeitraum steht. */
+function withAnnualTotalNote(
+  analysis: PdfReportAnalysis,
+  body: string,
+  executiveSummary: ExecutiveSummary | null,
+): string {
+  const total = summaryAnnualTotalOf(analysis, executiveSummary)
+  const ways = summaryWaysOf(analysis)
+  if (!ways || !summaryExplainsAnnualTotal(analysis, total)) return body
+  const note =
+    'Die Zusammenfassung zeigt Jahreswerte; die Vergleiche über den gemessenen Zeitraum ' +
+    `(${ways.coveredDays} Tage), ${withoutDemandCharge(analysis.current)}, stehen im Kapitel ` +
+    `„${waysSectionTitle(waysCountOf(analysis))}“.`
+  return body.replace(SHARED_METHOD_NOTE_AT, ` ${note}${SHARED_METHOD_NOTE_AT}`)
 }
 
 /**
@@ -1438,10 +1473,11 @@ function buildMethodPerMetric(
   pvOutage: ReportNotice | null,
   pvOutageMonths: PvOutageMonth[] | undefined,
   gridProfileContainsPv = false,
+  executiveSummary: ExecutiveSummary | null = null,
 ): BasisMethodItem[] {
   const items: BasisMethodItem[] = []
 
-  const shared = sharedMethodItem(analysis, gridProfileContainsPv)
+  const shared = sharedMethodItem(analysis, gridProfileContainsPv, executiveSummary)
   if (shared) {
     items.push(shared)
     /*
@@ -1633,6 +1669,7 @@ export function buildBasisChapter(
       pvOutage,
       input.pvOutageMonths,
       input.gridProfileContainsPv === true,
+      context?.executiveSummary ?? null,
     ),
     limitations: buildLimitations(input.analysis),
     disclaimer: reportDisclaimer(input.origin),

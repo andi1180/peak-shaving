@@ -7,14 +7,16 @@ import type {
 } from 'shared'
 
 import { buildAnnualScenarioChapter, hasAnnualScenarioChapter } from './annual-scenario'
-import { buildSummaryKpis, summaryWaysOf } from './summary'
+import { formatEur } from '@/lib/format'
+import { buildReportContext } from './context'
+import { buildReportSummary } from './summary'
 import { TARIFF_SOURCE_UNTRACKED, type PdfReportAnalysis, type PdfReportInput } from './types'
 
 /**
  * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr".
  *
  * Geprüft wird: die Zahlen kommen aus dem Contract und addieren exakt, das Kapitel entfällt bei
- * PV, ohne Gerät und bei vollem Jahr, und keine Zahl gerät in die Ersparnis-Spanne (D8).
+ * PV, ohne Gerät und bei vollem Jahr, und die Zusammenfassung zeigt die Kopfzahl der Vorderseite.
  */
 
 const MONTHS = <T>(first: T): (T | null)[] => [first, ...Array<null>(11).fill(null)]
@@ -213,12 +215,17 @@ describe('Kapitel „Hochrechnung auf ein ganzes Jahr"', () => {
     expect(String(byId('annual_scenario_costs').body)).toContain('„Test-Speicher 30"')
   })
 
-  it('keine seiner Zahlen erreicht die Ersparnis-Spanne der Zusammenfassung (D8)', () => {
-    const withScenario = analysisWith({ comparison: MEASURED, annualScenario: scenarioWith() })
-    const withoutScenario = analysisWith({ comparison: MEASURED })
-    const kpisOf = (a: PdfReportAnalysis) => buildSummaryKpis(a, summaryWaysOf(a)!)
-    expect(kpisOf(withScenario)).toEqual(kpisOf(withoutScenario))
-    expect(JSON.stringify(kpisOf(withScenario))).not.toContain('10.150')
+  it('D8/D6 e revidiert (16.10.2026): mit Vorderseite zeigt die Zusammenfassung deren Kopfzahl', () => {
+    const input = inputFor(analysisWith({ comparison: MEASURED, annualScenario: scenarioWith() }))
+    const context = buildReportContext(input)
+    const front = context.executiveSummary!
+    const saving = buildReportSummary(input, context).kpis.find((k) => k.id === 'possible_saving')!
+    expect(saving.value).toContain(formatEur(front.header.savingPerYearEur))
+    expect(front.header.savingPerYearEur).toBeGreaterThan(0)
+    // Ohne Vorderseite bleibt die Spanne über den gemessenen Zeitraum.
+    const fallback = buildReportSummary(input).kpis.find((k) => k.id === 'possible_saving')!
+    expect(fallback.value).not.toBe(saving.value)
+    expect(fallback.caption[1]).toContain('im selben Zeitraum')
   })
 
   it('entfällt bei PV, ohne Gerät und ohne fehlende Tage', () => {

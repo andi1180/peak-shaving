@@ -156,9 +156,12 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 
 
 
-€ 14.864                                                        € 4.183 – € 4.557
+€ 14.864                                                        bis zu € 10.124
 Ihre Stromkosten heute                                          Mögliche Ersparnis
-über 157 gemessene Tage, netto, ohne Leistungspreis             je nach gewähltem Weg, im selben Zeitraum
+über 157 gemessene Tage, netto, ohne Leistungspreis             alle Maßnahmen zusammen, pro Jahr hochgerechnet
+                                                                Tarifwechsel                           € 8.025
+                                                                Ladesteuerung                            € 684
+                                                                Netzentgelt (Leistung/Stufe)            € 1.415
 
 
 
@@ -173,25 +176,24 @@ Ihre Stromkosten heute                                          Mögliche Erspar
 Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage. Es gibt zwei unterschiedlich
 aufwändige Wege, Ihre Stromkosten zu senken: ein einfacher Tarifwechsel ohne jede Umstellung oder ein
 Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung eines Speichers — alle weiter
-hinten im Detail erklärt. Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht enthalten: sie hängt am
-Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag, und was Ihr Speicher dabei leistet, steht im
-Kapitel „Empfehlung und Wirtschaftlichkeit".
+hinten im Detail erklärt. Die Gesamtzahl entspricht der Seite „Auf einen Blick“ (Jahreswerte). Wie sich die
+Werte im gemessenen Zeitraum zusammensetzen, steht in der Methodik.
 
 Was der empfohlene Speicher zusätzlich bringt
- Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40                                                           € 7.691
+ Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40                                                                 € 7.691
  Gesamtinvestition
 
- Ladesteuerung (aWATTar)                                                                                       € 684
+ Ladesteuerung (aWATTar)                                                                                             € 684
  hochgerechnet aus 157 gemessenen Tagen; gemessen € 375
 
- Kappung der Lastspitzen                                                                                      € 1.415
+ Kappung der Lastspitzen                                                                                            € 1.415
 
- Zusammen pro Jahr                                                                                           € 2.099
+ Zusammen pro Jahr                                                                                                 € 2.099
  Beträge gerundet
 
- Amortisation                                                                                               3,7 Jahre
+ Amortisation                                                                                                     3,7 Jahre
 
- Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                            ca. 0,8 Jahre
+ Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                                 ca. 0,8 Jahre
 
 Der Tarifwechsel (€ 4.183 über die 157 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
 Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er
@@ -204,7 +206,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 4 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                  www.coolin.at · Seite 4 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -326,10 +328,9 @@ Kappung Ihrer Lastspitzen
 
 Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit der empfohlenen Batterie den
 abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis verrechnet. Das bringt € 1.414
-pro Jahr. Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als die
-157 Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert und steht auch nicht in der
-Ersparnis-Spanne der Zusammenfassung. Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag
-entscheiden, hinzu.
+pro Jahr. Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als die 157
+Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert. Sie kommt zu dem Weg, für den Sie sich
+beim Stromvertrag entscheiden, hinzu.
 
 
   Das Kappungs-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
@@ -814,8 +815,10 @@ fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsab
 und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die verbrauchsunabhängigen
 Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, tagesanteilig nach den
 tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. Eingespeiste Viertelstunden werden
-mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht in keiner dieser Zahlen: er ist eine
-Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.
+mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht in keiner dieser Zahlen: er ist
+eine Jahresgrösse und würde hier ein zweites Mal zählen. Die Zusammenfassung zeigt Jahreswerte; die
+Vergleiche über den gemessenen Zeitraum (157 Tage), ohne Leistungspreis, stehen im Kapitel „Vier Wege zu
+weniger Stromkosten“. Darunter steht je Weg nur noch, was an ihm anders ist.
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.

@@ -280,6 +280,8 @@ werden darf**: dort sind alle Zahlen Jahresgrössen.
 
 **Die Ein-Spanne-Regel (D8) bleibt unberührt:** `summary.ts` liest `annualScenario` nirgends, und
 ein Test pinnt, dass die Kopfzahlen mit und ohne Szenario bit-gleich bleiben.
+**16.10.2026, revidiert: eine Gesamtzahl, Zeitraum-Trennung nur in der Methodik** — mit Vorderseite
+zeigt die Zusammenfassung deren Kopfzahl; der Test pinnt jetzt diese Gleichheit (s. D8).
 
 **Fundstellen:** `packages/engine/src/savings/reference-week.ts` · `…/synthetic-year.ts` ·
 `packages/shared/src/annual-scenario.ts` · `packages/shared/src/tariff-ways.ts` (die Wege-Auswahl,
@@ -371,6 +373,13 @@ Stromkosten" in Agenda **und** Überschrift, alle fünf Absätze, Spanne **€ 3
 ---
 
 ## D8 — Baustein 6: Ein-Spanne-Regel (bindend)
+
+> **16.10.2026, revidiert: eine Gesamtzahl, Zeitraum-Trennung nur in der Methodik** (Andi). Gibt es
+> die Vorderseite „Auf einen Blick", zeigt „Mögliche Ersparnis" deren Jahreszahl (gleiche Quelle,
+> `summaryAnnualTotalOf`, `summary.ts`) mit Aufschlüsselung Tarifwechsel / Ladesteuerung /
+> Netzentgelt (Leistung/Stufe); ohne Vorderseite bleibt die Spanne über den gemessenen Zeitraum.
+> Der Satz „ist in dieser Spanne nicht enthalten" entfällt in diesem Pfad, die Methodik nennt die
+> Trennung. Gilt für alle Länder, an der Rechnung ändert sich nichts.
 
 Direkte Antwort auf „zwei verwirrende Zahlen darf nicht passieren". Bestandsaufnahme Q6 bestätigt
 das Risiko als **heute real, an fünf Orten**, nicht als Theorie.
