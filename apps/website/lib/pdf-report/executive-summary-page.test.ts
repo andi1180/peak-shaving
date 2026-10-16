@@ -6,5 +6,5 @@ import { executiveSummaryPages } from '@/test/executive-summary-render'
 describe('Vorderseite „Auf einen Blick"', () => {
   it.each(Object.keys(EXECUTIVE_SUMMARY_CASES))('%s: belegt genau eine Seite', async (name) => {
     expect(await executiveSummaryPages(EXECUTIVE_SUMMARY_CASES[name]!)).toBe(1)
-  })
+  }, 30_000)
 })

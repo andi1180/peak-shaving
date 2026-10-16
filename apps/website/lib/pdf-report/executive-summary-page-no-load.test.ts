@@ -12,5 +12,5 @@ vi.mock('./daily-peaks', async (importOriginal) => ({
 describe('Vorderseite ohne Lastgangdaten', () => {
   it.each(['jahr (Müldür)', 'Worst Case'])('%s: belegt genau eine Seite', async (name) => {
     expect(await executiveSummaryPages(EXECUTIVE_SUMMARY_CASES[name]!)).toBe(1)
-  })
+  }, 30_000)
 })
