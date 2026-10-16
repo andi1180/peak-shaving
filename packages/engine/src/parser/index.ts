@@ -45,6 +45,14 @@ export type {
   HourOffset,
   ImportCheck,
 } from './combine-hourly-export'
+// Bytec S9-2: stündliche Anlagenberichte (Einspeisung/Bezug) für die Kombination (noch ohne Aufrufer).
+export { parseHourlyPlantReports } from './hourly-plant-report'
+export type {
+  HourlyPlantReportDiagnostics,
+  HourlyPlantReportResult,
+  PlantReportFile,
+  PlantReportFileSummary,
+} from './hourly-plant-report'
 // D6 Teil 2b: die Zeitzonen-Umrechnung in BEIDE Richtungen. Der synthetische Lückenausschnitt der
 // Jahres-Hochrechnung entsteht an echten Kalendertagen und muss dafür lokale Mitternacht in einen
 // UTC-Instant übersetzen — bisher paketintern, `packages/extractors` kam sonst nicht daran.
