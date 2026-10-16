@@ -141,6 +141,8 @@ export * from './project-documents'
 // Analyse-Weg nur zur Hälfte verarbeiten könnte. Hier, weil `apps/web` sie SCHREIBT und
 // `packages/extractors` sie LIEST — s. Kopf der Datei.
 export * from './metering-point-draft'
+// Bytec S9-3: stündliche Anlagenberichte am Zählpunkt — `apps/web` schreibt, `extractors` liest.
+export * from './export-reports-draft'
 
 // Report-Baukasten C (17.09.2026): die vier Bausteine, die ein Admin vor dem Renderlauf abwählen
 // kann. Hier, weil `apps/web` die Auswahl SCHREIBT und `apps/website` sie LIEST — s. Kopf der Datei.

@@ -51,6 +51,7 @@ import {
   readGeneratedPvSeries,
 } from '../pv-reference/generated-series-read'
 import { buildAnnualScenario } from './annual-scenario'
+import { combineLoadWithExportReports } from './export-reports'
 import { buildPvValueScenario } from './pv-value'
 
 /**
@@ -321,9 +322,9 @@ export async function runAnalysisFromMeteringPointDraft(
     tooLarge: 'file_too_large',
   })
 
-  const parsed = parseLoadProfile(document)
+  const outcome = parseLoadProfile(document)
 
-  if (!parsed.ok) {
+  if (!outcome.ok) {
     /*
      * ⚠ ZWEI VERSCHIEDENE AUSSAGEN, ZWEI VERSCHIEDENE ABBRÜCHE. `needs_mapping` heisst: die Datei
      * ist lesbar, aber nicht eindeutig (mehrere Zählpunkt-Spalten, uneindeutige Einheit) — hier
@@ -331,8 +332,8 @@ export async function runAnalysisFromMeteringPointDraft(
      * sein. `error` heisst: sie ist strukturell nicht verarbeitbar. Als ein Zustand gemeldet
      * schickte die eine Hälfte der Fälle jemanden die Datei prüfen, die in Ordnung ist.
      */
-    if (parsed.kind === 'needs_mapping') {
-      const issues = parsed.issues.map((issue) => issue.message).join(' · ')
+    if (outcome.kind === 'needs_mapping') {
+      const issues = outcome.issues.map((issue) => issue.message).join(' · ')
       throw new MeteringPointAnalysisError(
         'load_profile_needs_mapping',
         `Die Lastgang-Datei ist nicht eindeutig lesbar und braucht eine bestätigte Zuordnung: ${issues}`,
@@ -340,9 +341,12 @@ export async function runAnalysisFromMeteringPointDraft(
     }
     throw new MeteringPointAnalysisError(
       'load_profile_unreadable',
-      unreadableMessage('Die Lastgang-Datei', parsed.error, 'load_profile'),
+      unreadableMessage('Die Lastgang-Datei', outcome.error, 'load_profile'),
     )
   }
+
+  // Bytec S9-3b: Anlagenberichte ergänzen die Einspeisung — ab hier ist `parsed` der gerechnete Lastgang.
+  const parsed = await combineLoadWithExportReports(point.draft, outcome, ports.readDocument)
 
   /*
    * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `estimatedPv` bleibt `undefined`
