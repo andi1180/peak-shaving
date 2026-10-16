@@ -33,10 +33,17 @@ const NOTHING_SAVED = 'Es wurde nichts gespeichert.'
 const POINT_GONE = 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.'
 
 function parseFailure(result: Extract<HourlyPlantReportResult, { error: string }>): string {
-  return result.error === 'unknown_format'
-    ? `„${result.file}": kein stündlicher Anlagenbericht erkannt — erwartet werden die Spalten ` +
-        `„Statistischer Zeitraum", „Netzeinspeisung (kWh)" und „Netzbezug (kWh)". ${NOTHING_SAVED}`
-    : `„${result.file}": enthält keine lesbaren Stundenwerte. ${NOTHING_SAVED}`
+  if (result.error === 'no_rows') {
+    return `„${result.file}": enthält keine lesbaren Stundenwerte. ${NOTHING_SAVED}`
+  }
+  const found =
+    result.headers.length > 0
+      ? ` Gefunden: ${result.headers.map((h) => `„${h}"`).join(', ')}.`
+      : ' Gefunden: keine Kopfzeile.'
+  return (
+    `„${result.file}": kein stündlicher Anlagenbericht erkannt — erwartet werden die Spalten ` +
+    `„Statistischer Zeitraum", „Netzeinspeisung (kWh)" und „Netzbezug (kWh)".${found} ${NOTHING_SAVED}`
+  )
 }
 
 /** Jede Datei einzeln, damit die Meldung die schuldige Datei nennt — auch wenn der Leser wirft. */
@@ -46,7 +53,7 @@ function checkEachFile(files: readonly PlantReportFile[]): string | null {
     try {
       result = parseHourlyPlantReports([file])
     } catch {
-      result = { error: 'unknown_format', file: file.name }
+      result = { error: 'unknown_format', file: file.name, headers: [] }
     }
     if ('error' in result) return parseFailure(result)
   }

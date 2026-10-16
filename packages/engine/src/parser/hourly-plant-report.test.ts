@@ -219,7 +219,7 @@ describe('parseHourlyPlantReports', () => {
       [{ time: '2026-06-01 10:00:00', bezug: 1 }],
       HEADER.filter((h) => h !== 'Netzeinspeisung (kWh)'),
     )
-    expect(parseHourlyPlantReports([noExport])).toEqual({
+    expect(parseHourlyPlantReports([noExport])).toMatchObject({
       error: 'unknown_format',
       file: 'ohne.xlsx',
     })
@@ -264,5 +264,44 @@ describe('parseHourlyPlantReports', () => {
     expect(exported).toBeCloseTo(-(sum(exportHourly) - diagnostics.droppedExportKwh), 9)
     expect(diagnostics.droppedExportKwh).toBe(0)
     expect(diagnostics.importCheck?.bestOffsetHours).toBe(0)
+  })
+
+  it('zu klein deklarierter Blattbereich (Titel verbunden, Kopf in Zeile 2) → Kopf und erste Stunde gelesen', () => {
+    const rows = day('2026-02-01', [0, 1, 2], () => 1, () => 0.5)
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ['Anlagenbericht (synthetisch)'],
+      HEADER,
+      ...rows.map((r) => HEADER.map((h) => (h === 'Statistischer Zeitraum' ? r.time : h === 'Netzeinspeisung (kWh)' ? r.einspeisung : h === 'Netzbezug (kWh)' ? r.bezug : ''))),
+    ])
+    sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: HEADER.length - 1 } }]
+    const book = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(book, sheet, 'Bericht')
+    // Portal-Export nachgebaut: <dimension> beginnt erst in Zeile 4, die Zellen ab Zeile 1.
+    const zip = XLSX.CFB.read(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' })
+    const entry = XLSX.CFB.find(zip, 'Root Entry/xl/worksheets/sheet1.xml')!
+    const xml = new TextDecoder().decode(entry.content as Uint8Array).replace(/<dimension ref="[^"]+"\/>/, '<dimension ref="A4:O5"/>')
+    entry.content = Buffer.from(xml)
+    const file = { name: 'feb.xlsx', data: new Uint8Array(XLSX.CFB.write(zip, { fileType: 'zip', type: 'buffer' }) as Buffer) }
+    expect(XLSX.read(file.data, { type: 'array' }).Sheets.Bericht!['!ref']).toBe('A4:O5')
+
+    const { exportHourly, diagnostics } = ok(parseHourlyPlantReports([file]))
+    expect(diagnostics.hours).toBe(3)
+    expect(exportHourly[0]!.ts).toBe('2026-01-31T23:00:00.000Z')
+  })
+
+  it('Kopf mit geschütztem Leerzeichen, Zeilenumbruch und Grossschreibung → erkannt; fremder Kopf nennt die Zellen', () => {
+    const odd = HEADER.map((h) =>
+      h === 'Netzeinspeisung (kWh)' ? 'NETZEINSPEISUNG\u00A0(kWh)' : h === 'Netzbezug (kWh)' ? 'Netzbezug\n(kWh) ' : h,
+    )
+    const { diagnostics } = ok(
+      parseHourlyPlantReports([report('odd.xlsx', [{ time: '2026-06-01 10:00:00', einspeisung: 1, bezug: 0 }], odd)]),
+    )
+    expect(diagnostics.hours).toBe(1)
+
+    expect(parseHourlyPlantReports([report('fremd.xlsx', [{ time: 'x' }], ['Zeit', 'Wert\u202F(kWh)'])])).toEqual({
+      error: 'unknown_format',
+      file: 'fremd.xlsx',
+      headers: ['zeit', 'wert (kwh)'],
+    })
   })
 })
