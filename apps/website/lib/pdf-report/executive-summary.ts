@@ -1,4 +1,9 @@
-import { effectiveBillingModel, type BatteryRoiEntry, type BillingModel } from 'shared'
+import {
+  annualScenarioInvolvesPv,
+  effectiveBillingModel,
+  type BatteryRoiEntry,
+  type BillingModel,
+} from 'shared'
 
 import { buildYearSeries } from '@/components/report/cost-chart'
 import { localMonthIndex } from '@/lib/local-time'
@@ -27,7 +32,7 @@ import { buildWaysChapter } from './ways'
  * bestehenden Funktion. Es gibt sie nur mit einer Jahresbasis (Jahresszenario oder ein ganzes
  * gemessenes Jahr) und bekanntem Liefertarif, und vorerst nur für Betriebe.
  */
-export type ExecutiveSummaryBasis = 'projected' | 'annual'
+export type ExecutiveSummaryBasis = 'projected' | 'annual' | 'linear'
 
 /**
  * `tarif-unbekannt`: Liefertarif unbekannt, ein ganzes gemessenes Jahr, Speicher rechnet sich — die
@@ -131,6 +136,9 @@ type YearlyWays = {
 /** Ab 365 Tagen gilt der Lastgang als Jahr — dieselbe Grenze wie `annualizationFactor` (Engine). */
 const DAYS_PER_YEAR = 365
 
+/** Untergrenze der linearen Hochrechnung: darunter fehlt zu viel vom Jahresgang. */
+export const MIN_DAYS_LINEAR_ANNUAL = 335
+
 function yearlyWaysOf(input: PdfReportInput): YearlyWays | null {
   const analysis = input.analysis
   const measured = summaryWaysOf(analysis)
@@ -164,19 +172,33 @@ function yearlyWaysOf(input: PdfReportInput): YearlyWays | null {
       spotStorageEur: annual.controlledEur,
     }
   }
-  if (measured.coveredDays < DAYS_PER_YEAR) return null
+  if (measured.coveredDays >= DAYS_PER_YEAR) return measuredYearlyWays(measured, 'annual', 1)
+  // Mit PV entfällt das Jahresszenario; fast ein ganzes Jahr trägt dann eine lineare Streckung.
+  if (annualScenarioInvolvesPv(input) && measured.coveredDays >= MIN_DAYS_LINEAR_ANNUAL) {
+    return measuredYearlyWays(measured, 'linear', DAYS_PER_YEAR / measured.coveredDays)
+  }
+  return null
+}
+
+/** Die gemessenen Wege als Jahreskosten, mit `factor` auf ein Jahr gestreckt (1 bei einem ganzen Jahr). */
+function measuredYearlyWays(
+  measured: NonNullable<ReturnType<typeof summaryWaysOf>>,
+  basis: ExecutiveSummaryBasis,
+  factor: number,
+): YearlyWays {
   const byId = (id: string) => measured.ways.find((way) => way.id === id)
   const comparison = byId('comparison_tariff')
+  const controlled = byId('controlled')
   return {
-    basis: 'annual',
+    basis,
     measuredDays: measured.coveredDays,
     projectedDays: 0,
-    todayEur: measured.costTodayEur,
+    todayEur: measured.costTodayEur * factor,
     comparison: comparison
-      ? { eur: comparison.costEur, supplier: measured.comparisonSupplier }
+      ? { eur: comparison.costEur * factor, supplier: measured.comparisonSupplier }
       : null,
-    spotEur: byId('tariff_switch')!.costEur,
-    spotStorageEur: byId('controlled')?.costEur ?? null,
+    spotEur: byId('tariff_switch')!.costEur * factor,
+    spotStorageEur: controlled ? controlled.costEur * factor : null,
   }
 }
 

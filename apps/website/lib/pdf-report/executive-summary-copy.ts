@@ -76,9 +76,14 @@ function measuredMonthsText(s: ExecutiveSummary): string {
 }
 
 function basisText(s: ExecutiveSummary): string {
-  return s.header.basis === 'projected'
-    ? `geschätzt, hochgerechnet aus ${s.header.measuredDays} gemessenen Tagen${measuredMonthsText(s)}`
-    : `gerechnet mit Ihren Messwerten von ${s.header.measuredDays} Tagen`
+  switch (s.header.basis) {
+    case 'projected':
+      return `geschätzt, hochgerechnet aus ${s.header.measuredDays} gemessenen Tagen${measuredMonthsText(s)}`
+    case 'linear':
+      return `Jahreswerte linear hochgerechnet aus ${s.header.measuredDays} Tagen Messdaten.`
+    case 'annual':
+      return `gerechnet mit Ihren Messwerten von ${s.header.measuredDays} Tagen`
+  }
 }
 
 function tariffTarget(s: ExecutiveSummary): string {
