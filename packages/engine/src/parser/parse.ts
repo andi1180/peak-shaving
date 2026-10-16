@@ -352,7 +352,7 @@ export function parseLoadProfile(
 
   const readings =
     timestampMarks === 'interval_end' ? shiftToIntervalStart(norm.readings) : norm.readings
-  const prepared = prepareSeries(readings, maxGap)
+  const prepared = prepareSeries(readings, maxGap, tz)
   if (prepared.intervalMinutes !== 15)
     return err(
       'wrong_interval',
