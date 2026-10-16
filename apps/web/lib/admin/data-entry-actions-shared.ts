@@ -15,6 +15,7 @@ import {
   setDraftField,
   type DraftValue,
 } from '@/lib/project-chat/draft'
+import type { DraftValueSource } from '@/lib/project-chat/tools'
 import { createClient } from '@/lib/supabase/server'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -150,9 +151,10 @@ async function updateMeteringPointDraft(
  * hat er einen dritten Aufrufer, der mit Batterien nichts zu tun hat — umbenannt statt von dort
  * aus einen `…BatteryDraft` zu rufen, was jeden Leser über die Zuständigkeit täuschte.
  *
- * `measured` für alle: der Admin trägt ein, was der Kunde über SEINE Anlage sagt. Als Annahme
+ * `measured` als Vorgabe: der Admin trägt ein, was der Kunde über SEINE Anlage sagt. Als Annahme
  * gekennzeichnet trüge die Angabe dauerhaft den Vorbehalt einer Schätzung, und der Report wiese
- * sie bis zum Schluss als unsicher aus (Delta §3.2).
+ * sie bis zum Schluss als unsicher aus (Delta §3.2). `assumed` nur für Werte, die nicht vom Kunden
+ * stammen (Vorbelegung des dynamischen Tarifs).
  *
  * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
  */
@@ -161,6 +163,7 @@ export async function writeMeteringPointDraftFields(
   meteringPointId: string,
   values: { field: string; value: DraftValue }[],
   context: string,
+  source: DraftValueSource = 'measured',
 ): Promise<AdminState | null> {
   const now = new Date()
   return updateMeteringPointDraft(
@@ -169,7 +172,7 @@ export async function writeMeteringPointDraftFields(
     (draft) => {
       let next = draft
       for (const { field, value } of values) {
-        next = setDraftField(next, field, value, 'measured', undefined, now)
+        next = setDraftField(next, field, value, source, undefined, now)
       }
       return next
     },

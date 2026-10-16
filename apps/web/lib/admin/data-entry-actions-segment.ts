@@ -196,6 +196,7 @@ async function writeDynamicTariffPrefill(projectId: string, prefill: DynamicTari
       point.id,
       prefill.fields,
       'Vorbelegung dynamischer Tarif',
+      'assumed',
     )
     if (failure) console.error('[admin/dateneingabe] Vorbelegung dynamischer Tarif fehlgeschlagen')
   }
