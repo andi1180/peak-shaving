@@ -267,21 +267,43 @@ describe('parseHourlyPlantReports', () => {
   })
 
   it('zu klein deklarierter Blattbereich (Titel verbunden, Kopf in Zeile 2) → Kopf und erste Stunde gelesen', () => {
-    const rows = day('2026-02-01', [0, 1, 2], () => 1, () => 0.5)
+    const rows = day(
+      '2026-02-01',
+      [0, 1, 2],
+      () => 1,
+      () => 0.5,
+    )
     const sheet = XLSX.utils.aoa_to_sheet([
       ['Anlagenbericht (synthetisch)'],
       HEADER,
-      ...rows.map((r) => HEADER.map((h) => (h === 'Statistischer Zeitraum' ? r.time : h === 'Netzeinspeisung (kWh)' ? r.einspeisung : h === 'Netzbezug (kWh)' ? r.bezug : ''))),
+      ...rows.map((r) =>
+        HEADER.map((h) =>
+          h === 'Statistischer Zeitraum'
+            ? r.time
+            : h === 'Netzeinspeisung (kWh)'
+              ? r.einspeisung
+              : h === 'Netzbezug (kWh)'
+                ? r.bezug
+                : '',
+        ),
+      ),
     ])
     sheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: HEADER.length - 1 } }]
     const book = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(book, sheet, 'Bericht')
     // Portal-Export nachgebaut: <dimension> beginnt erst in Zeile 4, die Zellen ab Zeile 1.
-    const zip = XLSX.CFB.read(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer' })
+    const zip = XLSX.CFB.read(XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }), {
+      type: 'buffer',
+    })
     const entry = XLSX.CFB.find(zip, 'Root Entry/xl/worksheets/sheet1.xml')!
-    const xml = new TextDecoder().decode(entry.content as Uint8Array).replace(/<dimension ref="[^"]+"\/>/, '<dimension ref="A4:O5"/>')
+    const xml = new TextDecoder()
+      .decode(entry.content as Uint8Array)
+      .replace(/<dimension ref="[^"]+"\/>/, '<dimension ref="A4:O5"/>')
     entry.content = Buffer.from(xml)
-    const file = { name: 'feb.xlsx', data: new Uint8Array(XLSX.CFB.write(zip, { fileType: 'zip', type: 'buffer' }) as Buffer) }
+    const file = {
+      name: 'feb.xlsx',
+      data: new Uint8Array(XLSX.CFB.write(zip, { fileType: 'zip', type: 'buffer' }) as Buffer),
+    }
     expect(XLSX.read(file.data, { type: 'array' }).Sheets.Bericht!['!ref']).toBe('A4:O5')
 
     const { exportHourly, diagnostics } = ok(parseHourlyPlantReports([file]))
@@ -291,17 +313,82 @@ describe('parseHourlyPlantReports', () => {
 
   it('Kopf mit geschütztem Leerzeichen, Zeilenumbruch und Grossschreibung → erkannt; fremder Kopf nennt die Zellen', () => {
     const odd = HEADER.map((h) =>
-      h === 'Netzeinspeisung (kWh)' ? 'NETZEINSPEISUNG\u00A0(kWh)' : h === 'Netzbezug (kWh)' ? 'Netzbezug\n(kWh) ' : h,
+      h === 'Netzeinspeisung (kWh)'
+        ? 'NETZEINSPEISUNG\u00A0(kWh)'
+        : h === 'Netzbezug (kWh)'
+          ? 'Netzbezug\n(kWh) '
+          : h,
     )
     const { diagnostics } = ok(
-      parseHourlyPlantReports([report('odd.xlsx', [{ time: '2026-06-01 10:00:00', einspeisung: 1, bezug: 0 }], odd)]),
+      parseHourlyPlantReports([
+        report('odd.xlsx', [{ time: '2026-06-01 10:00:00', einspeisung: 1, bezug: 0 }], odd),
+      ]),
     )
     expect(diagnostics.hours).toBe(1)
 
-    expect(parseHourlyPlantReports([report('fremd.xlsx', [{ time: 'x' }], ['Zeit', 'Wert\u202F(kWh)'])])).toEqual({
+    expect(
+      parseHourlyPlantReports([report('fremd.xlsx', [{ time: 'x' }], ['Zeit', 'Wert\u202F(kWh)'])]),
+    ).toEqual({
       error: 'unknown_format',
       file: 'fremd.xlsx',
       headers: ['zeit', 'wert (kwh)'],
     })
+  })
+
+  it('Jahr Sep–Aug mit „ DST"-Zusatz wie im Portal-Export → 8.759 Stunden, Doppelstunde eindeutig, Leerzeile fehlt', () => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    // Sommerzeit Europe/Vienna: bis 26.10.2025 02:00 DST, ab 29.03.2026 03:00 (02:00 entfällt).
+    const isDst = (y: number, mo: number, d: number, h: number) =>
+      y === 2025
+        ? mo < 10 || (mo === 10 && (d < 26 || (d === 26 && h <= 2)))
+        : mo > 3 || (mo === 3 && (d > 29 || (d === 29 && h >= 3)))
+    const files: PlantReportFile[] = []
+    for (let i = 0; i < 12; i++) {
+      const y = i < 4 ? 2025 : 2026
+      const mo = ((8 + i) % 12) + 1
+      const rows: Row[] = []
+      for (let d = 1; d <= new Date(Date.UTC(y, mo, 0)).getUTCDate(); d++) {
+        for (let h = 0; h < 24; h++) {
+          if (y === 2026 && mo === 3 && d === 29 && h === 2) continue
+          const time = `${y}-${pad(mo)}-${pad(d)} ${pad(h)}:00:00`
+          const empty = y === 2025 && mo === 10 && d === 26 && h === 23
+          rows.push({
+            time: isDst(y, mo, d, h) ? `${time} DST` : time,
+            ...(empty ? {} : { einspeisung: 1, bezug: 0 }),
+          })
+          if (y === 2025 && mo === 10 && d === 26 && h === 2)
+            rows.push({ time, einspeisung: 1, bezug: 0 })
+        }
+      }
+      files.push(report(`${y}-${pad(mo)}.xlsx`, rows))
+    }
+
+    const { exportHourly, diagnostics } = ok(parseHourlyPlantReports(files))
+    expect(diagnostics).toMatchObject({
+      hours: 8759,
+      range: { from: '2025-08-31T22:00:00.000Z', to: '2026-08-31T22:00:00.000Z' },
+      skippedRows: 0,
+      ambiguousHours: 0,
+      duplicateHours: 0,
+    })
+    const ts = new Set(exportHourly.map((r) => r.ts))
+    expect(ts.has('2026-07-15T10:00:00.000Z')).toBe(true) // 15.07. 12:00 DST
+    expect(ts.has('2026-01-15T11:00:00.000Z')).toBe(true) // 15.01. 12:00
+    expect(ts.has('2025-10-26T00:00:00.000Z') && ts.has('2025-10-26T01:00:00.000Z')).toBe(true) // 02:00 DST + 02:00
+    expect(ts.has('2025-10-26T22:00:00.000Z')).toBe(false) // Leerzeile 23:00
+  })
+
+  it('„ DST" ohne Sommerzeit oder Sommerzeit ohne Zusatz → übersprungen; Zusatz in Kleinschreibung gilt', () => {
+    const { exportHourly, diagnostics } = ok(
+      parseHourlyPlantReports([
+        report('mix.xlsx', [
+          { time: '2026-07-15 12:00:00 dst', einspeisung: 1 },
+          { time: '2026-01-15 12:00:00 DST', einspeisung: 1 },
+          { time: '2026-07-15 13:00:00', einspeisung: 1 },
+        ]),
+      ]),
+    )
+    expect(exportHourly.map((r) => r.ts)).toEqual(['2026-07-15T10:00:00.000Z'])
+    expect(diagnostics.skippedRows).toBe(2)
   })
 })

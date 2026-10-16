@@ -41,14 +41,19 @@ export type HourlyPlantReportResult =
       importHourly: HourlyEnergyReading[]
       diagnostics: HourlyPlantReportDiagnostics
     }
-  | { error: 'unknown_format'; file: string; /** Gefundene Kopfzellen, normalisiert, höchstens 15. */ headers: string[] }
+  | {
+      error: 'unknown_format'
+      file: string
+      /** Gefundene Kopfzellen, normalisiert, höchstens 15. */ headers: string[]
+    }
   | { error: 'no_rows'; file: string }
 
 const MAX_REPORTED_HEADERS = 15
 
-type Wall = { y: number; mo: number; d: number; h: number; mi: number; s: number }
+/** `dst`: Zusatz „ DST" im Zeitstempel (Portal kennzeichnet so jede Sommerzeit-Stunde). */
+type Wall = { y: number; mo: number; d: number; h: number; mi: number; s: number; dst?: true }
 
-const RE_WALL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+const RE_WALL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(\s+dst)?$/i
 
 function cellText(cell: RawCell | undefined): string {
   return cell == null ? '' : String(cell).trim()
@@ -69,7 +74,15 @@ function parseWall(cell: RawCell | undefined): Wall | null {
   }
   const m = RE_WALL.exec(cellText(cell))
   if (!m) return null
-  return { y: +m[1]!, mo: +m[2]!, d: +m[3]!, h: +m[4]!, mi: +m[5]!, s: +(m[6] ?? 0) }
+  return {
+    y: +m[1]!,
+    mo: +m[2]!,
+    d: +m[3]!,
+    h: +m[4]!,
+    mi: +m[5]!,
+    s: +(m[6] ?? 0),
+    ...(m[7] ? { dst: true as const } : {}),
+  }
 }
 
 function matchesWall(utcMs: number, wall: Wall, timeZone: string): boolean {
@@ -99,6 +112,27 @@ function wallToUtcCandidates(wall: Wall, timeZone: string): number[] {
     .map((offset) => naive - offset)
     .filter((ms) => matchesWall(ms, wall, timeZone))
     .sort((a, b) => a - b)
+}
+
+/** Normalzeit-Offset der Zone im Jahr (kleinerer der Offsets von Jänner und Juli). */
+function standardOffset(year: number, timeZone: string): number {
+  return Math.min(
+    offsetAt(Date.UTC(year, 0, 1), timeZone),
+    offsetAt(Date.UTC(year, 6, 1), timeZone),
+  )
+}
+
+/**
+ * Kandidaten eines Berichts MIT Sommerzeit-Kennzeichnung: „ DST" → nur Sommerzeit-Instant, ohne
+ * Zusatz → nur Normalzeit-Instant. Die Doppelstunde ist damit eindeutig; passt keiner (Zusatz
+ * ohne Sommerzeit oder Sommerzeit ohne Zusatz), wird die Zeile übersprungen.
+ */
+function markedCandidates(wall: Wall, timeZone: string): number[] {
+  const naive = Date.UTC(wall.y, wall.mo - 1, wall.d, wall.h, wall.mi, wall.s)
+  const standard = standardOffset(wall.y, timeZone)
+  return wallToUtcCandidates(wall, timeZone).filter((ms) =>
+    wall.dst ? naive - ms > standard : naive - ms === standard,
+  )
 }
 
 /** Wert einer Zelle: `undefined` = leer (fehlt), `NaN` = ungültig, sonst die Zahl. */
@@ -156,7 +190,10 @@ function readMatrix(file: PlantReportFile): RawCell[][] {
 function foundHeaders(matrix: readonly RawCell[][]): string[] {
   let best: string[] = []
   for (const row of matrix.slice(0, HEADER_SEARCH_ROWS)) {
-    const texts = row.filter((cell) => typeof cell === 'string').map(normalizeHeader).filter((t) => t !== '')
+    const texts = row
+      .filter((cell) => typeof cell === 'string')
+      .map(normalizeHeader)
+      .filter((t) => t !== '')
     if (texts.length > best.length) best = texts
   }
   return best.slice(0, MAX_REPORTED_HEADERS)
@@ -190,6 +227,8 @@ function readFile(
     .filter((row) => row.some((cell) => cellText(cell) !== ''))
   if (dataRows.length === 0) return 'no_rows'
 
+  // Trägt der Bericht irgendwo „ DST", ist jeder Zeitstempel ausdrücklich Sommer- oder Normalzeit.
+  const marked = dataRows.some((row) => parseWall(row[timeCol])?.dst === true)
   const result: FileRows = { rows: [], ambiguous: 0, skipped: 0 }
   // Je mehrdeutiger Wanduhrzeit: wie oft schon gesehen (erste = Sommerzeit, zweite = Winterzeit).
   const ambiguousSeen = new Map<string, number>()
@@ -200,7 +239,11 @@ function readFile(
     const invalid = [exportKwh, importKwh].some(
       (v) => v !== undefined && !(Number.isFinite(v) && v >= 0),
     )
-    const candidates = wall ? wallToUtcCandidates(wall, timeZone) : []
+    const candidates = !wall
+      ? []
+      : marked
+        ? markedCandidates(wall, timeZone)
+        : wallToUtcCandidates(wall, timeZone)
     if (invalid || candidates.length === 0) {
       result.skipped++
       continue
