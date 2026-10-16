@@ -91,6 +91,7 @@ describe('uploadMeteringPointExportReportsAction', () => {
     )
 
     expect(state.fieldErrors?.files).toContain('„fremd.xlsx"')
+    expect(state.fieldErrors?.files).toContain('Gefunden: „zeit", „wert".')
     expect(state.fieldErrors?.files).toContain('Es wurde nichts gespeichert.')
     expect(uploadProjectDocument).not.toHaveBeenCalled()
     expect(rpc).not.toHaveBeenCalled()

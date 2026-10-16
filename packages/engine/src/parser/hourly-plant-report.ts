@@ -1,6 +1,6 @@
+import * as XLSX from 'xlsx'
 import type { HourlyEnergyReading } from './combine-hourly-export'
 import { toIsoUtc, utcMsToLocalFields } from './datetime'
-import { extractTable } from './table'
 import type { RawCell } from './types'
 
 const MS_PER_HOUR = 60 * 60 * 1000
@@ -41,7 +41,10 @@ export type HourlyPlantReportResult =
       importHourly: HourlyEnergyReading[]
       diagnostics: HourlyPlantReportDiagnostics
     }
-  | { error: 'unknown_format' | 'no_rows'; file: string }
+  | { error: 'unknown_format'; file: string; /** Gefundene Kopfzellen, normalisiert, höchstens 15. */ headers: string[] }
+  | { error: 'no_rows'; file: string }
+
+const MAX_REPORTED_HEADERS = 15
 
 type Wall = { y: number; mo: number; d: number; h: number; mi: number; s: number }
 
@@ -106,6 +109,59 @@ function cellValue(cell: RawCell | undefined): number | undefined {
   return /^[+-]?\d+(\.\d+)?$/.test(text) ? Number(text) : Number.NaN
 }
 
+/** Vergleichsform eines Spaltennamens: NFKC, jede Whitespace-Art (inkl. U+00A0/U+202F, Umbruch) → ein Leerzeichen, klein. */
+function normalizeHeader(cell: RawCell | undefined): string {
+  return cellText(cell).normalize('NFKC').replace(/\s+/gu, ' ').trim().toLowerCase()
+}
+
+const TIME_KEY = normalizeHeader(TIME_HEADER)
+const EXPORT_KEY = normalizeHeader(EXPORT_HEADER)
+const IMPORT_KEY = normalizeHeader(IMPORT_HEADER)
+
+/**
+ * Erstes Blatt als Matrix über den TATSÄCHLICH belegten Bereich. Portal-Exporte deklarieren in
+ * `<dimension>` teils einen zu kleinen Bereich (gemessen: `A4:…` bei Titel in Zeile 1, Kopf in
+ * Zeile 2) — über `!ref` gelesen fehlten Titel, Kopf und die erste Datenstunde. Bewusst hier und
+ * nicht in `extractTable`, das der Lastgang-Parser teilt.
+ */
+function readMatrix(file: PlantReportFile): RawCell[][] {
+  const data = file.data instanceof Uint8Array ? file.data : new Uint8Array(file.data)
+  const wb = XLSX.read(data, { type: 'array' })
+  const sheetName = wb.SheetNames[0]
+  const ws = sheetName ? wb.Sheets[sheetName] : undefined
+  if (!ws) return []
+  let range: XLSX.Range | null = null
+  for (const key of Object.keys(ws)) {
+    if (key.startsWith('!')) continue
+    const { r, c } = XLSX.utils.decode_cell(key)
+    if (range === null) range = { s: { r, c }, e: { r, c } }
+    else {
+      range.s.r = Math.min(range.s.r, r)
+      range.s.c = Math.min(range.s.c, c)
+      range.e.r = Math.max(range.e.r, r)
+      range.e.c = Math.max(range.e.c, c)
+    }
+  }
+  if (range === null) return []
+  return XLSX.utils.sheet_to_json<RawCell[]>(ws, {
+    header: 1,
+    raw: true,
+    blankrows: false,
+    defval: null,
+    range: XLSX.utils.encode_range(range),
+  })
+}
+
+/** Die textreichste Zeile der Kopfsuche — für die Fehlermeldung, damit eine Abweichung sichtbar wird. */
+function foundHeaders(matrix: readonly RawCell[][]): string[] {
+  let best: string[] = []
+  for (const row of matrix.slice(0, HEADER_SEARCH_ROWS)) {
+    const texts = row.filter((cell) => typeof cell === 'string').map(normalizeHeader).filter((t) => t !== '')
+    if (texts.length > best.length) best = texts
+  }
+  return best.slice(0, MAX_REPORTED_HEADERS)
+}
+
 type FileRows = {
   rows: { ms: number; exportKwh?: number; importKwh?: number }[]
   ambiguous: number
@@ -115,17 +171,19 @@ type FileRows = {
 function readFile(
   file: PlantReportFile,
   timeZone: string,
-): FileRows | 'unknown_format' | 'no_rows' {
-  const { matrix } = extractTable({ content: file.data, fileName: file.name, format: 'xlsx' })
+): FileRows | { unknownFormat: string[] } | 'no_rows' {
+  const matrix = readMatrix(file)
   const headerIndex = matrix
     .slice(0, HEADER_SEARCH_ROWS)
-    .findIndex((row) => row.some((cell) => cellText(cell) === TIME_HEADER))
-  if (headerIndex < 0) return 'unknown_format'
-  const header = matrix[headerIndex]!.map(cellText)
-  const timeCol = header.indexOf(TIME_HEADER)
-  const exportCol = header.indexOf(EXPORT_HEADER)
-  const importCol = header.indexOf(IMPORT_HEADER)
-  if (exportCol < 0 || importCol < 0) return 'unknown_format'
+    .findIndex((row) => row.some((cell) => normalizeHeader(cell) === TIME_KEY))
+  if (headerIndex < 0) return { unknownFormat: foundHeaders(matrix) }
+  const header = matrix[headerIndex]!.map(normalizeHeader)
+  const timeCol = header.indexOf(TIME_KEY)
+  const exportCol = header.indexOf(EXPORT_KEY)
+  const importCol = header.indexOf(IMPORT_KEY)
+  if (exportCol < 0 || importCol < 0) {
+    return { unknownFormat: header.filter((t) => t !== '').slice(0, MAX_REPORTED_HEADERS) }
+  }
 
   const dataRows = matrix
     .slice(headerIndex + 1)
@@ -200,7 +258,10 @@ export function parseHourlyPlantReports(
 
   for (const file of files) {
     const read = readFile(file, timezone)
-    if (read === 'unknown_format' || read === 'no_rows') return { error: read, file: file.name }
+    if (read === 'no_rows') return { error: 'no_rows', file: file.name }
+    if ('unknownFormat' in read) {
+      return { error: 'unknown_format', file: file.name, headers: read.unknownFormat }
+    }
     ambiguousHours += read.ambiguous
     skippedRows += read.skipped
     const fileHours: number[] = []
