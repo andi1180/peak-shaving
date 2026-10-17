@@ -174,7 +174,11 @@ export function breakEvenLayoutOf(band: BreakEvenBand, slot: Size): BreakEvenLay
   // Legende in einer Zeile, sonst je Eintrag eine (halbe Breite neben dem Ring).
   const legendItems = [
     {
-      text: band.upperBound ? 'Mit Stromspitzen (Höchstwert)' : 'Ihre Ersparnis',
+      text: band.upperBound
+        ? band.tierChange
+          ? 'Mit Kappung und Stufe'
+          : 'Mit Stromspitzen (Höchstwert)'
+        : 'Ihre Ersparnis',
       color: UPPER_COLOR,
     },
     ...(band.lower ? [{ text: 'Nur günstiges Laden', color: LOWER_COLOR }] : []),

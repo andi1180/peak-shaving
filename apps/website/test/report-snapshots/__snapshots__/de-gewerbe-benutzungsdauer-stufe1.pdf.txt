@@ -27,19 +27,19 @@ Land                               Deutschland
 Referenzfall DE Gewerbe · Zeitraum 01.07.2025 – 30.06.2026 · Erstellt am 15.10.2026
 
 Auf einen Blick
-   Ersparnis pro Jahr                                               Speicher allein                  Gesamtmaßnahme
-   bis zu                                                           frühestens                       frühestens
+   Ersparnis pro Jahr                                                 Speicher allein                  Gesamtmaßnahme
+   bis zu                                                             frühestens                       frühestens
 
-   € 12.478                                                         ca. 7,5 Jahre                    ca. 0,4 Jahre
-                                                                                                     alle Maßnahmen zusammen
+   € 12.478                                                           ca. 7,5 Jahre                    ca. 0,4 Jahre
+                                                                                                       alle Maßnahmen zusammen
 
-   davon € 11.815 ohne Investition (Tarifwechsel)                   € 5.000 Investition, spart bis zu € 663/Jahr
+   davon € 11.815 ohne Investition (Tarifwechsel)                     € 5.000 Investition, spart bis zu € 663/Jahr
 
 gerechnet mit Ihren Messwerten von 365 Tagen
 
 
 Ihr Lastgang
-  Höchste Leistung pro Tag           Spitzen, die der Speicher abfängt            Begrenzung mit Speicher (Höchstwert)
+  Höchste Leistung pro Tag             Spitzen, die der Speicher abfängt            Begrenzung mit Speicher (Höchstwert)
 50 kW
 
 
@@ -47,20 +47,20 @@ Ihr Lastgang
 
 
        0
-            Jul      Aug       Sep         Okt      Nov       Dez        Jan      Feb         Mär       Apr       Mai          Jun
+            Jul      Aug         Sep       Okt       Nov        Dez        Jan      Feb         Mär       Apr       Mai          Jun
 
 Die Balken zeigen Ihre höchste Leistung pro Tag. Die höchste Viertelstunde im Abrechnungsjahr
 bestimmt die Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute
-                                                                                                                        € 39.166
+                                                                                                                          € 39.166
 
 Spot-Test (Börsenpreis)
-                                                                                   € 27.351
+                                                                                     € 27.351
 
 Spot-Test mit Speicher, der günstig lädt
-                                                                                  € 27.143
+                                                                                    € 27.143
 
 
 Mit Spot-Test und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 39.166 auf rund
@@ -68,18 +68,18 @@ Mit Spot-Test und einem Speicher, der günstig lädt, sinken Ihre Kosten von run
 hinzu.
 
 
-   Ihr Speicher                                                     Woher die Ersparnis kommt
-   Ersparnis durch den Speicher: bis zu € 663                                                       Wechsel zu Spot-Test
-   pro Jahr.                                                                                        € 11.815
-       Mit Stromspitzen (Höchstwert)                                           bis zu               Speicher lädt günstig
-       Nur günstiges Laden                                                                          € 209
-                                                                           € 12.478
-    Investition € 5.000      ca. 7,5 Jahre                                                          Weniger Spitzen und
-                                                                                                    günstigere Netzstufe
-                                                                                                    € 454
+   Ihr Speicher                                                       Woher die Ersparnis kommt
+   Ersparnis durch den Speicher: bis zu € 663                                                         Wechsel zu Spot-Test
+   pro Jahr.                                                                                          € 11.815
+       Mit Kappung und Stufe        Nur günstiges Laden                          bis zu               Speicher lädt günstig
+                                                                                                      € 209
+    Investition € 5.000        ca. 7,5 Jahre                                 € 12.478
+                                                                                                      Weniger Spitzen und
+                                                                                                      günstigere Netzstufe
+                                                                                                      € 454
 
 
-   0                          5                    10 Jahre
+   0                            5                    10 Jahre
 
 
 Testspeicher mittel, 10 kWh nutzbar, Investition rund € 5.000 netto. Nach 10 Jahren bleiben unterm
@@ -90,7 +90,7 @@ Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                        www.coolin.at · Seite 2 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                          www.coolin.at · Seite 2 von 18
     COOLiN ENERGY          Referenzfall DE Gewerbe
 
 
