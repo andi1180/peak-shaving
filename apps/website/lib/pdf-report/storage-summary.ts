@@ -1,4 +1,4 @@
-import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
+import { effectiveBillingModel, type BatteryRoiEntry, type MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
 import { dynamicTariffHintKind, dynamicTariffOf, loadControlValueOf } from '@/lib/report-copy'
@@ -61,6 +61,7 @@ export function buildStorageSummary(
   const days = control.coveredDays
   const totalAmortization = executiveSummary ? totalAmortizationOf(executiveSummary) : null
   const tierChange = tierChangesWithStorage(analysis.current, entry)
+  const annualMax = effectiveBillingModel(analysis.assumptions.billingModel) === 'annual_max'
 
   return {
     id: STORAGE_SUMMARY_ID,
@@ -100,7 +101,7 @@ export function buildStorageSummary(
           'wirkt auch ohne Speicher und ist in diesen Zahlen nicht enthalten. '
         : '') +
       `Vorausberechnung, keine Zusage: Der ${tierChange ? 'Anteil aus Kappung und Stufenwechsel' : 'Kappungs-Anteil'} ist eine Obergrenze, weil er voraussetzt, ` +
-      'dass der Speicher jede Monatsspitze rechtzeitig kennt' +
+      `dass der Speicher ${annualMax ? 'die Jahresspitze' : 'jede Monatsspitze'} rechtzeitig kennt` +
       (annualized ? '; der Ladesteuerungs-Anteil ist auf ein Jahr hochgerechnet.' : '.'),
   }
 }

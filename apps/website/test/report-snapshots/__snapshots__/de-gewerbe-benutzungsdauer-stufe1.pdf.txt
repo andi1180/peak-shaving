@@ -188,7 +188,7 @@ Was der empfohlene Speicher zusätzlich bringt
 
 Der Tarifwechsel (€ 11.815 über die 365 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
 Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Anteil aus Kappung und Stufenwechsel ist
-eine Obergrenze, weil er voraussetzt, dass der Speicher jede Monatsspitze rechtzeitig kennt.
+eine Obergrenze, weil er voraussetzt, dass der Speicher die Jahresspitze rechtzeitig kennt.
 
 
 Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".

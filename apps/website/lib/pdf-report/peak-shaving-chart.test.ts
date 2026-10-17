@@ -12,11 +12,14 @@ const WITH_WAY_5 = { statements: [{ id: 'ways_peak_shaving' }] } as unknown as W
 const WITHOUT_WAY_5 = { statements: [{ id: 'ways_today' }] } as unknown as WaysChapter
 
 /** Nur die Felder, die `primaryEntryOf` und die Ableitung lesen. */
-function analysisWithCaps(capKwByPeriod: number[]): PdfReportAnalysis {
+function analysisWithCaps(
+  capKwByPeriod: number[],
+  billingModel: 'monthly_max_sum' | 'annual_max' = 'monthly_max_sum',
+): PdfReportAnalysis {
   return {
     perBattery: [{ battery: { id: 'b' }, dispatchTrace: { capKwByPeriod, caughtPeaks: [], representativeDays: [] } }],
     recommendation: { batteryId: 'b' },
-    assumptions: { billingModel: 'monthly_max_sum' },
+    assumptions: { billingModel },
   } as unknown as PdfReportAnalysis
 }
 
@@ -74,6 +77,23 @@ describe('peakShavingChartData', () => {
     const n = (value: number) => new Intl.NumberFormat('de-AT').format(value)
     expect(peakShavingChartCaption(data)).toContain(
       `${n(1510)} Viertelstunden liegen über der Schwelle. Gezeichnet sind die ${n(1500)} höchsten.`,
+    )
+  })
+
+  it('Bildunterschrift: Monatsbezug nur bei monatlichem Abrechnungsmodell', () => {
+    const readings = profile([['2026-03-15T10:00:00.000Z', 45]])
+    const monthly = peakShavingChartData(analysisWithCaps(CAPS), readings, WITH_WAY_5)!
+    const annual = peakShavingChartData(analysisWithCaps([40], 'annual_max'), readings, WITH_WAY_5)!
+
+    expect(peakShavingChartCaption(monthly)).toBe(
+      'Rote Punkte: Viertelstunden, die über der Kappschwelle ihres Monats lagen — der Speicher ' +
+        'begrenzt sie auf die Schwelle. Die Linie zeigt die Schwelle je Monat. ' +
+        '1 Viertelstunden liegen über der Schwelle.',
+    )
+    expect(peakShavingChartCaption(annual)).toBe(
+      'Rote Punkte: Viertelstunden, die über der Kappschwelle lagen — der Speicher ' +
+        'begrenzt sie auf die Schwelle. Die Linie zeigt die Schwelle. ' +
+        '1 Viertelstunden liegen über der Schwelle.',
     )
   })
 })
