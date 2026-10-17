@@ -36,6 +36,7 @@ import {
 import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
 import type { ReportBuildContext } from './context'
 import type { ExecutiveSummary } from './executive-summary'
+import { PROJECTED_BASIS_WORDS } from './executive-summary-copy'
 import { feedInCreditEur } from './feed-in-credit'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
@@ -550,8 +551,11 @@ export function buildSummaryKpis(
   const price = displayedPriceLabel(analysis)
   const days =
     costYear && costYear.basis !== 'annual'
-      ? `pro Jahr, hochgerechnet aus ${costYear.measuredDays} gemessenen Tagen, ${price}`
+      ? `pro Jahr, ${costYear.basis === 'projected' ? PROJECTED_BASIS_WORDS : 'hochgerechnet'} ` +
+        `aus ${costYear.measuredDays} gemessenen Tagen, ${price}`
       : `über ${ways.coveredDays} gemessene Tage, ${price}`
+  // Nur mit Vorderseite, und die gibt es nur bei Netto-Anzeige (`buildExecutiveSummary`, `priceDisplay`):
+  // der Zusatz steht deshalb nie neben einem Betrag inkl. USt.
   const feedIn =
     costYear && costYear.feedInCreditPerYearEur > 0
       ? `, nach Abzug Ihrer Einspeisevergütung (ca. ${formatEur(costYear.feedInCreditPerYearEur)} pro Jahr)`

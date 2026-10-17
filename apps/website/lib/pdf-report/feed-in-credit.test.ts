@@ -24,7 +24,7 @@ function mixedProfile(): LoadProfile {
     readings: kw.map((gridPowerKw, i) => ({ ts: iso(t0 + i * STEP_MS), gridPowerKw })),
     intervalMinutes: 15,
     timezoneMeta: 'Europe/Vienna',
-    source: 'measured_feed_in',
+    source: 'net_signed',
   }
 }
 
