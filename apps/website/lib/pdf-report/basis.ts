@@ -2,6 +2,7 @@ import { IMPORT_ONLY_WITHOUT_PV_WARNING, type PvOutageMonth } from 'engine'
 import {
   AWATTAR_BASE_FEE,
   AWATTAR_HOURLY_AT_DYNAMIC,
+  DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY,
   demandChargeKwPerYear,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
@@ -9,6 +10,7 @@ import {
   type BatteryCatalogMeta,
   type BatteryRoiEntry,
   type BillingModel,
+  type Country,
   type EstimatedPvSummary,
   type LoadProfile,
   type LoadSource,
@@ -831,6 +833,7 @@ function tariffRows(
   source: PdfReportTariffSource,
   provenance: PdfReportTariffProvenance | undefined,
   dynamicTariff: DynamicTariffView,
+  country: Country | undefined,
 ): ReportTableRow[] {
   return [
     groupRow('group_tariff', 'Tarif'),
@@ -842,7 +845,7 @@ function tariffRows(
     dataRow('tariff_supplier', [
       'Lieferanten-Tarif',
       'Arbeitspreis, Grundgebühr und Einspeisevergütung der Energieseite.',
-      supplierVintage(provenance, dynamicTariff),
+      supplierVintage(provenance, dynamicTariff, country),
     ]),
   ]
 }
@@ -915,6 +918,7 @@ function gridTariffVintage(
 function supplierVintage(
   provenance: PdfReportTariffProvenance | undefined,
   dynamicTariff: DynamicTariffView,
+  country: Country | undefined,
 ): string {
   const periods = distinctInvoicePeriods(provenance?.invoicePeriods ?? [])
   if (periods.length === 1) return formatInvoicePeriod(periods[0]!)
@@ -926,10 +930,13 @@ function supplierVintage(
   }
 
   const markup = `${dynamicTariff.markupCtPerKwh.toLocaleString('de-AT')} ct/kWh netto`
-  // Gültigkeit und Fundstelle belegen die hinterlegte Vorbelegung — nur bei genau deren Konditionen.
+  // Gültigkeit und Fundstelle belegen die Vorbelegung des Projektlands — nur bei genau deren Konditionen;
+  // ohne Land die AT-Vorgabe wie bisher.
+  const preset = country ? DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY[country] : AWATTAR_HOURLY_AT_DYNAMIC
   const isPreset =
-    dynamicTariff.markupCtPerKwh === AWATTAR_HOURLY_AT_DYNAMIC.markupCtPerKwh &&
-    dynamicTariff.baseFeeEurPerMonth === AWATTAR_HOURLY_AT_DYNAMIC.baseFeeEurPerMonth
+    preset != null &&
+    dynamicTariff.markupCtPerKwh === preset.markupCtPerKwh &&
+    dynamicTariff.baseFeeEurPerMonth === preset.baseFeeEurPerMonth
   if (!isPreset) {
     return (
       `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${dynamicTariff.name} — Aufschlag auf den ` +
@@ -962,9 +969,17 @@ function assumedPeriodsSuffix(periods: PdfReportInvoicePeriod[]): string {
 /** Hersteller und Bezeichnung — ohne den Hersteller zu wiederholen, wenn die Katalog-Bezeichnung ihn schon trägt. */
 function deviceLabel(battery: { manufacturer: string; name: string }): string {
   const manufacturer = battery.manufacturer.trim()
-  return !manufacturer || battery.name.toLowerCase().startsWith(manufacturer.toLowerCase())
+  return !manufacturer ||
+    battery.name.toLowerCase().startsWith(manufacturer.toLowerCase()) ||
+    containsWord(battery.name, manufacturer)
     ? battery.name
     : `${manufacturer} ${battery.name}`
+}
+
+/** Kommt `word` als ganzes Wort in `text` vor (ohne Gross-/Kleinschreibung)? „Kostal & Dyness" trägt „Dyness", „Dynessa" nicht. */
+function containsWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(text)
 }
 
 /**
@@ -1067,7 +1082,12 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
         input.analysis.dataQuality.coveredDays,
         input.estimatedPv,
       ),
-      ...tariffRows(input.tariffSource, input.tariffProvenance, dynamicTariffOf(input.analysis)),
+      ...tariffRows(
+        input.tariffSource,
+        input.tariffProvenance,
+        dynamicTariffOf(input.analysis),
+        input.country,
+      ),
       ...batteryRowsForSources(input.analysis, input.batteryCatalogMeta),
     ],
   }
