@@ -156,10 +156,10 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 
 
 
-€ 14.864                                                        bis zu € 10.124
+€ 34.794                                                        bis zu € 10.124
 Ihre Stromkosten heute                                          Mögliche Ersparnis
-über 157 gemessene Tage, netto, ohne Leistungspreis             alle Maßnahmen zusammen, pro Jahr hochgerechnet
-                                                                Tarifwechsel                           € 8.025
+pro Jahr, geschätzt, hochgerechnet aus 157 gemessenen           alle Maßnahmen zusammen, pro Jahr hochgerechnet
+Tagen, netto, ohne Leistungspreis                               Tarifwechsel                           € 8.025
                                                                 Ladesteuerung                            € 684
                                                                 Netzentgelt (Leistung/Stufe)            € 1.415
 

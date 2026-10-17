@@ -75,10 +75,13 @@ function measuredMonthsText(s: ExecutiveSummary): string {
   return first === last ? ` (${first})` : ` (${first} bis ${last})`
 }
 
+/** Wortlaut der Basis `projected`; die Zusammenfassung übernimmt ihn für „Ihre Stromkosten heute". */
+export const PROJECTED_BASIS_WORDS = 'geschätzt, hochgerechnet'
+
 function basisText(s: ExecutiveSummary): string {
   switch (s.header.basis) {
     case 'projected':
-      return `geschätzt, hochgerechnet aus ${s.header.measuredDays} gemessenen Tagen${measuredMonthsText(s)}`
+      return `${PROJECTED_BASIS_WORDS} aus ${s.header.measuredDays} gemessenen Tagen${measuredMonthsText(s)}`
     case 'linear':
       return `Jahreswerte linear hochgerechnet aus ${s.header.measuredDays} Tagen Messdaten.`
     case 'annual':
