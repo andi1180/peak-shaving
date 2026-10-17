@@ -188,9 +188,9 @@ function joinGerman(parts: string[]): string {
 }
 
 /**
- * Der Preisstand-Satz des Wizard-Wegs: stammt der Arbeitspreis aus gelesenen Rechnungen
- * (`priceFromInvoice`) und überlappt mindestens eine davon den Lastgang, nennt der Satz diese
- * Rechnungen statt einer Vorjahresrechnung. In allen anderen Fällen bitgleich `tariffVintageNote`.
+ * Der Preisstand-Satz des Wizard-Wegs: überlappt kein Rechnungszeitraum den Lastgang, bitgleich
+ * `tariffVintageNote`. Sonst nennt der Satz die Rechnungen, wenn der Arbeitspreis aus ihnen stammt
+ * (`priceFromInvoice`), und entfällt, wenn er von Hand eingetragen ist (z. B. Konflikt im Merge).
  */
 export function tariffVintageNoteForInvoices(
   loadProfile: Pick<LoadProfile, 'readings' | 'timezoneMeta'>,
@@ -200,7 +200,7 @@ export function tariffVintageNoteForInvoices(
   now: Date,
 ): string | null {
   const legacy = tariffVintageNote(loadProfile, tariff, now)
-  if (legacy === null || !priceFromInvoice) return legacy
+  if (legacy === null) return legacy
 
   const tz = loadProfile.timezoneMeta
   const days = loadProfile.readings.map((r) => localIsoDay(Date.parse(r.ts), tz))
@@ -208,6 +208,7 @@ export function tariffVintageNoteForInvoices(
   const loadTo = days[days.length - 1]!
   const ranges = mergeInvoiceRanges(invoicePeriods)
   if (!ranges.some((range) => range.from <= loadTo && range.to >= loadFrom)) return legacy
+  if (!priceFromInvoice) return null
 
   const count = distinctInvoicePeriods(invoicePeriods).length
   const hasBaseFee =

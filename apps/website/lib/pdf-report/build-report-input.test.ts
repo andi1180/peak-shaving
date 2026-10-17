@@ -344,11 +344,20 @@ describe('Preisgrundlage bei Preisen aus Rechnungen', () => {
     expect(text).not.toContain('Vorjahresrechnung')
   })
 
-  it('bleibt beim bisherigen Satz ohne Kennzeichen, ohne Überlappung oder ohne Zeiträume', () => {
+  it('entfällt bei überlappenden Rechnungen, wenn der Preis von Hand eingetragen ist', () => {
+    expect(vintageFor({ priceFromInvoice: false, invoicePeriods: MULDUR_PERIODS })).toBeNull()
+  })
+
+  it('bleibt beim bisherigen Satz ohne Rechnung, ohne Überlappung oder ohne Zeiträume', () => {
     const legacy = vintageFor({})
     expect(legacy).toContain('2025er-Vorjahresrechnung')
 
-    expect(vintageFor({ priceFromInvoice: false, invoicePeriods: MULDUR_PERIODS })).toBe(legacy)
+    expect(
+      vintageFor({
+        priceFromInvoice: false,
+        invoicePeriods: [{ from: '2025-01-01', to: '2025-12-31', assumed: false }],
+      }),
+    ).toBe(legacy)
     expect(
       vintageFor({
         priceFromInvoice: true,
