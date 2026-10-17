@@ -713,3 +713,47 @@ describe('Annahmen der Tarif-Station — Horizont und Förderung aus dem Entwurf
     }
   })
 })
+
+describe('Zeitzone aus dem Projektland', () => {
+  it('liest den Lastgang in der Zeitzone des Projektlands, ohne Land in der Parser-Vorgabe', async () => {
+    const zoneOf = async (country?: 'AT' | 'DE') =>
+      (await runAnalysisFromMeteringPointDraft('mp-1', ports(), country ? { country } : {}))
+        .loadProfile.timezoneMeta
+
+    expect(await zoneOf('DE')).toBe('Europe/Berlin')
+    expect(await zoneOf('AT')).toBe('Europe/Vienna')
+    expect(await zoneOf()).toBe('Europe/Vienna')
+  })
+
+  it('Berlin und Wien ergeben über den Sommerzeitwechsel dieselben Messwerte', async () => {
+    // Lokale Wandzeit 29.–31.03.2025, die übersprungene Stunde am 30.03. fehlt wie in einem echten Export.
+    const rows: string[] = ['Zeitstempel;Bezug (kW)']
+    for (const day of ['2025-03-29', '2025-03-30', '2025-03-31']) {
+      for (let q = 0; q < 96; q += 1) {
+        const hour = Math.floor(q / 4)
+        if (day === '2025-03-30' && hour === 2) continue
+        const time = `${String(hour).padStart(2, '0')}:${String((q % 4) * 15).padStart(2, '0')}`
+        rows.push(`${day}T${time};${String(10 + (q % 7)).replace('.', ',')}`)
+      }
+    }
+    const csv = rows.join('\n')
+    const profileFor = async (country: 'AT' | 'DE') =>
+      (
+        await runAnalysisFromMeteringPointDraft(
+          'mp-1',
+          ports({ readDocument: async () => file(csv, 'lastgang-dst.csv') }),
+          { country },
+        )
+      ).loadProfile
+    const sum = (readings: { gridPowerKw: number }[]) =>
+      readings.reduce((acc, r) => acc + r.gridPowerKw, 0)
+
+    const berlin = await profileFor('DE')
+    const vienna = await profileFor('AT')
+
+    expect(berlin.readings).toHaveLength(vienna.readings.length)
+    expect(berlin.readings.length).toBe(3 * 96 - 4)
+    expect(sum(berlin.readings)).toBe(sum(vienna.readings))
+    expect(berlin.readings).toEqual(vienna.readings)
+  })
+})

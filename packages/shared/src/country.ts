@@ -30,6 +30,8 @@ export type CountryDisplay = {
   monthsLong: readonly string[]
   /** Anzeige im Report-Kopf; `null` = nicht anzeigen (Vorgabeland). */
   reportLabel: string | null
+  /** IANA-Zeitzone, in der Lastgänge dieses Landes gelesen werden (Monats- und Tagesgrenzen). */
+  timeZone: string
 }
 
 export const COUNTRY_DISPLAY: Record<Country, CountryDisplay> = {
@@ -64,6 +66,7 @@ export const COUNTRY_DISPLAY: Record<Country, CountryDisplay> = {
       'Dezember',
     ],
     reportLabel: null,
+    timeZone: 'Europe/Vienna',
   },
   DE: {
     locale: 'de-DE',
@@ -96,6 +99,7 @@ export const COUNTRY_DISPLAY: Record<Country, CountryDisplay> = {
       'Dezember',
     ],
     reportLabel: COUNTRY_LABELS.DE,
+    timeZone: 'Europe/Berlin',
   },
 }
 

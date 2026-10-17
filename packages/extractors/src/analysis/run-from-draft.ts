@@ -18,6 +18,7 @@ import {
 import {
   analysisWindow,
   annualBasisApplies,
+  COUNTRY_DISPLAY,
   annualScenarioCarriesChapter,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
@@ -39,6 +40,7 @@ import {
   type AnnualScenario,
   type BatteryCandidate,
   type BatteryCatalogCategory,
+  type Country,
   type IntervalFileKind,
   type LoadProfile,
   type MonthlyTariffComparison,
@@ -214,6 +216,13 @@ export type RunAnalysisFromDraftOptions = DraftTariffMappingOptions & {
   horizonYears?: number
   /** Kundenkategorie aus dem Projektsegment — Steuerangaben des Entwurfs gelten nur bei `gewerbe`. */
   category?: BatteryCatalogCategory
+  /** Projektland — wählt die Zeitzone beim Lesen der Dateien; fehlt es, gilt die Parser-Vorgabe. */
+  country?: Country
+}
+
+/** Parser-Optionen aus dem Projektland; ohne Land keine, damit die Parser-Vorgabe greift. */
+function parseOptionsFor(country: Country | undefined): { timezone?: string } {
+  return country ? { timezone: COUNTRY_DISPLAY[country].timeZone } : {}
 }
 
 /** Jeder Abbruch dieses Laufs — benannt, damit ein Aufrufer verzweigen kann statt Text zu lesen. */
@@ -322,7 +331,7 @@ export async function runAnalysisFromMeteringPointDraft(
     tooLarge: 'file_too_large',
   })
 
-  const outcome = parseLoadProfile(document)
+  const outcome = parseLoadProfile(document, parseOptionsFor(options.country))
 
   if (!outcome.ok) {
     /*
@@ -480,7 +489,7 @@ export async function runAnalysisFromMeteringPointDraft(
       profile: loadProfile,
       dataQuality: appendWarnings(parsed.dataQuality, [existingBattery.warning, couplingWarning]),
     },
-    pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports)),
+    pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports, options.country)),
     existingBattery: existingBattery.input,
     ...(financial ? { financial } : {}),
     ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
@@ -867,6 +876,7 @@ async function readParsableDocument(
 async function readPvProfileFromDraft(
   draft: Record<string, unknown>,
   ports: MeteringPointAnalysisPorts,
+  country: Country | undefined,
 ): Promise<ParsedPv | null> {
   if (draft[PV_UPLOAD_DRAFT_KEYS.present] !== true) return null
   if (draft[PV_UPLOAD_DRAFT_KEYS.profileSource] === PV_GENERATED_PROFILE_SOURCE) return null
@@ -880,7 +890,7 @@ async function readPvProfileFromDraft(
     tooLarge: 'pv_file_too_large',
   })
 
-  const parsed = parsePvProfile(document)
+  const parsed = parsePvProfile(document, parseOptionsFor(country))
   if (!parsed.ok) {
     // Dieselbe Zweiteilung wie beim Lastgang: „nicht eindeutig" ist etwas anderes als „nicht lesbar".
     if (parsed.kind === 'needs_mapping') {
