@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatEur2 } from '@/lib/format'
+import { formatCtPerKwh } from '@/lib/format'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import type { RecomputeInput } from '@/components/flow/types'
 import { Num } from './num'
@@ -420,7 +420,7 @@ export function AssumptionsPanel({
           value={
             originalTariff.energyPriceCtPerKwh === undefined
               ? 'unbekannt'
-              : `${formatEur2(originalTariff.energyPriceCtPerKwh / 100)} / kWh${netLabels ? ' netto' : ''}`
+              : `${formatCtPerKwh(originalTariff.energyPriceCtPerKwh)}${netLabels ? ' netto' : ''}`
           }
         />
         <AssumptionRow
@@ -428,7 +428,7 @@ export function AssumptionsPanel({
           value={
             originalTariff.einspeiseverguetungCtPerKwh === undefined
               ? 'nicht angegeben'
-              : `${formatEur2(originalTariff.einspeiseverguetungCtPerKwh / 100)} / kWh`
+              : formatCtPerKwh(originalTariff.einspeiseverguetungCtPerKwh)
           }
         />
       </div>

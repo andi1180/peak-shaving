@@ -579,7 +579,7 @@ Tarifkomponenten
 
  Leistungspreis                      € 0,00 / kW·a                   laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        € 0,13 / kWh                    aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        13,34 ct/kWh                    aus Ihren Angaben (Energieseite)
 
  Einspeisevergütung                  nicht verwendet (keine          aus Ihren Angaben (Energieseite)
                                      Einspeisedaten)
@@ -624,7 +624,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                                                            der Satz, kommt ein ZWEITER Eintrag
                                                                            mit späterem validFrom hinzu — der
                                                                            bestehende wird nicht editiert. Aufschlag
-                                                                           auf den Börsenpreis: 1,5 ct/kWh netto.
+                                                                           auf den Börsenpreis: 1,50 ct/kWh netto.
 
  Batterie
  Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026

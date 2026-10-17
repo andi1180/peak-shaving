@@ -709,11 +709,11 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
     ])
     expect(componentRow(chapter.tariffComponents, 'tariff_energy_price')?.slice(0, 2)).toEqual([
       'Arbeitspreis',
-      '€ 0,25 / kWh',
+      '24,50 ct/kWh',
     ])
     expect(
       componentRow(chapter.tariffComponents, 'tariff_einspeiseverguetung')?.slice(0, 2),
-    ).toEqual(['Einspeisevergütung', '€ 0,07 / kWh'])
+    ).toEqual(['Einspeisevergütung', '7,20 ct/kWh'])
 
     expect(chapter.assumptions.rows.map((row) => row.label)).toEqual(['Betrachtungshorizont'])
   })
@@ -968,18 +968,12 @@ describe('Tarifkomponenten — Werte aus Rechnungen', () => {
   const cells = (table: ReturnType<typeof tableFor>, key: string) =>
     table.rows.find((row) => row.key === key)?.cells.slice(1)
 
-  it('zeigt den Rechnungs-Arbeitspreis mit seinen Nachkommastellen', () => {
+  it('zeigt den Arbeitspreis in ct/kWh mit zwei Nachkommastellen, aus Rechnung wie von Hand', () => {
     expect(cells(tableFor(16.2, { priceFromInvoice: true }), 'tariff_energy_price')).toEqual([
-      '€ 0,162 / kWh',
+      '16,20 ct/kWh',
       'aus Ihren Rechnungen (Energieseite)',
     ])
-  })
-
-  it('rundet ohne Kennzeichen wie bisher auf Cent', () => {
-    expect(cells(tableFor(15.697, {}), 'tariff_energy_price')?.[0]).toBe('€ 0,16 / kWh')
-    expect(cells(tableFor(24.5, { priceFromInvoice: false }), 'tariff_energy_price')?.[0]).toBe(
-      '€ 0,25 / kWh',
-    )
+    expect(cells(tableFor(15.697, {}), 'tariff_energy_price')?.[0]).toBe('15,70 ct/kWh')
   })
 
   it('nennt die Rechnung als Herkunft nur mit dem jeweiligen Kennzeichen', () => {
@@ -1055,7 +1049,7 @@ describe('Datenquellen — Vergleichstarif-Datum nur bei der Vorgabe des Projekt
   it('DE ohne Vorgabe nennt weder Datum noch Fundstelle', () => {
     expect(supplierFor({ country: 'DE' })).toBe(
       'Kundenrechnung: nicht erfasst. Vergleichstarif aWATTar — Aufschlag auf den Börsenpreis: ' +
-        '1,5 ct/kWh netto, Grundgebühr €\u00a04,79/Monat netto.',
+        '1,50 ct/kWh netto, Grundgebühr €\u00a04,79/Monat netto.',
     )
   })
 })

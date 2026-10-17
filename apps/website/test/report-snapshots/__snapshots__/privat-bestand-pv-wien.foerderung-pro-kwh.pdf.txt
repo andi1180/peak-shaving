@@ -504,9 +504,9 @@ Tarifkomponenten
 
  Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        € 0,16 / kWh                   aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        15,70 ct/kWh                   aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  € 0,05 / kWh                   aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  4,56 ct/kWh                    aus Ihren Angaben (Energieseite)
 
  Grundgebühr Lieferant               € 4,20 / Monat                 aus Ihren Angaben (Energieseite)
 
@@ -547,7 +547,7 @@ Datenquellen
                                                                                der Satz, kommt ein ZWEITER Eintrag
                                                                                mit späterem validFrom hinzu — der
                                                                                bestehende wird nicht editiert. Aufschlag
-                                                                               auf den Börsenpreis: 1,5 ct/kWh netto.
+                                                                               auf den Börsenpreis: 1,50 ct/kWh netto.
 
  Batterie
  Ihre Angabe Ihr Speicher        Nutzbare Kapazität, Lade-/Entladeleistung Ihr eigener Speicher — Kenndaten nach

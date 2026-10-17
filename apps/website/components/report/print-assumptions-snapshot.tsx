@@ -1,6 +1,6 @@
 import type { AnalysisResult, BatteryCatalogMeta, BillingModel } from 'shared'
 
-import { formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { formatCtPerKwh, formatEur, formatEur2, formatPercent } from '@/lib/format'
 import {
   displayedInvestmentOf,
   hasEnteredSubsidy,
@@ -77,7 +77,7 @@ export function PrintAssumptionsSnapshot({
             value={
               assumptions.energyPriceCtPerKwh === null
                 ? 'unbekannt'
-                : `${formatEur2(assumptions.energyPriceCtPerKwh / 100)} / kWh`
+                : formatCtPerKwh(assumptions.energyPriceCtPerKwh)
             }
           />
           <Row
@@ -85,7 +85,7 @@ export function PrintAssumptionsSnapshot({
             value={
               assumptions.einspeiseverguetungCtPerKwh === null
                 ? 'nicht angegeben'
-                : `${formatEur2(assumptions.einspeiseverguetungCtPerKwh / 100)} / kWh`
+                : formatCtPerKwh(assumptions.einspeiseverguetungCtPerKwh)
             }
           />
         </div>

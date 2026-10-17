@@ -616,7 +616,7 @@ Tarifkomponenten
 
  Mindestleistung                     keine Angabe                    ohne Untergrenze gerechnet (Annahme)
 
- Arbeitspreis                        € 0,162 / kWh                   aus Ihren Rechnungen (Energieseite)
+ Arbeitspreis                        16,20 ct/kWh                    aus Ihren Rechnungen (Energieseite)
 
  Einspeisevergütung                  nicht angegeben                 aus Ihren Angaben (Energieseite)
 

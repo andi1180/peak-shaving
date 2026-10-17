@@ -61,9 +61,9 @@ export function formatEur(value: number): string {
   return de({ style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
 }
 
-/** Euro-Satz mit so vielen Nachkommastellen, wie er trägt — mindestens 2, höchstens 4. */
-export function formatEurRate(value: number): string {
-  return de({ style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value)
+/** Preis je kWh, Eingabe in ct: immer zwei Nachkommastellen, kaufmännisch gerundet — „14,01 ct/kWh". */
+export function formatCtPerKwh(ctPerKwh: number): string {
+  return `${de({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ctPerKwh)} ct/kWh`
 }
 
 /** Euro mit zwei Nachkommastellen (Detailwerte). */
