@@ -110,8 +110,8 @@ describe('execDonutOf', () => {
     expect(donut.segments.map((seg) => seg.key)).toEqual(['control', 'peak'])
     expect(donut.segments.at(-1)!.endDeg).toBeCloseTo(360, 9)
     expect(donut.totalEur).toBe(-107 + s.storage!.loadShiftEur + s.storage!.peakEur)
-    expect(donut.negativeNotes.map((n) => n.replace(/\u00a0/g, ' '))).toEqual([
-      'Wechsel zu aWATTar allein: −€ 107 pro Jahr, in der Gesamtzahl berücksichtigt.',
+    expect(donut.negativeNotes).toEqual([
+      `Wechsel zu aWATTar allein: ${formatEur(-107)} pro Jahr, in der Gesamtzahl berücksichtigt.`,
     ])
     // Platz unter dem Ring: Boxhöhe − Padding − Titel − Abstand − Ring-Platz.
     const spare = EXEC_STORAGE.height - 2 * 10 - 15 - 3 - EXEC_SLOTS.donut.height

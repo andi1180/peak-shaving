@@ -113,7 +113,7 @@ export function buildSavingsDonut(
 
 /** Hinweiszeile eines negativen Anteils unter dem Ring. */
 export function savingsDonutNegativeText(label: string, eur: number): string {
-  return `${label} allein: −${formatEur(Math.abs(eur))} pro Jahr, in der Gesamtzahl berücksichtigt.`
+  return `${label} allein: ${formatEur(-Math.abs(eur))} pro Jahr, in der Gesamtzahl berücksichtigt.`
 }
 
 /** Legendenzeile eines Segments — Name, Euro und Prozent als Text, nicht nur als Farbe. */
