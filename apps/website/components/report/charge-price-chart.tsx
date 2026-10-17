@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import { countryDisplay, type Country, type MonthlyChargePrice } from 'shared'
 
-import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
+import { formatCtPerKwh, formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { vatNote } from '@/lib/report-copy'
@@ -49,6 +49,7 @@ type Row = {
   chargedKwh: number | null
 }
 
+/** Nur für Achsenbeschriftungen — Werte stehen mit `formatCtPerKwh`. */
 const formatCt = (v: number): string =>
   `${new Intl.NumberFormat('de-AT', { maximumFractionDigits: 2 }).format(v)} ct`
 
@@ -68,17 +69,17 @@ function PriceTooltip({
       <p className="mb-1 font-medium text-ink">{label}</p>
       {row.charge != null && (
         <p className="text-text-muted">
-          Geladen zu: <Num className="font-medium text-ink">{formatCt(row.charge)}</Num>/kWh
+          Geladen zu: <Num className="font-medium text-ink">{formatCtPerKwh(row.charge)}</Num>
         </p>
       )}
       {row.discharge != null && (
         <p className="text-text-muted">
-          Entladen zu: <Num className="font-medium text-ink">{formatCt(row.discharge)}</Num>/kWh
+          Entladen zu: <Num className="font-medium text-ink">{formatCtPerKwh(row.discharge)}</Num>
         </p>
       )}
       {row.average != null && (
         <p className="text-text-muted">
-          Monatsdurchschnitt: <Num>{formatCt(row.average)}</Num>/kWh
+          Monatsdurchschnitt: <Num>{formatCtPerKwh(row.average)}</Num>
         </p>
       )}
       {row.chargedKwh != null && (
@@ -197,7 +198,7 @@ export function ChargePriceChart({
           />
           Geladen zu:{' '}
           <Num className="font-medium text-ink">
-            {overallCharge == null ? '—' : `${formatCt(overallCharge)}/kWh`}
+            {overallCharge == null ? '—' : formatCtPerKwh(overallCharge)}
           </Num>{' '}
           <span>
             über <Num>{formatKwh1Fixed(chargedKwh)}</Num> bezogen
@@ -211,7 +212,7 @@ export function ChargePriceChart({
           />
           Entladen zu:{' '}
           <Num className="font-medium text-ink">
-            {overallDischarge == null ? '—' : `${formatCt(overallDischarge)}/kWh`}
+            {overallDischarge == null ? '—' : formatCtPerKwh(overallDischarge)}
           </Num>{' '}
           <span>
             über <Num>{formatKwh1Fixed(dischargedKwh)}</Num> abgegeben

@@ -1,7 +1,7 @@
 import { displayedPriceBasis, VAT_INCLUSIVE_LABEL } from 'shared'
 import type { BatteryResultEntry, MonthlyChargePrice } from 'shared'
 
-import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
+import { formatCtPerKwh, formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import { dynamicTariffHintKind } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
@@ -253,17 +253,6 @@ function formatHour(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00 Uhr`
 }
 
-/**
- * Ct/kWh in der Schreibweise des Charts.
- *
- * ⚠ Wortgleich zum `formatCt` der Komponente (de-AT, höchstens zwei Nachkommastellen): die Zahlen
- * im Bild und die Zahlen daneben stehen im selben Blick, und zwei Rundungen derselben Grösse sähen
- * aus wie zwei Messungen. `lib/format.ts` führt keinen ct-Formatierer — ihn dort zu ergänzen wäre
- * eine Änderung an einem Modul, das der Bildschirm-Report ebenfalls liest.
- */
-function formatCtPerKwh(value: number): string {
-  return `${new Intl.NumberFormat('de-AT', { maximumFractionDigits: 2 }).format(value)} ct/kWh`
-}
 
 /**
  * Die Heatmap.

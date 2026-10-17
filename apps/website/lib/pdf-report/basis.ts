@@ -23,7 +23,7 @@ import {
   VAT_INCLUSIVE_LABEL,
 } from 'shared'
 
-import { formatDateOnly, formatEur, formatEur2, formatEurRate, formatHours, formatPercent } from '@/lib/format'
+import { formatCtPerKwh, formatDateOnly, formatEur, formatEur2, formatHours, formatPercent } from '@/lib/format'
 import {
   hasDemandChargeComponent,
   dynamicTariffHintKind,
@@ -929,7 +929,7 @@ function supplierVintage(
     )
   }
 
-  const markup = `${dynamicTariff.markupCtPerKwh.toLocaleString('de-AT')} ct/kWh netto`
+  const markup = `${formatCtPerKwh(dynamicTariff.markupCtPerKwh)} netto`
   // Gültigkeit und Fundstelle belegen die Vorbelegung des Projektlands — nur bei genau deren Konditionen;
   // ohne Land die AT-Vorgabe wie bisher.
   const preset = country ? DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY[country] : AWATTAR_HOURLY_AT_DYNAMIC
@@ -1315,8 +1315,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
         'Arbeitspreis',
         a.energyPriceCtPerKwh === null
           ? 'unbekannt'
-          : /* Ein Rechnungswert steht mit seinen Nachkommastellen da; Handangaben wie bisher auf Cent. */
-            `${(input.priceFromInvoice ? formatEurRate : formatEur2)(a.energyPriceCtPerKwh / 100)} / kWh`,
+          : formatCtPerKwh(a.energyPriceCtPerKwh),
         input.priceFromInvoice ? SUPPLIER_INVOICE_STATUS : SUPPLIER_STATUS,
       ]),
       dataRow('tariff_einspeiseverguetung', [
@@ -1325,7 +1324,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
           ? 'nicht verwendet (keine Einspeisedaten)'
           : a.einspeiseverguetungCtPerKwh === null
             ? 'nicht angegeben'
-            : `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
+            : formatCtPerKwh(a.einspeiseverguetungCtPerKwh),
         SUPPLIER_STATUS,
       ]),
       ...supplierFeeRow(input.analysis, input.baseFeeFromInvoice === true),

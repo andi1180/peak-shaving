@@ -643,9 +643,9 @@ Tarifkomponenten
 
  Abrechnungsmodell                   Jahreshöchstwert                 laut hinterlegtem Tarif Netz Test GmbH
 
- Arbeitspreis                        € 0,20 / kWh                     aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        20,00 ct/kWh                     aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  € 0,00 / kWh                     aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  0,00 ct/kWh                      aus Ihren Angaben (Energieseite)
 
  Grundgebühr Lieferant               keine Angabe                     nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
@@ -679,7 +679,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
  Lieferanten-Tarif              Arbeitspreis, Grundgebühr und                 Kundenrechnung: nicht erfasst.
                                 Einspeisevergütung der Energieseite.          Vergleichstarif Spot-Test — Aufschlag
-                                                                              auf den Börsenpreis: 1,2 ct/kWh netto,
+                                                                              auf den Börsenpreis: 1,20 ct/kWh netto,
                                                                               Grundgebühr € 9,90/Monat netto.
 
  Batterie
