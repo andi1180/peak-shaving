@@ -140,3 +140,19 @@ describe('Break-even-Band in halber Breite', () => {
     }
   })
 })
+
+describe('Break-even-Legende bei Stufenwechsel', () => {
+  const st = summary('jahr (Müldür)').storage!
+  const legendOf = (tierChange: boolean) =>
+    breakEvenLayoutOf(breakEvenBandOf({ ...st, tierChange })!, EXEC_SLOTS.breakEvenHalf).legend
+
+  it('Stufenwechsel → „Mit Kappung und Stufe", sonst exakt wie bisher', () => {
+    expect(legendOf(true)[0]!.text).toBe('Mit Kappung und Stufe')
+    expect(legendOf(false)[0]!.text).toBe('Mit Stromspitzen (Höchstwert)')
+  })
+
+  it('Platz: die Legende braucht nicht mehr Zeilen als bisher', () => {
+    const rows = (tierChange: boolean) => new Set(legendOf(tierChange).map((l) => l.row)).size
+    expect(rows(true)).toBeLessThanOrEqual(rows(false))
+  })
+})

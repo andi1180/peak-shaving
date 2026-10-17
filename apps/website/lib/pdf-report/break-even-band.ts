@@ -19,6 +19,8 @@ export type BreakEvenBand = {
   /** Ersparnis samt Stromspitzen (Höchstwert, wenn `upperBound`), sonst die ganze Ersparnis. */
   upper: BreakEvenLine
   upperBound: boolean
+  /** Der Speicher wechselt die Netzentgelt-Stufe — nur die Legende der oberen Linie. */
+  tierChange: boolean
   /** Allein durch günstiges Laden — nur, wenn die Seite dafür eine Rückzahlzeit nennt. */
   lower: BreakEvenLine | null
   /** Obere Kante der y-Achse. */
@@ -45,6 +47,7 @@ export function breakEvenBandOf(storage: ExecutiveSummaryStorage | null): BreakE
     subsidized: storage.hasSubsidy,
     upper,
     upperBound: storage.upperBound,
+    tierChange: storage.tierChange,
     lower,
     yMaxEur: Math.max(investmentEur, storage.savingPerYearEur * horizonYears) * 1.05,
   }
