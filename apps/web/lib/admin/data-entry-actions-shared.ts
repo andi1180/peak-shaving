@@ -53,7 +53,7 @@ export function statusOf(data: unknown): unknown {
  * ⚠ AB HIER: HELFER, DIE MEHRERE STATIONEN BRAUCHEN
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Sie standen bis zur Aufteilung in `data-entry-actions.ts` und wurden dort stationsübergreifend
- * benutzt (`formatMegabytes` in Lastgang/Batterie/PV, `AUSTRIA_TIME_ZONE` in Lastgang/Rechnung,
+ * benutzt (`formatMegabytes` in Lastgang/Batterie/PV, `AUSTRIA_TIME_ZONE` in Rechnung,
  * `PDF_MEDIA_TYPE` in Rechnung/Batterie/PV, `writeMeteringPointDraftFields` in Batterie/PV).
  *
  * ⚠ SIE KÖNNEN NICHT AUS EINER STATIONS-DATEI EXPORTIERT WERDEN. Die tragen `'use server'`, und
@@ -71,10 +71,9 @@ export function formatMegabytes(bytes: number): string {
 /**
  * Die Zeitzone, in der dieses Werkzeug rechnet — EIN Fundort für den Wert.
  *
- * Sie hat zwei Konsumenten mit verschiedenen Fragen: das Standardprofil braucht sie als
- * Engine-Parameter (s. den Kommentar direkt darunter), der Tarif-Lookup als Grundlage des
- * KALENDERTAGS, gegen den eine effektiv datierte Preisblatt-Zeile ausgewählt wird. Zwei Literale
- * liefen beim ersten Umbau auseinander, und die Abweichung wäre an beiden Stellen still.
+ * Konsument ist der Tarif-Lookup: Grundlage des KALENDERTAGS, gegen den eine effektiv datierte
+ * Preisblatt-Zeile ausgewählt wird. Das Standardprofil nimmt seine Zeitzone aus
+ * `COUNTRY_DISPLAY` (Projektland), nicht von hier.
  */
 export const AUSTRIA_TIME_ZONE = 'Europe/Vienna'
 

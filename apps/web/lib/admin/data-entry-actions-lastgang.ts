@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { generateStandardProfileMetadata, readLoadProfile } from 'extractors'
-import { MAX_PROJECT_DOCUMENT_BYTES, standardProfileYear } from 'shared'
+import { COUNTRY_DISPLAY, MAX_PROJECT_DOCUMENT_BYTES, standardProfileYear } from 'shared'
 import {
   claimDirectUpload,
   discardDirectUpload,
@@ -33,7 +33,6 @@ import {
 import type { AdminState } from './schema'
 import type { Json } from '@/db-types'
 import {
-  AUSTRIA_TIME_ZONE,
   FORBIDDEN,
   GENERIC,
   UNKNOWN_PROJECT,
@@ -510,7 +509,7 @@ export async function saveMeteringPointStandardProfileAction(
     annualConsumptionKwh,
     customerClass,
     year,
-    timeZone: STANDARD_PROFILE_TIME_ZONE,
+    timeZone: COUNTRY_DISPLAY[project.country].timeZone,
   })
 
   if (!generated.ok) {
@@ -641,19 +640,6 @@ export async function saveMeteringPointStandardProfileAction(
     success: `Standardprofil für ${year} erzeugt, gerechnet mit ${formatKwh(annualConsumptionKwh)} im Jahr.`,
   }
 }
-
-/**
- * Die Zeitzone der Tagesform eines erzeugten Profils.
- *
- * ⚠ Ein Pflichtparameter der Engine, ohne Vorgabewert — „eine stillschweigend angenommene wäre eine
- * zweite Wahrheit". Hier ist sie gesetzt statt erfragt: der Wizard ist der Admin-Weg für
- * österreichische Kunden, und eine Auswahl daneben wäre ein Feld, das in jedem realen Fall denselben
- * Wert trägt. ⚠ Dieselbe Zahl steht als `STANDARD_PROFILE_TIMEZONE` in
- * `apps/website/lib/constants.ts` — sie zusammenzulegen hiesse, den öffentlichen Rechner
- * anzufassen; laufen sie je auseinander, erzeugen die zwei Wege verschiedene Tagesverläufe.
- */
-
-const STANDARD_PROFILE_TIME_ZONE = AUSTRIA_TIME_ZONE
 
 /** Die drei Ablehnungsgründe einer Jahresverbrauchs-Eingabe, jeder mit eigener Auskunft. */
 function annualConsumptionMessage(reason: 'missing' | 'invalid' | 'too_large'): string {
