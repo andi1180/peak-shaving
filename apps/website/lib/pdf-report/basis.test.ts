@@ -266,7 +266,10 @@ const BATTERY_ANALYSIS: PdfReportAnalysis = {
   recommendation: { batteryId: 'ps-c60', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
 }
 
-function dataSourcesFor(provenance: PdfReportInput['tariffProvenance']) {
+function dataSourcesFor(
+  provenance: PdfReportInput['tariffProvenance'],
+  extra: Partial<PdfReportInput> = {},
+) {
   const input: PdfReportInput = {
     title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
     subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
@@ -277,6 +280,7 @@ function dataSourcesFor(provenance: PdfReportInput['tariffProvenance']) {
     tariffSource: TARIFF_SOURCE_UNTRACKED,
     tariffVintage: null,
     tariffProvenance: provenance,
+    ...extra,
   }
   return buildBasisChapter(input).dataSources
 }
@@ -1011,5 +1015,47 @@ describe('Datenqualität — Warnung „import_only ohne PV-Profil"', () => {
     const unknown = buildDataQuality(withWarning(), undefined)!.list!.items
     expect(unknown[0]).toContain('Falls Sie eine PV-Anlage haben')
     for (const text of [...withPv, ...unknown]) expect(text).not.toContain('import_only')
+  })
+})
+
+describe('Datenquellen — Gerätename ohne doppelten Hersteller', () => {
+  const deviceFor = (manufacturer: string, name: string) => {
+    const [entry] = BATTERY_ANALYSIS.perBattery
+    const analysis: PdfReportAnalysis = {
+      ...BATTERY_ANALYSIS,
+      perBattery: [{ ...entry!, battery: { ...entry!.battery, manufacturer, name } }],
+    }
+    const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] }, { analysis })
+    return table.rows.find((row) => row.key === 'battery_device')?.cells[0]
+  }
+
+  it('stellt den Hersteller nur voran, wenn der Name weder mit ihm beginnt noch ihn als Wort trägt', () => {
+    expect(deviceFor('Dyness', 'Kostal & Dyness Retrofit L')).toBe('Kostal & Dyness Retrofit L')
+    expect(deviceFor('Dyness', 'Stack 100')).toBe('Dyness Stack 100')
+    expect(deviceFor('Dyness', 'Dyness Stack 100')).toBe('Dyness Stack 100')
+    expect(deviceFor('Dyness', 'Dynessa X')).toBe('Dynessa X')
+  })
+})
+
+describe('Datenquellen — Vergleichstarif-Datum nur bei der Vorgabe des Projektlands', () => {
+  const AT_SENTENCE =
+    'Kundenrechnung: nicht erfasst. Vergleichstarif aWATTar, gültig ab 01.01.2025 — Fundstelle: '
+  const supplierFor = (extra: Partial<PdfReportInput>) =>
+    vintageOf(
+      dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] }, extra),
+      'tariff_supplier',
+    )
+
+  it('AT mit aWATTar-Vorgabe und unbekanntes Land bleiben wortgleich mit Datum', () => {
+    const unknown = supplierFor({})
+    expect(unknown.startsWith(AT_SENTENCE)).toBe(true)
+    expect(supplierFor({ country: 'AT' })).toBe(unknown)
+  })
+
+  it('DE ohne Vorgabe nennt weder Datum noch Fundstelle', () => {
+    expect(supplierFor({ country: 'DE' })).toBe(
+      'Kundenrechnung: nicht erfasst. Vergleichstarif aWATTar — Aufschlag auf den Börsenpreis: ' +
+        '1,5 ct/kWh netto, Grundgebühr €\u00a04,79/Monat netto.',
+    )
   })
 })

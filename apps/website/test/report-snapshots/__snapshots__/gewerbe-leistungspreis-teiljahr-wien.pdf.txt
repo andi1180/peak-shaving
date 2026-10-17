@@ -654,8 +654,8 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                                                            und 01.07.–31.07.2026
 
  Batterie
- Dyness Kostal & Dyness         Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
- Retrofit S                     Wirkungsgrad und Preis je kWh.             — Hardware-Listenpreis netto.
+ Kostal & Dyness Retrofit S     Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
+                                Wirkungsgrad und Preis je kWh.             — Hardware-Listenpreis netto.
                                                                            Installationspauschale (Richtwert),
                                                                            Preisstand 24.09.2026. Wirkungsgrad:
                                                                            Erfahrungswert, kein Datenblattwert.
