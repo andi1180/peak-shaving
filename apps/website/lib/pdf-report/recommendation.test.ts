@@ -535,6 +535,16 @@ describe('Zusammenfassung — was der empfohlene Speicher zusätzlich bringt', (
       `Der Tarifwechsel (${formatEur(switchEur)} über die ${tariff.coveredDays} gemessenen Tage)`,
     )
     expect(block.body).toContain('der Ladesteuerungs-Anteil ist auf ein Jahr hochgerechnet.')
+    expect(block.body).toContain('dass der Speicher jede Monatsspitze rechtzeitig kennt;')
+  })
+
+  it('bei Jahreshöchstwert spricht der Vorbehalt von der Jahresspitze', () => {
+    const analysis = partialYear(1091.307921)
+    analysis.assumptions = { ...analysis.assumptions, billingModel: 'annual_max' }
+    const body = buildStorageSummary(analysis)!.body
+
+    expect(body).toContain('dass der Speicher die Jahresspitze rechtzeitig kennt;')
+    expect(body).not.toContain('Monatsspitze')
   })
 
   it('ohne Weg 5 entsteht kein Block', () => {

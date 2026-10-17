@@ -23,6 +23,8 @@ export type PeakShavingChartData = {
   points: PeakShavingPoint[]
   /** Alle Viertelstunden über der Schwelle, vor der Begrenzung. */
   totalPoints: number
+  /** `annual_max`: eine Schwelle fürs ganze Jahr — die Bildunterschrift spricht dann nicht von Monaten. */
+  annualMax: boolean
 }
 
 /**
@@ -39,7 +41,8 @@ export function peakShavingChartData(
   if (caps.length === 0) return null
 
   // „Belegt" wie im Lastgang-Chart: lokaler Monat mit mindestens einem Messwert.
-  const perMonth = effectiveBillingModel(analysis.assumptions.billingModel) !== 'annual_max' && caps.length > 1
+  const annualMax = effectiveBillingModel(analysis.assumptions.billingModel) === 'annual_max'
+  const perMonth = !annualMax && caps.length > 1
   const tz = loadProfile.timezoneMeta
   const slots = loadProfile.readings.map((r) => (perMonth ? localMonthIndex(Date.parse(r.ts), tz) : 0))
   const covered = new Set(slots)
@@ -73,7 +76,7 @@ export function peakShavingChartData(
           .slice(0, MAX_PEAK_SHAVING_POINTS)
           .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
       : above
-  return { capKwByPeriod, capSegments, points, totalPoints: above.length }
+  return { capKwByPeriod, capSegments, points, totalPoints: above.length, annualMax }
 }
 
 /** Die Bildunterschrift — die Anzahl steht immer dabei, die Begrenzung nur, wenn sie greift. */
@@ -84,8 +87,8 @@ export function peakShavingChartCaption(data: PeakShavingChartData): string {
       ? ` Gezeichnet sind die ${new Intl.NumberFormat('de-AT').format(data.points.length)} höchsten.`
       : ''
   return (
-    'Rote Punkte: Viertelstunden, die über der Kappschwelle ihres Monats lagen — der Speicher ' +
-    'begrenzt sie auf die Schwelle. Die Linie zeigt die Schwelle je Monat. ' +
+    `Rote Punkte: Viertelstunden, die über der Kappschwelle${data.annualMax ? '' : ' ihres Monats'} lagen — der Speicher ` +
+    `begrenzt sie auf die Schwelle. Die Linie zeigt die Schwelle${data.annualMax ? '' : ' je Monat'}. ` +
     `${count} Viertelstunden liegen über der Schwelle.${limited}`
   )
 }
