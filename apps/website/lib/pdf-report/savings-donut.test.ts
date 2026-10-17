@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatEur } from '@/lib/format'
 
 import {
   buildSavingsDonut,
@@ -78,8 +79,9 @@ describe('Ringdiagramm „So setzt sich Ihre Ersparnis zusammen"', () => {
     expect(donut.storageEur).toBe(1747)
     expect(donut.storagePercent).toBe(100)
     expect(donut.negatives).toEqual([{ key: 'switch', label: 'Tarifwechsel', eur: -107 }])
-    expect(plain(savingsDonutNegativeText('Tarifwechsel', -107))).toBe(
-      'Tarifwechsel allein: −€ 107 pro Jahr, in der Gesamtzahl berücksichtigt.',
+    // Dieselbe Schreibweise wie jeder andere negative Betrag im Report.
+    expect(savingsDonutNegativeText('Tarifwechsel', -107)).toBe(
+      `Tarifwechsel allein: ${formatEur(-107)} pro Jahr, in der Gesamtzahl berücksichtigt.`,
     )
   })
 
