@@ -43,7 +43,7 @@ export function totalAmortizationExtra(
   return {
     line: `Gesamtmaßnahme: ${earliest}${aboutDuration(total.years)}`,
     note:
-      'Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition ' +
+      `Mit Tarifwechsel, Ladesteuerung ${summary!.storage?.tierChange ? 'sowie Kappung und Stufenwechsel' : 'und Spitzenkappung'} zusammen ist die Investition ` +
       `${earliest}nach ${aboutDuration(total.years, true)} amortisiert. ` +
       'Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich ' +
       `${earliest}in ${formatYears(storageYears)}n.`,

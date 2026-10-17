@@ -17,11 +17,11 @@ import { CHART_COLORS, PDF_COLORS } from './theme'
  * `buildSavingsDonut` (Tarifwechsel, günstig laden, Spitzen) als nativer Ring mit Legende.
  * Farben wie die übrigen Diagramme der Seite: aWATTar-Balken, empfohlener Balken, Lastgang-Punkte.
  */
-const labelOf = (key: SavingsDonutSegmentKey, tariffName: string): string =>
+const labelOf = (key: SavingsDonutSegmentKey, tariffName: string, tierChange: boolean): string =>
   ({
     switch: `Wechsel zu ${tariffName}`,
     control: 'Speicher lädt günstig',
-    peak: 'Weniger Spitzen (Höchstwert)',
+    peak: tierChange ? 'Weniger Spitzen und günstigere Netzstufe' : 'Weniger Spitzen (Höchstwert)',
   })[key]
 const COLORS: Record<SavingsDonutSegmentKey, string> = {
   switch: CHART_COLORS.seriesSoft,
@@ -70,7 +70,7 @@ export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
     const sweep = (s.eur / positiveEur) * 360
     const segment = {
       key: s.key,
-      label: labelOf(s.key, tariffName),
+      label: labelOf(s.key, tariffName, st.tierChange),
       eur: s.eur,
       amount: formatEur(s.eur),
       color: COLORS[s.key],
@@ -86,7 +86,7 @@ export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
     totalEur: donut.totalEur,
     segments,
     negativeNotes: donut.negatives.map((n) =>
-      savingsDonutNegativeText(labelOf(n.key, tariffName), n.eur),
+      savingsDonutNegativeText(labelOf(n.key, tariffName, st.tierChange), n.eur),
     ),
   }
 }

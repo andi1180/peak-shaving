@@ -23,6 +23,7 @@ import type { LoadInput } from './executive-summary-load-chart'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
+import { tierChangesWithStorage } from './tier-change'
 import { recommendedEntryOf, summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildWaysChapter } from './ways'
@@ -61,6 +62,8 @@ export type ExecutiveSummaryStage = {
 
 export type ExecutiveSummaryStorage = {
   name: string
+  /** Der Speicher wechselt die Netzentgelt-Stufe (`tierChangesWithStorage`) — nur Beschriftung. */
+  tierChange: boolean
   usableKwh: number
   investment: ReturnType<typeof displayedInvestmentOf>
   hasSubsidy: boolean
@@ -222,6 +225,7 @@ function storageOf(
       : null
   return {
     name: b.name,
+    tierChange: tierChangesWithStorage(input.analysis.current, entry),
     usableKwh: b.usableCapacityKwh,
     investment: displayedInvestmentOf(entry, input.analysis.assumptions.subsidyPrograms),
     hasSubsidy: hasEnteredSubsidy(entry),

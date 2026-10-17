@@ -10,6 +10,7 @@ import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildSavingsDonut, type SavingsDonut } from './savings-donut'
+import { tierChangesWithStorage } from './tier-change'
 
 /**
  * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr", direkt hinter den Wegen.
@@ -135,6 +136,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
 
   /* Zeigen die Seiten davor für dieses Gerät schon die Jahreszahl, gibt es keine Abweichung zu erklären. */
   const recommended = recommendedEntryOf(analysis)
+  const tierChange = tierChangesWithStorage(analysis.current, recommended)
   const noDeviation =
     recommended !== undefined && headlineStorageOf(analysis, recommended, input).basis === 'annual'
 
@@ -181,7 +183,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     ...(peakEur > 0
       ? [
           {
-            label: 'Spitzenkappung durch den Speicher (Obergrenze)',
+            label: `${tierChange ? 'Kappung und Stufenwechsel' : 'Spitzenkappung'} durch den Speicher (Obergrenze)`,
             value: formatEur(peakEur),
             tone: 'positive' as const,
           },
@@ -244,7 +246,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
 
   return {
     statements: noDeviation ? [basis, costs, overview] : [basis, costs, overview, deviation],
-    donut: buildSavingsDonut({ switchEur, controlEur, peakEur }),
+    donut: buildSavingsDonut({ switchEur, controlEur, peakEur }, tierChange),
     assumption,
     totalSavingEur,
   }
