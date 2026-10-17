@@ -794,9 +794,10 @@ Report-Snapshot `gewerbe-leistungspreis-teiljahr-jahr-wien` (Render-Anfrage + `a
 `projectAnnualTariffComparison` (D6 Teil 2b, `annualProjection`) — die beiden Contract-Felder
 beantworten verschiedene Fragen und sind **nicht** gegeneinander austauschbar.
 
-**(e) Weg 5 steht im Ersparnis-Kasten, nicht in der Kostentabelle**, und der Kasten ist die **einzige
-Stelle im ganzen Report, an der Weg 5 addiert werden darf** (dort sind alle Zahlen Jahresgrössen —
-im Kapitel davor ausdrücklich nicht). **Zusammenfassung (D8/D6 e revidiert 16.10.2026):** gibt es
+**(e) Weg 5 steht im Ersparnis-Kasten, nicht in der Kostentabelle**, und Weg 5 (Spitzenkappung bzw.
+Netzentgelt aus Leistung/Stufe) wird **nur im Ersparnis-Kasten des Jahreskapitels, auf der Vorderseite
+(„Auf einen Blick") und in der Zusammenfassung (wenn eine Vorderseite vorhanden ist) addiert, sonst
+nirgends** (dort sind alle Zahlen Jahresgrössen — im Kapitel davor ausdrücklich nicht). **Zusammenfassung (D8/D6 e revidiert 16.10.2026):** gibt es
 eine Vorderseite, zeigt „Mögliche Ersparnis" deren Gesamtzahl (`header.savingPerYearEur`) mit
 Aufschlüsselung Tarifwechsel / Ladesteuerung / Netzentgelt (Leistung/Stufe); ohne Vorderseite oder
 bei Ersparnis vorne ≤ 0 bleibt die Spanne über den gemessenen Zeitraum. Ein Test pinnt die
