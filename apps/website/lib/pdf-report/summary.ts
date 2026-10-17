@@ -36,6 +36,7 @@ import {
 import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
 import type { ReportBuildContext } from './context'
 import type { ExecutiveSummary } from './executive-summary'
+import { feedInCreditEur } from './feed-in-credit'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
@@ -122,8 +123,8 @@ export type ReportSummary = {
  */
 export type SummaryInput = {
   analysis: PdfReportAnalysis
-  /** Gelesen wird ausschliesslich die HERKUNFT — s. `buildStandardProfileNotice`. */
-  loadProfile: Pick<LoadProfile, 'source'>
+  /** Die HERKUNFT (`buildStandardProfileNotice`); Messwerte nur für die Einspeisevergütung der Kopfzahl. */
+  loadProfile: Pick<LoadProfile, 'source'> & Partial<Pick<LoadProfile, 'readings' | 'intervalMinutes'>>
   estimatedPv?: EstimatedPvSummary
   /** `undefined` = die Frage wurde nie beantwortet, und das ist NICHT `false` (s. `types.ts`). */
   hasPv?: boolean
@@ -486,6 +487,43 @@ function annualTotalKpi(total: SummaryAnnualTotal, note: string | undefined): Su
   }
 }
 
+/**
+ * „Ihre Stromkosten heute" mit Vorderseite: deren Jahreswert „Ihr Tarif heute", übernommen. Die
+ * Einspeisevergütung steckt darin als Abzug (Engine) und wird mit demselben Faktor aufs Jahr gebracht.
+ */
+export type SummaryCostTodayYear = {
+  eur: number
+  basis: ExecutiveSummary['header']['basis']
+  measuredDays: number
+  /** Gegengerechnete Einspeisevergütung pro Jahr; 0 ohne Einspeisung und bei Basis `projected`. */
+  feedInCreditPerYearEur: number
+}
+
+export function summaryCostTodayYearOf(
+  input: SummaryInput,
+  executiveSummary: ExecutiveSummary | null | undefined,
+): SummaryCostTodayYear | null {
+  const front = executiveSummary
+  if (!front || front.todayCostPerYearEur === null || !summaryWaysOf(input.analysis)) return null
+  const { basis, measuredDays } = front.header
+  const { readings, intervalMinutes } = input.loadProfile
+  const credit =
+    readings && intervalMinutes !== undefined
+      ? feedInCreditEur(
+          { readings, intervalMinutes },
+          input.analysis.assumptions.einspeiseverguetungCtPerKwh,
+        )
+      : 0
+  // Faktor wie `measuredYearlyWays` (executive-summary.ts); `projected` stammt aus dem Jahreslauf ohne PV.
+  const factor = basis === 'annual' ? 1 : basis === 'linear' ? 365 / measuredDays : 0
+  return {
+    eur: front.todayCostPerYearEur,
+    basis,
+    measuredDays,
+    feedInCreditPerYearEur: credit * factor,
+  }
+}
+
 /** Die Wege, auf denen im gemessenen Zeitraum tatsächlich etwas zu sparen war. */
 function positiveWays(ways: SummaryWays): SummaryWay[] {
   return ways.ways.filter((way) => way.eur > 0)
@@ -507,18 +545,27 @@ export function buildSummaryKpis(
   ways: SummaryWays,
   gridProfileContainsPv = false,
   annualTotal: SummaryAnnualTotal | null = null,
+  costYear: SummaryCostTodayYear | null = null,
 ): SummaryKpi[] {
-  const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
+  const price = displayedPriceLabel(analysis)
+  const days =
+    costYear && costYear.basis !== 'annual'
+      ? `pro Jahr, hochgerechnet aus ${costYear.measuredDays} gemessenen Tagen, ${price}`
+      : `über ${ways.coveredDays} gemessene Tage, ${price}`
+  const feedIn =
+    costYear && costYear.feedInCreditPerYearEur > 0
+      ? `, nach Abzug Ihrer Einspeisevergütung (ca. ${formatEur(costYear.feedInCreditPerYearEur)} pro Jahr)`
+      : ''
   const kpis: SummaryKpi[] = [
     {
       id: 'cost_today',
-      value: formatEur(ways.costTodayEur),
+      value: formatEur(costYear ? costYear.eur : ways.costTodayEur),
       caption: [
         // Passt in eine Zeile (145,7 pt bei 8,5 pt Inter, Zelle 228,8 pt).
         gridProfileContainsPv ? 'Ihre Stromkosten heute (Netzbezug)' : 'Ihre Stromkosten heute',
-        hasDemandChargeComponent(analysis.current)
+        (hasDemandChargeComponent(analysis.current)
           ? `${days}, ${withoutDemandCharge(analysis.current)}`
-          : days,
+          : days) + feedIn,
       ],
       tone: 'ink',
     },
@@ -1143,10 +1190,17 @@ export function buildReportSummary(
   /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
   const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
   const annualTotal = summaryAnnualTotalOf(analysis, context?.executiveSummary)
+  const costYear = summaryCostTodayYearOf(input, context?.executiveSummary)
 
   return {
     kpis: ways
-      ? buildSummaryKpis(analysis, ways, input.gridProfileContainsPv === true, annualTotal)
+      ? buildSummaryKpis(
+          analysis,
+          ways,
+          input.gridProfileContainsPv === true,
+          annualTotal,
+          costYear,
+        )
       : unknownWays
         ? buildUnknownTariffKpis(analysis, unknownWays)
         : [],

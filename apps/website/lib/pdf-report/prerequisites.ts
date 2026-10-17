@@ -177,8 +177,8 @@ export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: bool
 
 /**
  * ⚠ WIEDERVERWENDET, NICHT NEU GERECHNET: `summaryWaysOf` ist dieselbe Funktion, aus der die
- * Kopfzahl der Zusammenfassung (`buildSummaryKpis`) entsteht. `costTodayEur` hier und dort sind
- * damit strukturell derselbe Wert, nicht nur zufällig gleich.
+ * Kopfzahl der Zusammenfassung (`buildSummaryKpis`) entsteht. Hier steht immer der gemessene
+ * Zeitraum; die Kopfzahl zeigt mit Vorderseite deren Jahreswert (`summaryCostTodayYearOf`).
  */
 export function buildConsumptionTodayStatement(
   analysis: PdfReportAnalysis,
