@@ -191,9 +191,14 @@ function waysSentence(s: ExecutiveSummary): string {
     recommended.id === 'spot-storage'
       ? `Mit ${spotName(s)} und einem Speicher, der günstig lädt,`
       : `Mit dem Wechsel zu ${recommended.id === 'comparison' ? comparisonTarget(recommended) : spotName(s)}`
-  const fee = s.hasLeistungspreis ? ' — ohne Spitzengebühr' : ''
+  const tierChange = s.storage?.tierChange === true
+  const fee = s.hasLeistungspreis
+    ? tierChange
+      ? ' — ohne Netzentgelt aus Leistung und Stufe'
+      : ' — ohne Spitzengebühr'
+    : ''
   const peak = s.storage?.upperBound
-    ? `; deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu`
+    ? `; ${tierChange ? 'dessen' : 'deren'} Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu`
     : ''
   if (s.todayCostPerYearEur === null) {
     const spot = s.ways.find((way) => way.id === 'spot')!

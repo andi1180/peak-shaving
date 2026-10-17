@@ -67,16 +67,21 @@ export function largestRemainderPercents(values: readonly number[]): number[] {
  * stehen in `negatives` und sind in der Ringmitte verrechnet, Anteile = 0 € entfallen; Prozente
  * beziehen sich auf die Summe der positiven Anteile. `null` nur, wenn kein Anteil > 0 € bleibt.
  */
-export function buildSavingsDonut(parts: {
-  switchEur: number
-  controlEur: number
-  peakEur: number
-}): SavingsDonut | null {
+export function buildSavingsDonut(
+  parts: {
+    switchEur: number
+    controlEur: number
+    peakEur: number
+  },
+  /** Der Speicher wechselt die Netzentgelt-Stufe — nur die Beschriftung des Leistungs-Anteils. */
+  tierChange = false,
+): SavingsDonut | null {
   const { switchEur, controlEur, peakEur } = parts
+  const peakName = tierChange ? 'Kappung und Stufenwechsel' : 'Spitzenkappung'
   const all: SavingsDonutNegative[] = [
     { key: 'switch', label: 'Tarifwechsel', eur: switchEur },
     { key: 'control', label: 'Ladesteuerung', eur: controlEur },
-    { key: 'peak', label: 'Spitzenkappung (Obergrenze)', eur: peakEur },
+    { key: 'peak', label: `${peakName} (Obergrenze)`, eur: peakEur },
   ]
   const raw = all.filter((s) => s.eur > 0)
   if (raw.length === 0) return null
@@ -102,7 +107,7 @@ export function buildSavingsDonut(parts: {
     storagePercent,
     caption:
       `Davon durch den Speicher: ${formatEur(storageEur)} (${storagePercent} %).` +
-      (peakEur > 0 ? ' Spitzenkappung ist eine Obergrenze.' : ''),
+      (peakEur > 0 ? ` ${peakName} ${tierChange ? 'sind' : 'ist'} eine Obergrenze.` : ''),
   }
 }
 

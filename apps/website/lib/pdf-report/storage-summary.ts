@@ -11,6 +11,7 @@ import { headlineStorageOf } from './headline-storage'
 import { aboutDuration, totalAmortizationOf } from './total-amortization'
 import type { PdfReportAnalysis } from './types'
 import { buildWaysChapter } from './ways'
+import { TIER_CHANGE_SHARE_LABEL, tierChangesWithStorage } from './tier-change'
 
 export const STORAGE_SUMMARY_ID = 'storage_result'
 
@@ -59,6 +60,7 @@ export function buildStorageSummary(
   const tariffSwitch = summaryWays?.ways.find((way) => way.id === 'tariff_switch')
   const days = control.coveredDays
   const totalAmortization = executiveSummary ? totalAmortizationOf(executiveSummary) : null
+  const tierChange = tierChangesWithStorage(analysis.current, entry)
 
   return {
     id: STORAGE_SUMMARY_ID,
@@ -73,7 +75,10 @@ export function buildStorageSummary(
             }
           : {}),
       }),
-      row('Kappung der Lastspitzen', formatEur(headline.spitzenEur)),
+      row(
+        tierChange ? TIER_CHANGE_SHARE_LABEL : 'Kappung der Lastspitzen',
+        formatEur(headline.spitzenEur),
+      ),
       row('Zusammen pro Jahr', formatEur(headline.savingPerYearEur), {
         hint: 'Beträge gerundet',
         total: true,
@@ -82,7 +87,7 @@ export function buildStorageSummary(
       ...(totalAmortization
         ? [
             row(
-              'Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)',
+              `Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, ${tierChange ? 'Kappung und Stufenwechsel' : 'Spitzenkappung'})`,
               aboutDuration(totalAmortization.years),
             ),
           ]
@@ -94,7 +99,7 @@ export function buildStorageSummary(
           'gemessenen Tage) ' +
           'wirkt auch ohne Speicher und ist in diesen Zahlen nicht enthalten. '
         : '') +
-      'Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er voraussetzt, ' +
+      `Vorausberechnung, keine Zusage: Der ${tierChange ? 'Anteil aus Kappung und Stufenwechsel' : 'Kappungs-Anteil'} ist eine Obergrenze, weil er voraussetzt, ` +
       'dass der Speicher jede Monatsspitze rechtzeitig kennt' +
       (annualized ? '; der Ladesteuerungs-Anteil ist auf ein Jahr hochgerechnet.' : '.'),
   }

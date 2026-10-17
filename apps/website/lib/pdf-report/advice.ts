@@ -29,6 +29,7 @@ import {
 } from './summary'
 import type { PdfReportInput } from './types'
 import { headlineStorageOf } from './headline-storage'
+import { tierChangesWithStorage } from './tier-change'
 
 /**
  * Das Kapitel „Unser Vorschlag", zwischen „Methodik & Vorbehalte" und „Annahmen und
@@ -151,7 +152,7 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
       title: 'Wollen Sie das Maximum',
       text:
         `${controlledLabel} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage. ` +
-        `Dazu kommt die Kappung Ihrer Lastspitzen mit dem Speicher (${recommended.battery.name}, ` +
+        `${tierChangesWithStorage(input.analysis.current, recommended) ? 'Dazu kommen Kappung und Stufenwechsel' : 'Dazu kommt die Kappung Ihrer Lastspitzen'} mit dem Speicher (${recommended.battery.name}, ` +
         `Investition ${formatEur(recommended.totalInvestment)}): ` +
         `${formatEur(headline.spitzenEur)} pro Jahr, unabhängig vom Stromvertrag ` +
         'und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt das ' +

@@ -64,7 +64,8 @@ Spot-Test mit Speicher, der günstig lädt
 
 
 Mit Spot-Test und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 39.166 auf rund
-€ 27.143 — ohne Spitzengebühr; deren Einsparung (bis zu € 454) kommt hinzu.
+€ 27.143 — ohne Netzentgelt aus Leistung und Stufe; dessen Einsparung (bis zu € 454) kommt
+hinzu.
 
 
    Ihr Speicher                                                     Woher die Ersparnis kommt
@@ -73,8 +74,8 @@ Mit Spot-Test und einem Speicher, der günstig lädt, sinken Ihre Kosten von run
        Mit Stromspitzen (Höchstwert)                                           bis zu               Speicher lädt günstig
        Nur günstiges Laden                                                                          € 209
                                                                            € 12.478
-    Investition € 5.000      ca. 7,5 Jahre                                                          Weniger Spitzen
-                                                                                                    (Höchstwert)
+    Investition € 5.000      ca. 7,5 Jahre                                                          Weniger Spitzen und
+                                                                                                    günstigere Netzstufe
                                                                                                     € 454
 
 
@@ -175,18 +176,19 @@ Was der empfohlene Speicher zusätzlich bringt
 
  Ladesteuerung (Spot-Test)                                                                                          € 209
 
- Kappung der Lastspitzen                                                                                            € 454
+ Kappung und Stufenwechsel                                                                                          € 454
 
  Zusammen pro Jahr                                                                                                  € 663
  Beträge gerundet
 
  Amortisation                                                                                                     7,5 Jahre
 
- Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                                 ca. 0,4 Jahre
+ Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Kappung und                                     ca. 0,4 Jahre
+ Stufenwechsel)
 
 Der Tarifwechsel (€ 11.815 über die 365 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
-Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er
-voraussetzt, dass der Speicher jede Monatsspitze rechtzeitig kennt.
+Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Anteil aus Kappung und Stufenwechsel ist
+eine Obergrenze, weil er voraussetzt, dass der Speicher jede Monatsspitze rechtzeitig kennt.
 
 
 Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".
@@ -324,7 +326,7 @@ Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag entscheiden, hinzu.
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 7 von 18
-      COOLiN ENERGY         Referenzfall DE Gewerbe
+      COOLiN ENERGY        Referenzfall DE Gewerbe
 
 
 
@@ -335,22 +337,23 @@ Welches Gerät — und was es kostet.
 Unsere Empfehlung: Testspeicher mittel
 7,5 Jahre bis sich die Investition von € 5.000 bezahlt gemacht hat
 Gesamtmaßnahme: frühestens ca. 0,4 Jahre
-Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition frühestens nach ca. 0,4 Jahren
-amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in 7,5 Jahren.
+Mit Tarifwechsel, Ladesteuerung sowie Kappung und Stufenwechsel zusammen ist die Investition frühestens nach ca. 0,4
+Jahren amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in
+7,5 Jahren.
 
-    Speicher (5 kW / 10 kWh)                                                                                        € 5.000
+    Speicher (5 kW / 10 kWh)                                                                                    € 5.000
 
-    Gesamtinvestition                                                                                               € 5.000
+    Gesamtinvestition                                                                                           € 5.000
 
-    Ersparnis pro Jahr                                                                                                 € 663
+    Ersparnis pro Jahr                                                                                             € 663
 
-    Netto über 10 Jahre                                                                                              € 1.627
+    Netto über 10 Jahre                                                                                          € 1.627
 
-    Kapp-Schwelle                                                                                                     44 kW
+    Kapp-Schwelle                                                                                                 44 kW
 
-    Abgerechneter Leistungswert heute                                                                                 49 kW
+    Abgerechneter Leistungswert heute                                                                             49 kW
 
-    Mit dem Speicher                                                                                                  44 kW
+    Mit dem Speicher                                                                                              44 kW
 
 1       Die wirtschaftlichste Option
         Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
@@ -380,7 +383,7 @@ für die Zukunft ist die Zahl nicht.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                     www.coolin.at · Seite 8 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 8 von 18
     COOLiN ENERGY          Referenzfall DE Gewerbe
 
 
@@ -534,8 +537,8 @@ Was wir vorschlagen
       Tage, ohne Umstellung an Speicher oder Verbrauch.
 
 2     Wollen Sie das Maximum
-      Spot-Test mit Ladesteuerung — € 12.023 weniger über dieselben 365 Tage. Dazu kommt die
-      Kappung Ihrer Lastspitzen mit dem Speicher (Testspeicher mittel, Investition € 5.000): € 454 pro Jahr,
+      Spot-Test mit Ladesteuerung — € 12.023 weniger über dieselben 365 Tage. Dazu kommen Kappung
+      und Stufenwechsel mit dem Speicher (Testspeicher mittel, Investition € 5.000): € 454 pro Jahr,
       unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt
       das € 663 pro Jahr und eine Amortisation von 7,5 Jahren — eine Vorausberechnung, keine Zusage.
       Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.
@@ -547,7 +550,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 13 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 13 von 18
     COOLiN ENERGY          Referenzfall DE Gewerbe
 
 
