@@ -43,6 +43,7 @@ describe('combineImportWithHourlyExport', () => {
     const { netSigned15, diagnostics } = combineImportWithHourlyExport({
       import15: import15('2026-06-01T10:00:00Z', 8, (i) => values[i]!),
       exportHourly: hourly('2026-06-01T10:00:00Z', 2, (h) => (h === 0 ? 2 : 1)),
+      exportCapKw: 10,
     })
     expect(netSigned15.map((r) => r.gridPowerKw)).toEqual([-2, -2, -2, -2, 3.25, 1.5, -4, 2.125])
     expect(diagnostics).toMatchObject({
@@ -53,15 +54,86 @@ describe('combineImportWithHourlyExport', () => {
     })
   })
 
-  it('Stunde ohne Nullslot: Einspeisung verworfen und gemeldet, Slots bitgleich', () => {
-    const values = [1.1, 2.2, 3.3, 4.4]
+  it('Nullslot gedeckelt, Überlauf auf die Bezugsslots: 0/5/5/5 + 40 kWh → −100/−15/−15/−15', () => {
+    const values = [0, 5, 5, 5]
     const { netSigned15, diagnostics } = combineImportWithHourlyExport({
       import15: import15('2026-06-01T10:00:00Z', 4, (i) => values[i]!),
-      exportHourly: hourly('2026-06-01T10:00:00Z', 1, () => 3),
+      exportHourly: hourly('2026-06-01T10:00:00Z', 1, () => 40),
+      exportCapKw: 100,
     })
-    expect(netSigned15.map((r) => r.gridPowerKw)).toEqual(values)
-    expect(diagnostics.droppedExportKwh).toBe(3)
-    expect(diagnostics.droppedExportHours).toBe(1)
+    // Die alte Regel hätte die ganze Stunde in den einen Nullslot gelegt: −40 / 0,25 = −160 kW.
+    expect(-40 / (1 * 0.25)).toBe(-160)
+    expect(netSigned15.map((r) => r.gridPowerKw)).toEqual([-100, -15, -15, -15])
+    expect(diagnostics).toMatchObject({
+      assignedExportKwh: 40,
+      droppedExportKwh: 0,
+      overCapExportKwh: 0,
+    })
+  })
+
+  it('Stunde ohne Nullslot (früher verworfen): 5/5/5/5 + 40 kWh → −35 × 4', () => {
+    const { netSigned15, diagnostics } = combineImportWithHourlyExport({
+      import15: import15('2026-06-01T10:00:00Z', 4, () => 5),
+      exportHourly: hourly('2026-06-01T10:00:00Z', 1, () => 40),
+      exportCapKw: 100,
+    })
+    expect(netSigned15.map((r) => r.gridPowerKw)).toEqual([-35, -35, -35, -35])
+    expect(diagnostics.droppedExportHours).toBe(0)
+  })
+
+  it('nur Nullslots unter der Grenze: 0/0/0/0 + 40 kWh → −40 × 4, wie die alte Regel', () => {
+    const { netSigned15 } = combineImportWithHourlyExport({
+      import15: import15('2026-06-01T10:00:00Z', 4, () => 0),
+      exportHourly: hourly('2026-06-01T10:00:00Z', 1, () => 40),
+      exportCapKw: 100,
+    })
+    expect(netSigned15.map((r) => r.gridPowerKw)).toEqual(Array(4).fill(-40 / (4 * 0.25)))
+  })
+
+  it('ohne Grenze gilt die größte Stunden-Einspeisung der Reihe als Grenze', () => {
+    // Grenze = 8 kW (Stunde 1: 8 kWh). Stunde 0: 1 kWh → Nullslot −4 kW, Bezugsslots unberührt;
+    // Stunde 1: Nullslot −8 kW, Rest 6 kWh auf die drei Bezugsslots, je 1 − 8 = −7 kW.
+    const values = [0, 1, 1, 1, 0, 1, 1, 1]
+    const { netSigned15, diagnostics } = combineImportWithHourlyExport({
+      import15: import15('2026-06-01T10:00:00Z', 8, (i) => values[i]!),
+      exportHourly: hourly('2026-06-01T10:00:00Z', 2, (h) => (h === 0 ? 1 : 8)),
+    })
+    expect(netSigned15.map((r) => r.gridPowerKw)).toEqual([-4, 1, 1, 1, -8, -7, -7, -7])
+    expect(diagnostics.overCapExportKwh).toBe(0)
+  })
+
+  it('Grenze zu klein: Energie bleibt erhalten, Überlauf ohne Grenze verteilt und gezählt', () => {
+    const { netSigned15, diagnostics } = combineImportWithHourlyExport({
+      import15: import15('2026-06-01T10:00:00Z', 4, (i) => (i === 0 ? 0 : 2)),
+      exportHourly: hourly('2026-06-01T10:00:00Z', 1, () => 40),
+      exportCapKw: 10,
+    })
+    const kwh = netSigned15.reduce((s, r, i) => s + ((i === 0 ? 0 : 2) - r.gridPowerKw) * 0.25, 0)
+    expect(Math.abs(kwh - 40)).toBeLessThan(1e-9)
+    expect(diagnostics.overCapExportHours).toBe(1)
+    // Nullslot 10 kW + Bezugsslots bis −10 kW = 2,5 + 3 × 3 kWh = 11,5 kWh unter der Grenze.
+    expect(diagnostics.overCapExportKwh).toBeCloseTo(28.5, 9)
+  })
+
+  it('Energie je Stunde bleibt erhalten — alle Verteilungsfälle', () => {
+    const bezug = (i: number) => [0, 0, 3, 7, 1, 0, 9, 4, 6, 6, 6, 6, 0, 0, 0, 0][i % 16]!
+    const input = import15('2026-06-01T00:00:00Z', 24 * 4, bezug)
+    const exportHourly = hourly('2026-06-01T00:00:00Z', 24, (h) => [0.3, 7.7, 41, 13.13, 2][h % 5]!)
+    for (const exportCapKw of [undefined, 3, 12, 100]) {
+      const { netSigned15 } = combineImportWithHourlyExport({
+        import15: input,
+        exportHourly,
+        exportCapKw,
+      })
+      for (let h = 0; h < 24; h++) {
+        let kwh = 0
+        for (let q = 0; q < 4; q++) {
+          const i = h * 4 + q
+          kwh += (input.readings[i]!.gridPowerKw - netSigned15[i]!.gridPowerKw) * 0.25
+        }
+        expect(Math.abs(kwh - exportHourly[h]!.kwh)).toBeLessThan(1e-9)
+      }
+    }
   })
 
   it('positive Bezugswerte bitgleich, Energiebilanz exakt, fehlende Einspeisestunde = 0 und gezählt', () => {
@@ -77,6 +149,7 @@ describe('combineImportWithHourlyExport', () => {
     const { netSigned15, diagnostics } = combineImportWithHourlyExport({
       import15: input,
       exportHourly,
+      exportCapKw: 100,
     })
 
     input.readings.forEach((r, i) => {

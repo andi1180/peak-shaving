@@ -16,6 +16,9 @@ export type CombineImportWithHourlyExportInput = {
   exportHourly: readonly HourlyEnergyReading[]
   /** Netzbezug je Stunde aus derselben Quelle wie die Einspeisung — nur Gegenprobe. */
   importHourly?: readonly HourlyEnergyReading[]
+  /** Größte Einspeiseleistung je Viertelstunde (kW), z. B. die Nennleistung der Anlage. Fehlt sie
+   *  oder ist sie ≤ 0, gilt die größte Stunden-Einspeisung der Reihe (kWh / 1 h). */
+  exportCapKw?: number
 }
 
 export type HourOffset = -1 | 0 | 1
@@ -34,11 +37,16 @@ export type CombineDiagnostics = {
   /** Überlappung beider Reihen, auf volle Stunden geschnitten; `null` ohne Überlappung. */
   range: { from: string; to: string } | null
   slots: number
-  /** Einspeisung ohne Viertelstunde mit Bezug = 0 in ihrer Stunde (oder ganz ohne Bezugsslots). */
+  /** Einspeisung, die einer Viertelstunde zugeordnet wurde (auch saldiert gegen Bezug). */
+  assignedExportKwh: number
+  /** Einspeisung in Stunden ganz ohne Bezugsslots — verworfen. */
   droppedExportKwh: number
   droppedExportHours: number
-  /** Davon Stunden ganz ohne Bezugsslots (z. B. die fehlende Winterzeit-Doppelstunde). */
+  /** Stunden ganz ohne Bezugsslots (z. B. die fehlende Winterzeit-Doppelstunde). */
   exportHoursWithoutImport: number
+  /** Einspeisung, die selbst saldiert die Leistungsgrenze überschritt und ohne Grenze verteilt wurde. */
+  overCapExportKwh: number
+  overCapExportHours: number
   /** Stunden mit Bezug, aber ohne Einspeisungswert — dort ist die Einspeisung 0. */
   missingExportHours: number
   importCheck?: ImportCheck
@@ -70,10 +78,11 @@ function hourlyMap(readings: readonly HourlyEnergyReading[]): Map<number, number
 /**
  * Gemessener 15-min-Netzbezug + stündliche Einspeisung → signierte 15-min-Netzlast.
  *
- * Die Einspeisung einer Stunde geht gleichmäßig auf deren Viertelstunden mit Bezug = 0, keine
- * Treppe: in einer Viertelstunde mit Bezug wäre sie gegen den gemessenen Bezug saldiert und senkte
- * Spitzen und Leistungspreis. Slots mit Bezug > 0 bleiben bitgleich; was nicht zuzuordnen ist, wird
- * verworfen und gemeldet. Geschnitten wird auf die gemeinsamen vollen Stunden beider Reihen.
+ * Die Einspeisung einer Stunde geht bevorzugt gleichmäßig auf deren Viertelstunden mit Bezug = 0
+ * (saldiert gegen gemessenen Bezug senkte sie Spitzen und Leistungspreis), je Viertelstunde aber
+ * höchstens bis `exportCapKw`; der Überlauf wird gegen die übrigen Viertelstunden der Stunde
+ * saldiert. Die Energie je Stunde bleibt erhalten; ohne Überlauf bleiben Slots mit Bezug > 0
+ * bitgleich. Geschnitten wird auf die gemeinsamen vollen Stunden beider Reihen.
  */
 export function combineImportWithHourlyExport(
   input: CombineImportWithHourlyExportInput,
@@ -96,9 +105,12 @@ export function combineImportWithHourlyExport(
     diagnostics: {
       range: null,
       slots: 0,
+      assignedExportKwh: 0,
       droppedExportKwh: 0,
       droppedExportHours: 0,
       exportHoursWithoutImport: 0,
+      overCapExportKwh: 0,
+      overCapExportHours: 0,
       missingExportHours: 0,
     },
   }
@@ -125,9 +137,15 @@ export function combineImportWithHourlyExport(
     else slotsByHour.set(hour, [i])
   })
 
+  // Fallback: die größte Stunden-Einspeisung, als gleichmäßige Leistung über die Stunde (kWh / 1 h).
+  let capKw = input.exportCapKw ?? 0
+  if (!(capKw > 0)) for (const kwh of exportByHour.values()) capKw = Math.max(capKw, kwh)
+  let assignedExportKwh = 0
   let droppedExportKwh = 0
   let droppedExportHours = 0
   let exportHoursWithoutImport = 0
+  let overCapExportKwh = 0
+  let overCapExportHours = 0
   let missingExportHours = 0
 
   for (const [hour, indices] of slotsByHour) {
@@ -137,14 +155,12 @@ export function combineImportWithHourlyExport(
       continue
     }
     if (kwh === 0) continue
-    const zeroSlots = indices.filter((i) => inRange[i]!.kw === 0)
-    if (zeroSlots.length === 0) {
-      droppedExportKwh += kwh
-      droppedExportHours++
-      continue
+    assignedExportKwh += kwh
+    const rest = distributeHour(kwh, indices, values, capKw)
+    if (rest > 0) {
+      overCapExportKwh += rest
+      overCapExportHours++
     }
-    const kw = -kwh / (zeroSlots.length * SLOT_HOURS)
-    for (const i of zeroSlots) values[i] = kw
   }
   for (const hour of exportHours) {
     if (hour < from || hour >= to || slotsByHour.has(hour)) continue
@@ -159,9 +175,12 @@ export function combineImportWithHourlyExport(
   const diagnostics: CombineDiagnostics = {
     range: { from: toIsoUtc(from), to: toIsoUtc(to) },
     slots: inRange.length,
+    assignedExportKwh,
     droppedExportKwh,
     droppedExportHours,
     exportHoursWithoutImport,
+    overCapExportKwh,
+    overCapExportHours,
     missingExportHours,
   }
   if (input.importHourly) {
@@ -172,6 +191,53 @@ export function combineImportWithHourlyExport(
     netSigned15: inRange.map((s, i) => ({ ts: toIsoUtc(s.ms), gridPowerKw: values[i]! })),
     diagnostics,
   }
+}
+
+/** Unterhalb davon gilt Restenergie als verteilt (Rundungsrest). */
+const REST_EPSILON_KWH = 1e-12
+
+/**
+ * Verteilt `kwh` Einspeisung auf die Slots einer Stunde (in `values`, in place): zuerst auf die
+ * Nullslots bis `capKw`, dann gegen die Bezugsslots bis −`capKw`, zuletzt ohne Grenze auf alle.
+ * Gibt die Energie zurück, die erst im letzten Schritt unterkam (0 im Normalfall).
+ */
+function distributeHour(kwh: number, indices: readonly number[], values: number[], capKw: number) {
+  const zeroSlots = indices.filter((i) => values[i] === 0)
+  const loadSlots = indices.filter((i) => values[i]! > 0)
+
+  let rest = kwh
+  if (zeroSlots.length > 0) {
+    const uncapped = kwh / (zeroSlots.length * SLOT_HOURS)
+    // Ungedeckelt exakt die bisherige Formel, und kein Rest — die Bezugsslots bleiben bitgleich.
+    const kw = Math.min(uncapped, capKw)
+    for (const i of zeroSlots) values[i] = -kw
+    rest = uncapped <= capKw ? 0 : kwh - zeroSlots.length * SLOT_HOURS * capKw
+  }
+
+  let open = loadSlots
+  while (rest > REST_EPSILON_KWH && open.length > 0) {
+    const shareKw = rest / (open.length * SLOT_HOURS)
+    const stillOpen: number[] = []
+    for (const i of open) {
+      const roomKw = values[i]! + capKw
+      if (roomKw <= shareKw) {
+        values[i] = -capKw
+        rest -= roomKw * SLOT_HOURS
+      } else {
+        values[i] = values[i]! - shareKw
+        stillOpen.push(i)
+      }
+    }
+    // Keiner an der Grenze: alle haben den vollen Anteil bekommen, der Rest ist verteilt.
+    if (stillOpen.length === open.length) rest = 0
+    else rest -= stillOpen.length * shareKw * SLOT_HOURS
+    open = stillOpen
+  }
+
+  if (rest <= REST_EPSILON_KWH) return 0
+  const kw = rest / (indices.length * SLOT_HOURS)
+  for (const i of indices) values[i] = values[i]! - kw
+  return rest
 }
 
 /** Gegenprobe ohne Verschiebung: gemessener Bezug je Stunde gegen den Stundenbezug bei −1/0/+1 h. */
