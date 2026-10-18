@@ -740,11 +740,11 @@ Annahmen & Rechenweise — Stand dieser Berechnung
 
  Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                € 198,43 / kWh
 
- Gesamtinvestition                                                                                            € 7.691
+ Gesamtinvestition                                                                                             € 7.691
 
  Nettoinvestition nach Förderung                                                keine Angabe (nicht einbezogen)
 
- Steuersatz                                                                                                    40 %
+ Steuersatz                                                                                                     40 %
 
  Investitionsfreibetrag                                                                                         22 %
 
@@ -784,6 +784,9 @@ Tarifkomponenten
  Einspeisevergütung                  nicht angegeben                aus Ihren Angaben (Energieseite)
 
  Grundgebühr Lieferant               € 3,99 / Monat                 aus Ihren Rechnungen (Energieseite)
+
+ Vergleichstarif                     aWATTar: Börsenpreis + 1,50    Vorgabe für Österreich, Stand 01.01.2025
+                                     ct/kWh + € 4,79/Monat, netto
 
 
 

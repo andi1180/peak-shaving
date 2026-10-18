@@ -522,23 +522,23 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                       15 Jahre
+ Betrachtungshorizont                                                                                        15 Jahre
 
- Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                           88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                            88 % (angenommen)
 
- Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                 € 198,43 / kWh
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                  € 198,43 / kWh
 
- Gesamtinvestition                                                                                             € 7.691
+ Gesamtinvestition                                                                                              € 7.691
 
- Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                                 -€ 1.500
+ Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                                  -€ 1.500
 
- Nettoinvestition nach Förderung                                                                               € 6.191
+ Nettoinvestition nach Förderung                                                                                € 6.191
 
- Steuersatz                                                                                                     23 %
+ Steuersatz                                                                                                      23 %
 
- Investitionsfreibetrag                                                                                         20 %
+ Investitionsfreibetrag                                                                                          20 %
 
- Abschreibungsdauer                                                                                         10 Jahre
+ Abschreibungsdauer                                                                                          10 Jahre
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -558,34 +558,37 @@ hinterlegtem Tarif Wiener Netze.
 
 
 Tarifkomponenten
- Position                            Wert                           Status
+ Position                            Wert                            Status
 
- Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
+ Leistungspreis                      € 0,00 / kW·a                   laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        unbekannt                      aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        unbekannt                       aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  nicht angegeben                aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  nicht angegeben                 aus Ihren Angaben (Energieseite)
 
- Grundgebühr Lieferant               keine Angabe                   nicht erfasst — im Tarifvergleich mit 0 gerechnet
+ Grundgebühr Lieferant               keine Angabe                    nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
-
-Datenquellen
- Quelle                         Was daraus verwendet wurde                Zeitraum / Stand
-
- Lastgang
- Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.    01.01.2025 – 31.12.2025 · 365 abgedeckte
- Netzbezugs                     Herkunft: hochgeladener Lastgang, nur     Tage (gerundet aus Messwerte ÷ 96, wie im
-                                Bezug. Monats- und Tagesgrenzen in        Datenqualitäts-Hinweis oben)
-                                Ortszeit Europe/Vienna.
+ Vergleichstarif                     aWATTar HOURLY: Börsenpreis     Vorgabe für Österreich, Stand 01.01.2025
+                                     + 1,50 ct/kWh + € 4,79/Monat,
+                                     netto
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 15 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 18
     COOLiN ENERGY           Referenzfall Gewerbe
 
 
 
+
+Datenquellen
+ Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand
+
+ Lastgang
+ Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.     01.01.2025 – 31.12.2025 · 365 abgedeckte
+ Netzbezugs                     Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96, wie im
+                                Bezug. Monats- und Tagesgrenzen in         Datenqualitäts-Hinweis oben)
+                                Ortszeit Europe/Vienna.
 
  Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
                                 Lastgangs.                                 verfügbar)
@@ -637,17 +640,19 @@ eigenen Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Sp
 zum Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
 noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit mitgeführtem Ladezustand
 und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang vor dem Preis. Eine Faustregel
-je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge sieht dabei nicht Ihren
-gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
-der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
-aus einem Rückblick.
-
 
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 16 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
+
+
+
+je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge sieht dabei nicht Ihren
+gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
+der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
+aus einem Rückblick.
 
 
 

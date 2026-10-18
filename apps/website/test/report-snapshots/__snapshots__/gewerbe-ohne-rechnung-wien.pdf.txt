@@ -473,7 +473,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 13 von 17
-    COOLiN ENERGY           Referenzfall Gewerbe
+    COOLiN ENERGY          Referenzfall Gewerbe
 
 
 
@@ -520,6 +520,10 @@ Tarifkomponenten
 
  Grundgebühr Lieferant               keine Angabe                    nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
+ Vergleichstarif                     aWATTar HOURLY: Börsenpreis     Vorgabe für Österreich, Stand 01.01.2025
+                                     + 1,50 ct/kWh + € 4,79/Monat,
+                                     netto
+
 
 Datenquellen
  Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand
@@ -533,31 +537,32 @@ Datenquellen
  Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
                                 Lastgangs.                                 verfügbar)
 
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
+    COOLiN ENERGY           Referenzfall Gewerbe
+
+
+
+
  Tarif
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2025.
                                 Mindestleistung; bei berechenbarem          Name, Version und Fundstelle des Blatts:
                                 Vergleich zusätzlich die Netz-Arbeitspreise nicht erfasst.
                                 je Zeitfenster.
 
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
-    COOLiN ENERGY          Referenzfall Gewerbe
-
-
-
-
- Lieferanten-Tarif              Arbeitspreis, Grundgebühr und          Kundenrechnung: nicht erfasst.
-                                Einspeisevergütung der Energieseite.   Vergleichstarif aWATTar HOURLY,
-                                                                       gültig ab 01.01.2025 — Fundstelle:
-                                                                       aWATTar HOURLY, Grundgebühr
-                                                                       laut Endkunden-Preisangabe (5,75 €
-                                                                       brutto/Monat = 4,79 € netto), im Repo
-                                                                       festgehalten am 02.09.2026. Ändert sich
-                                                                       der Satz, kommt ein ZWEITER Eintrag
-                                                                       mit späterem validFrom hinzu — der
-                                                                       bestehende wird nicht editiert. Aufschlag
-                                                                       auf den Börsenpreis: 1,50 ct/kWh netto.
+ Lieferanten-Tarif              Arbeitspreis, Grundgebühr und              Kundenrechnung: nicht erfasst.
+                                Einspeisevergütung der Energieseite.       Vergleichstarif aWATTar HOURLY,
+                                                                           gültig ab 01.01.2025 — Fundstelle:
+                                                                           aWATTar HOURLY, Grundgebühr
+                                                                           laut Endkunden-Preisangabe (5,75 €
+                                                                           brutto/Monat = 4,79 € netto), im Repo
+                                                                           festgehalten am 02.09.2026. Ändert sich
+                                                                           der Satz, kommt ein ZWEITER Eintrag
+                                                                           mit späterem validFrom hinzu — der
+                                                                           bestehende wird nicht editiert. Aufschlag
+                                                                           auf den Börsenpreis: 1,50 ct/kWh netto.
 
  Batterie
  Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
@@ -596,7 +601,7 @@ aus einem Rückblick.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 15 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 17
     COOLiN ENERGY          Referenzfall Gewerbe
 
 

@@ -649,6 +649,9 @@ Tarifkomponenten
 
  Grundgebühr Lieferant               keine Angabe                     nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
+ Vergleichstarif                     Spot-Test: Börsenpreis + 1,20    angenommen (eigene Eingabe, kein
+                                     ct/kWh + € 9,90/Monat, netto     Kundenvertrag)
+
 
 Datenquellen
  Quelle                          Was daraus verwendet wurde                 Zeitraum / Stand
