@@ -129,6 +129,18 @@ describe('combineLoadWithExportReports', () => {
     expect(out.dataQuality.coveredMonths).toBe(2)
   })
 
+  it('Leistungsgrenze aus den Modulflächen: zu klein → Überlauf verworfen und mit Grenze gemeldet', async () => {
+    const input = parsed()
+    const draft = { ...STORED, _pvArrays: [{ peakPowerKwp: 2 }, { peakPowerKwp: 1 }] }
+    const out = await combineLoadWithExportReports(draft, input, reader())
+
+    // Nullslots bei 3 kW gedeckelt: 10–13 Uhr je 1 kWh, 14 Uhr 0,5 kWh (31.03.), 10–11 Uhr je 1 kWh (01.04.).
+    expect(Math.min(...out.profile.readings.map((r) => r.gridPowerKw))).toBe(-3)
+    expect(out.dataQuality.warnings).toContain(
+      '6,5 kWh Einspeisung in 7 Stunden über der Leistungsgrenze von 3 kW nicht zugeordnet.',
+    )
+  })
+
   it('ignoriert die Berichte bei einem Lastgang mit Einspeisung — Profil bitgleich', async () => {
     const input = parsed(true)
     expect(input.profile.source).not.toBe('import_only')

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  draftPvPeakPowerKwp,
   COMPASS_DIRECTIONS,
   COMPASS_SECTOR_HALF_WIDTH_DEG,
   checkPvArray,
@@ -165,5 +166,19 @@ describe('B22b — Jahresertrags-Streuung (die ehrliche Genauigkeitsgrenze)', ()
     const s = summarizeAnnualYields([759])
     expect(s!.spreadPercent).toBe(0)
     expect(s!.meanKwh).toBe(759)
+  })
+})
+
+describe('draftPvPeakPowerKwp — Summe alles oder nichts', () => {
+  it('summiert alle Flächen, überspringt leere Einträge', () => {
+    const draft = { _pvArrays: [{ peakPowerKwp: 60, direction: 'S' }, {}, { peakPowerKwp: 39.96 }] }
+    expect(draftPvPeakPowerKwp(draft)).toBeCloseTo(99.96, 9)
+  })
+
+  it('eine Fläche ohne Nennleistung → keine Summe', () => {
+    expect(
+      draftPvPeakPowerKwp({ _pvArrays: [{ peakPowerKwp: 60 }, { direction: 'O' }] }),
+    ).toBeNull()
+    expect(draftPvPeakPowerKwp({})).toBeNull()
   })
 })

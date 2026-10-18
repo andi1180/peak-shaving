@@ -7,7 +7,7 @@ import {
   type DataQuality,
   type PlantReportFile,
 } from 'engine'
-import { readStoredExportReports, type LoadProfile } from 'shared'
+import { draftPvPeakPowerKwp, readStoredExportReports, type LoadProfile } from 'shared'
 
 type ParsedLoad = { profile: LoadProfile; dataQuality: DataQuality }
 
@@ -75,6 +75,7 @@ export async function combineLoadWithExportReports(
     import15: load.profile,
     exportHourly: reports.exportHourly,
     importHourly: reports.importHourly,
+    exportCapKw: draftPvPeakPowerKwp(draft) ?? undefined,
   })
   if (diagnostics.range === null) {
     return withWarnings(load, [
@@ -84,8 +85,7 @@ export async function combineLoadWithExportReports(
 
   const fromMs = Date.parse(diagnostics.range.from)
   const toMs = Date.parse(diagnostics.range.to)
-  // Zugeordnete Einspeisung = Energie der negativen Viertelstunden (Bilanz des Kombinierers).
-  const assignedKwh = -netSigned15.reduce((sum, r) => sum + Math.min(r.gridPowerKw, 0), 0) * 0.25
+  const assignedKwh = diagnostics.assignedExportKwh
 
   const warnings = [
     `${EXPORT_REPORTS_COMBINED_WARNING_PREFIX} ${kwhFormat.format(assignedKwh)} kWh, Zeitraum ` +
@@ -95,6 +95,13 @@ export async function combineLoadWithExportReports(
     warnings.push(
       `${kwhFormatFine.format(diagnostics.droppedExportKwh)} kWh Einspeisung in ` +
         `${diagnostics.droppedExportHours} Stunden ohne Viertelstunde mit Nullbezug nicht zugeordnet.`,
+    )
+  }
+  if (diagnostics.cappedExportKwh > 0) {
+    warnings.push(
+      `${kwhFormatFine.format(diagnostics.cappedExportKwh)} kWh Einspeisung in ` +
+        `${diagnostics.cappedExportHours} Stunden über der Leistungsgrenze von ` +
+        `${kwhFormatFine.format(diagnostics.capKwUsed)} kW nicht zugeordnet.`,
     )
   }
   if (diagnostics.missingExportHours > 0) {

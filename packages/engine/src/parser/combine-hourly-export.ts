@@ -16,6 +16,9 @@ export type CombineImportWithHourlyExportInput = {
   exportHourly: readonly HourlyEnergyReading[]
   /** Netzbezug je Stunde aus derselben Quelle wie die Einspeisung — nur Gegenprobe. */
   importHourly?: readonly HourlyEnergyReading[]
+  /** Größte Einspeiseleistung je Viertelstunde (kW), z. B. die Nennleistung der Anlage. Fehlt sie
+   *  oder ist sie ≤ 0, gilt die größte Stunden-Einspeisung der Reihe (kWh / 1 h). */
+  exportCapKw?: number
 }
 
 export type HourOffset = -1 | 0 | 1
@@ -34,11 +37,18 @@ export type CombineDiagnostics = {
   /** Überlappung beider Reihen, auf volle Stunden geschnitten; `null` ohne Überlappung. */
   range: { from: string; to: string } | null
   slots: number
+  /** Verwendete Leistungsgrenze je Viertelstunde (kW): `exportCapKw` oder der Fallback. */
+  capKwUsed: number
+  /** Einspeisung, die Nullbezug-Viertelstunden zugeordnet wurde. */
+  assignedExportKwh: number
   /** Einspeisung ohne Viertelstunde mit Bezug = 0 in ihrer Stunde (oder ganz ohne Bezugsslots). */
   droppedExportKwh: number
   droppedExportHours: number
   /** Davon Stunden ganz ohne Bezugsslots (z. B. die fehlende Winterzeit-Doppelstunde). */
   exportHoursWithoutImport: number
+  /** Einspeisung über der Leistungsgrenze der Nullbezug-Viertelstunden — verworfen. */
+  cappedExportKwh: number
+  cappedExportHours: number
   /** Stunden mit Bezug, aber ohne Einspeisungswert — dort ist die Einspeisung 0. */
   missingExportHours: number
   importCheck?: ImportCheck
@@ -70,10 +80,10 @@ function hourlyMap(readings: readonly HourlyEnergyReading[]): Map<number, number
 /**
  * Gemessener 15-min-Netzbezug + stündliche Einspeisung → signierte 15-min-Netzlast.
  *
- * Die Einspeisung einer Stunde geht gleichmäßig auf deren Viertelstunden mit Bezug = 0, keine
- * Treppe: in einer Viertelstunde mit Bezug wäre sie gegen den gemessenen Bezug saldiert und senkte
- * Spitzen und Leistungspreis. Slots mit Bezug > 0 bleiben bitgleich; was nicht zuzuordnen ist, wird
- * verworfen und gemeldet. Geschnitten wird auf die gemeinsamen vollen Stunden beider Reihen.
+ * Die Einspeisung einer Stunde geht gleichmäßig auf deren Viertelstunden mit Bezug = 0, je
+ * Viertelstunde höchstens `exportCapKw`. Slots mit Bezug > 0 bleiben immer bitgleich — gemessener,
+ * abgerechneter Bezug wird nie wegsaldiert. Was über der Grenze liegt oder keinen Nullslot findet,
+ * wird verworfen und gemeldet. Geschnitten wird auf die gemeinsamen vollen Stunden beider Reihen.
  */
 export function combineImportWithHourlyExport(
   input: CombineImportWithHourlyExportInput,
@@ -91,14 +101,22 @@ export function combineImportWithHourlyExport(
     }
   }
 
+  // Fallback: die größte Stunden-Einspeisung, als gleichmäßige Leistung über die Stunde (kWh / 1 h).
+  let capKw = input.exportCapKw ?? 0
+  if (!(capKw > 0)) for (const kwh of exportByHour.values()) capKw = Math.max(capKw, kwh)
+
   const empty: CombineImportWithHourlyExportResult = {
     netSigned15: [],
     diagnostics: {
       range: null,
       slots: 0,
+      capKwUsed: capKw,
+      assignedExportKwh: 0,
       droppedExportKwh: 0,
       droppedExportHours: 0,
       exportHoursWithoutImport: 0,
+      cappedExportKwh: 0,
+      cappedExportHours: 0,
       missingExportHours: 0,
     },
   }
@@ -125,9 +143,12 @@ export function combineImportWithHourlyExport(
     else slotsByHour.set(hour, [i])
   })
 
+  let assignedExportKwh = 0
   let droppedExportKwh = 0
   let droppedExportHours = 0
   let exportHoursWithoutImport = 0
+  let cappedExportKwh = 0
+  let cappedExportHours = 0
   let missingExportHours = 0
 
   for (const [hour, indices] of slotsByHour) {
@@ -143,8 +164,18 @@ export function combineImportWithHourlyExport(
       droppedExportHours++
       continue
     }
-    const kw = -kwh / (zeroSlots.length * SLOT_HOURS)
-    for (const i of zeroSlots) values[i] = kw
+    const uncapped = kwh / (zeroSlots.length * SLOT_HOURS)
+    if (uncapped <= capKw) {
+      // Ungedeckelt exakt die bisherige Formel.
+      for (const i of zeroSlots) values[i] = -uncapped
+      assignedExportKwh += kwh
+      continue
+    }
+    for (const i of zeroSlots) values[i] = -capKw
+    const assigned = zeroSlots.length * SLOT_HOURS * capKw
+    assignedExportKwh += assigned
+    cappedExportKwh += kwh - assigned
+    cappedExportHours++
   }
   for (const hour of exportHours) {
     if (hour < from || hour >= to || slotsByHour.has(hour)) continue
@@ -159,9 +190,13 @@ export function combineImportWithHourlyExport(
   const diagnostics: CombineDiagnostics = {
     range: { from: toIsoUtc(from), to: toIsoUtc(to) },
     slots: inRange.length,
+    capKwUsed: capKw,
+    assignedExportKwh,
     droppedExportKwh,
     droppedExportHours,
     exportHoursWithoutImport,
+    cappedExportKwh,
+    cappedExportHours,
     missingExportHours,
   }
   if (input.importHourly) {

@@ -293,3 +293,26 @@ export type EstimatedPvSummary = {
   /** Ebenso zurückgespiegelt: die Neigungen. */
   echoedSlopeDeg: number[]
 }
+
+/**
+ * Nennleistung der Anlage aus dem Seiteneintrag `_pvArrays` eines Zählpunkt-Entwurfs: Summe über die
+ * Flächen, ALLES ODER NICHTS — fehlt einer Fläche die Nennleistung, gibt es keine Summe (`null`),
+ * wie `readPvPeakPowerKwp` im Report. Ganz leere Einträge zählen nicht als Fläche.
+ */
+export function draftPvPeakPowerKwp(draft: Record<string, unknown>): number | null {
+  const raw = draft['_pvArrays']
+  if (!Array.isArray(raw)) return null
+  let total = 0
+  let count = 0
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue
+    const { peakPowerKwp, direction, slopeDeg } = entry as Record<string, unknown>
+    const valid =
+      typeof peakPowerKwp === 'number' && Number.isFinite(peakPowerKwp) && peakPowerKwp > 0
+    if (!valid && peakPowerKwp == null && direction == null && slopeDeg == null) continue
+    if (!valid) return null
+    total += peakPowerKwp
+    count++
+  }
+  return count > 0 ? total : null
+}
