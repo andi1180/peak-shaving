@@ -1,5 +1,5 @@
 import { sumCovered } from './real-saving'
-import type { MonthlyTariffComparison } from './tariff-pricing'
+import type { MonthlyCostComparison, MonthlyTariffComparison } from './tariff-pricing'
 
 /**
  * WELCHE REIHE DES MONATSVERGLEICHS WELCHER WEG IST — an genau einer Stelle beantwortet.
@@ -28,8 +28,8 @@ export type TariffWayCosts = {
   comparisonTariffEur: number | null
   /** Der Lieferant zu Weg 2 — `null`, wenn es den Weg nicht gibt. */
   comparisonSupplier: string | null
-  /** Weg 3 — aWATTar auf den rohen Lastgang. */
-  spotWithoutControlEur: number
+  /** Weg 3 — aWATTar auf den rohen Lastgang. `null` im Vergleich ohne Börsenseite. */
+  spotWithoutControlEur: number | null
   /**
    * Weg 4 — aWATTar mit Ladesteuerung; welche, sagt `controlVariant`.
    *
@@ -59,7 +59,11 @@ export function savingsBaselineOf(
   return null
 }
 
-export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCosts {
+export function tariffWayCosts(
+  comparison: MonthlyTariffComparison,
+): TariffWayCosts & { spotWithoutControlEur: number }
+export function tariffWayCosts(comparison: MonthlyCostComparison): TariffWayCosts
+export function tariffWayCosts(comparison: MonthlyCostComparison): TariffWayCosts {
   const comparisonSeries = comparison.comparisonTariffEur
   const controlledSeries = comparison.spotWithBatteryEur
   // Die Obergrenze gibt es genau dann, wenn die Reihe vorausschauend geplant ist (`tariff-pricing.ts`).
@@ -74,7 +78,9 @@ export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCo
     currentTariffEur,
     comparisonTariffEur,
     comparisonSupplier: comparison.comparisonSupplier ?? null,
-    spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+    spotWithoutControlEur: comparison.spotWithoutControlEur
+      ? sumCovered(comparison.spotWithoutControlEur)
+      : null,
     controlledEur: controlledSeries ? sumCovered(controlledSeries) : null,
     controlVariant: controlledSeries ? (predictive ? 'predictive' : 'simple') : null,
   }

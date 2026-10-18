@@ -36,6 +36,7 @@ import {
   alignPvGrossToLoad,
   buildDispatchTrace,
   buildMonthlyTariffComparison,
+  buildOwnTariffMonthlyComparison,
   dispatchPlanningFor,
   evaluatePriceSeries,
   evaluateTariffOptimization,
@@ -455,9 +456,8 @@ export function computeAnalysis(
    */
   // Die Vorabend-Prognose EINMAL je Lauf; ohne Preiskurve gibt es keine Rangfolge, die sie bräuchte.
   // Sie braucht nur den Lastgang — also auch auf der eigenen Preisreihe ohne dynamische Konditionen.
-  const planning = evaluatePriceSeries(loadProfile, payload.tariff, payload.tariffPricing)
-    ? dispatchPlanningFor(loadProfile)
-    : HINDSIGHT_PLANNING
+  const hasPriceSeries = evaluatePriceSeries(loadProfile, payload.tariff, payload.tariffPricing)
+  const planning = hasPriceSeries ? dispatchPlanningFor(loadProfile) : HINDSIGHT_PLANNING
 
   const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog, planning)
 
@@ -562,6 +562,15 @@ export function computeAnalysis(
         )?.spotWithBatteryEur
       : undefined
 
+  // Fehlen nur die Konditionen des dynamischen Tarifs: „Ihr Tarif heute" ohne Börsenseite am Blocker.
+  const ownTariffComparison =
+    baseTariffOptimization?.computable === false &&
+    baseTariffOptimization.side === 'dynamic_tariff' &&
+    hasPriceSeries &&
+    payload.tariffPricing
+      ? buildOwnTariffMonthlyComparison(loadProfile, payload.tariff, payload.tariffPricing)
+      : undefined
+
   const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
     ? {
         computable: true,
@@ -569,7 +578,9 @@ export function computeAnalysis(
           ? { ...monthlyComparison, spotWithBatteryHindsightEur: hindsightSeries }
           : monthlyComparison,
       }
-    : baseTariffOptimization
+    : baseTariffOptimization?.computable === false && ownTariffComparison
+      ? { ...baseTariffOptimization, monthlyComparison: ownTariffComparison }
+      : baseTariffOptimization
 
   // Nur Namen, mitgeschrieben fürs Report; ein leerer Plan (Österreich) lässt das Feld weg.
   const levyComponents = levyComponentsOf(loadProfile, leviesOf(payload))

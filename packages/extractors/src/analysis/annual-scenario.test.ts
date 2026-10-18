@@ -316,4 +316,27 @@ describe('buildAnnualScenario', () => {
       6,
     )
   })
+
+  it('ohne Konditionen des dynamischen Tarifs: rechenbar mit „Ihr Tarif heute", ohne Börsenseite', async () => {
+    const run = (dynamicTariff: TariffPricingInputs['dynamicTariff']) =>
+      buildAnnualScenario({
+        payload: payloadOf(...MARCH_TO_SEPTEMBER),
+        horizonYears: 10,
+        catalog: [CATALOG[0]!],
+        fetchTariffPricing: async (request) => ({ ...(await fullPricing(request)), dynamicTariff }),
+      })
+    const own = await run(null)
+    const withTerms = await run({ supplier: 'X', markupCtPerKwh: 1.5, baseFeeEurPerMonth: 5 })
+    if (!own.ok || !withTerms.ok) throw new Error('unerwartet abgelehnt')
+
+    expect(own.value.ways.spotWithoutControlEur).toBeNull()
+    expect(own.value.ways.comparisonTariffEur).toBeNull()
+    // „Ihr Tarif heute" hängt nicht an den Konditionen des dynamischen Tarifs.
+    expect(own.value.ways.currentTariffEur).toBeCloseTo(withTerms.value.ways.currentTariffEur!, 9)
+    // Weg 4 ist der eigene Tarif mit Speicher: Ist-Kosten minus Energie-Anteil des Geräts.
+    expect(own.value.ways.controlledEur).toBeCloseTo(
+      own.value.ways.currentTariffEur! - own.value.devices![0]!.energySavingPerYear,
+      6,
+    )
+  })
 })

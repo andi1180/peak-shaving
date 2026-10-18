@@ -4,7 +4,7 @@ import type { Country, PvSource, PvStage } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import { dynamicTariffOf, hasDemandChargeComponent } from '@/lib/report-copy'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
-import { summaryWaysOf, unknownTariffWaysOf } from './summary'
+import { ownTariffCostTodayOf, summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
 
 /**
@@ -147,6 +147,13 @@ const NO_LEISTUNGSPREIS_HEAD =
  */
 export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: boolean): ReportNotice {
   const tariffName = dynamicTariffOf(analysis).name
+  // Ohne Börsenseite gibt es keinen Tarifwechsel: die Ersparnis kommt allein aus der Steuerung.
+  const sources =
+    ownTariffCostTodayOf(analysis) !== null
+      ? (who: string) =>
+          `Die gesamte Ersparnis in dieser Auswertung kommt deshalb allein aus der gezielten ` +
+          `Steuerung ${who} in Ihrem heutigen Tarif.`
+      : null
   const body = hasDemandChargeComponent(analysis.current)
     ? hasBattery
       ? 'Ihr Anschluss hat einen Leistungspreis-Bestandteil. Ihre Batterie kann hier zusätzlich ' +
@@ -154,12 +161,14 @@ export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: bool
       : 'Ihr Anschluss hat einen Leistungspreis-Bestandteil. Ein Batteriespeicher kann hier ' +
         'zusätzlich Kosten senken, indem er Verbrauchsspitzen kappt — ein Hebel unabhängig vom ' +
         'gewählten Tarif.'
-    : hasBattery
-      ? `${NO_LEISTUNGSPREIS_HEAD} Ihre Batterie kann bei Ihnen deshalb keine Ersparnis durchs ` +
-        '„Kappen von Spitzen" bringen. Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ' +
-        `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung der Batterie.`
-      : `${NO_LEISTUNGSPREIS_HEAD} Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ` +
-        `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung eines Speichers.`
+    : sources
+      ? `${NO_LEISTUNGSPREIS_HEAD} ${sources(hasBattery ? 'der Batterie' : 'eines Speichers')}`
+      : hasBattery
+        ? `${NO_LEISTUNGSPREIS_HEAD} Ihre Batterie kann bei Ihnen deshalb keine Ersparnis durchs ` +
+          '„Kappen von Spitzen" bringen. Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ' +
+          `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung der Batterie.`
+        : `${NO_LEISTUNGSPREIS_HEAD} Die gesamte Ersparnis in dieser Auswertung kommt aus zwei ` +
+          `anderen Quellen: dem gewählten Tarif und, falls ${tariffName}, der gezielten Steuerung eines Speichers.`
 
   return {
     id: 'prerequisites_framing',
@@ -185,7 +194,7 @@ export function buildConsumptionTodayStatement(
   pvSource: PvSource | undefined,
   gridProfileContainsPv = false,
 ): ReportStatement {
-  const ways = summaryWaysOf(analysis)
+  const ways = summaryWaysOf(analysis) ?? ownTariffCostTodayOf(analysis)
 
   /*
    * ══════════════════════════════════════════════════════════════════════════════════════════════

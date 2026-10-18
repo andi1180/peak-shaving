@@ -1,7 +1,7 @@
 import { countryDisplay, type BillingModel } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { FALLBACK_DYNAMIC_TARIFF } from '@/lib/report-copy'
+import { FALLBACK_DYNAMIC_TARIFF, NO_DYNAMIC_TARIFF_TERMS_NOTE } from '@/lib/report-copy'
 import { aboutYears } from './break-even-band'
 import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
 import { aboutDuration, totalAmortizationOf } from './total-amortization'
@@ -128,6 +128,8 @@ function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
       ? `davon ${formatEur(switchShare)} ohne Investition (Tarifwechsel)`
       : s.variant === 'tarif-unbekannt'
       ? `durch einen Speicher gegenüber ${spotName(s)} ohne Speicher`
+      : s.variant === 'nur-speicher'
+        ? 'durch einen Speicher in Ihrem heutigen Tarif'
       : s.storage && switchAloneSavesNothing(s)
         ? `Speicher mit ${spotName(s) || 'dynamischem Tarif'}`
       : s.storage
@@ -189,7 +191,13 @@ function loadSentence(s: ExecutiveSummary): string {
 }
 
 function waysSentence(s: ExecutiveSummary): string {
-  const recommended = s.ways.find((way) => way.isRecommended)!
+  const recommended = s.ways.find((way) => way.isRecommended)
+  // Ohne Börsenseite gibt es nur „Ihr Tarif heute" — und den Grund, warum kein Vergleich daneben steht.
+  if (!recommended) {
+    const today = s.todayCostPerYearEur ?? 0
+    const fee = s.hasLeistungspreis ? ' — ohne Spitzengebühr' : ''
+    return `Mit Ihrem heutigen Tarif kostet Ihr Strom rund ${formatEur(today)}${fee}. ${NO_DYNAMIC_TARIFF_TERMS_NOTE}`
+  }
   const subject =
     recommended.id === 'spot-storage'
       ? `Mit ${spotName(s)} und einem Speicher, der günstig lädt,`
@@ -249,7 +257,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     loadSentence: loadSentence(s),
     waysSentence: waysSentence(s),
     storageSaving:
-      st && s.variant !== 'tarif-unbekannt'
+      st && s.variant !== 'tarif-unbekannt' && s.variant !== 'nur-speicher'
         ? `Ersparnis durch den Speicher: ${st.upperBound ? 'bis zu' : 'rund'} ${formatEur(st.savingPerYearEur)} pro Jahr.`
         : null,
     storage: storageRuns(s),

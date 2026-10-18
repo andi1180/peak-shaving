@@ -353,6 +353,21 @@ export type MonthlyFixedCosts = {
   coveredDays: number
 }
 
+type SpotOnlyFields = 'spotWithoutControlEur' | 'spotWithBatteryEur' | 'spotWithBatteryHindsightEur'
+type SpotOnlyFixedCosts = 'awattarBaseFeeEur' | 'awattarFeeEurPerMonth'
+
+/**
+ * Der Monatsvergleich mit OPTIONALER Börsenseite. Ohne sie (Konditionen des dynamischen Tarifs
+ * fehlen) ist „Ihr Tarif heute" vollständig gerechnet; aWATTar-Reihen, Vergleichstarif und
+ * aWATTar-Grundgebühr fehlen. Dieser Vergleich steht am Blocker `dynamic_tariff`, nie unter
+ * `computable: true` — dort steht immer der volle `MonthlyTariffComparison`.
+ */
+export type MonthlyCostComparison = Omit<MonthlyTariffComparison, SpotOnlyFields | 'fixedCosts'> &
+  Partial<Pick<MonthlyTariffComparison, SpotOnlyFields>> & {
+    fixedCosts: Omit<MonthlyFixedCosts, SpotOnlyFixedCosts> &
+      Partial<Pick<MonthlyFixedCosts, SpotOnlyFixedCosts>>
+  }
+
 /**
  * Ergebnis der Prüfung „lässt sich der Tarifoptimierungs-Hebel für diese Analyse rechnen?".
  * `undefined` an einer Stelle, die diesen Typ optional führt, heisst: gar nicht angefordert.
@@ -368,7 +383,14 @@ export type TariffOptimizationStatus =
        */
       monthlyComparison?: MonthlyTariffComparison
     }
-  | ({ computable: false } & TariffOptimizationBlocker)
+  | ({
+      computable: false
+      /**
+       * Nur bei `side: 'dynamic_tariff'`: der Vergleich OHNE Börsenseite — „Ihr Tarif heute"
+       * vollständig, die aWATTar-Reihen fehlen (s. `MonthlyCostComparison`).
+       */
+      monthlyComparison?: MonthlyCostComparison
+    } & TariffOptimizationBlocker)
 
 /**
  * ── Die Leistungsmessungs-Variante (Delta 5 / Delta 9) ──────────────────────────────────────────

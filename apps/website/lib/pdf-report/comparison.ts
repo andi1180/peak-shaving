@@ -200,6 +200,11 @@ const NO_PAYOFF_REASON =
   'Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus der Preisdifferenz am ' +
   'Spotmarkt; bei Ihrem Verbrauch reicht das nicht aus, um die Investition zu decken.'
 
+const NO_PAYOFF_REASON_OWN_TARIFF =
+  'Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus den Preisunterschieden ' +
+  'Ihres heutigen Tarifs über den Tag; bei Ihrem Verbrauch reicht das nicht aus, um die ' +
+  'Investition zu decken.'
+
 /**
  * Der strukturelle Grund, warum sich kein Katalog-Gerät rechnet — nur, wo er eindeutig ist: kein
  * Leistungspreis, ausdrücklich keine PV, Energie-Anteil voll aus den Preisdaten bewertet. Jede
@@ -211,8 +216,11 @@ export function noPayoffReasonOf(
 ): string | null {
   if (!noCatalogDevicePaysOff(analysis) || hasPv !== false) return null
   if (hasDemandChargeComponent(analysis.current)) return null
-  if (!analysis.perBattery.every((c) => c.energySavingBasis === 'full_price')) return null
-  return NO_PAYOFF_REASON
+  if (analysis.perBattery.every((c) => c.energySavingBasis === 'full_price')) return NO_PAYOFF_REASON
+  if (analysis.perBattery.every((c) => c.energySavingBasis === 'own_tariff_full_price')) {
+    return NO_PAYOFF_REASON_OWN_TARIFF
+  }
+  return null
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────

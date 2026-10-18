@@ -39,7 +39,10 @@ export type { DailyPriceOrder, DailyPriceOrderInputs } from './daily-price-order
 // Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Speicher" (01.09.2026) — reine
 // Aggregation über den bereits gerechneten Dispatch; beide Preisreihen kommen aus DERSELBEN
 // `combinedIntervalPrices`, nur mit unterschiedlicher Energiepreis-Eingabe.
-export { buildMonthlyTariffComparison } from './monthly-tariff-comparison'
+export {
+  buildMonthlyTariffComparison,
+  buildOwnTariffMonthlyComparison,
+} from './monthly-tariff-comparison'
 // ⚠ `parseClockMinutes` wird hier NICHT mehr re-exportiert: Es liegt seit dem 02.09.2026 in
 // `shared` (`tariff-window-rules.ts`) und ist von dort erreichbar. Ein zweiter Weg zur selben
 // Funktion wäre genau die Doppelung, die das Verschieben vermeiden sollte — und er hatte

@@ -31,6 +31,8 @@ import {
   storageJudgementText,
   storagePaysOff,
   dynamicTariffOf,
+  NO_DYNAMIC_TARIFF_TERMS_NOTE,
+  ownTariffOnlyComparisonOf,
   uncontrolledWayLabel,
 } from '@/lib/report-copy'
 import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
@@ -305,6 +307,20 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
 }
 
 /**
+ * Ohne Börsenseite (Konditionen des dynamischen Tarifs fehlen): „Ihr Tarif heute" über den
+ * gemessenen Zeitraum, ohne jeden Tarifweg — `null` in jedem anderen Fall. Bewusst KEINE
+ * `SummaryWays`: deren Leser rechnen mit einem Tarifwechsel, und genau der entfällt hier.
+ */
+export function ownTariffCostTodayOf(
+  analysis: PdfReportAnalysis,
+): Pick<SummaryWays, 'costTodayEur' | 'coveredDays'> | null {
+  const current = ownTariffOnlyComparisonOf(analysis)?.currentTariffEur
+  return current
+    ? { costTodayEur: sumCovered(current), coveredDays: analysis.dataQuality.coveredDays }
+    : null
+}
+
+/**
  * Die Tarifwege bei unbekanntem Liefertarif (Pflichtenheft §3.1a) — `null` in jedem anderen Fall.
  *
  * ⚠ EIGENE FORM NEBEN `SummaryWays` UND NICHT DEREN ERWEITERUNG: ohne „Ihr Tarif heute" gibt es
@@ -426,7 +442,8 @@ export function summaryAnnualTotalOf(
   executiveSummary: ExecutiveSummary | null | undefined,
 ): SummaryAnnualTotal | null {
   const s = executiveSummary
-  if (!s || s.header.savingPerYearEur <= 0 || !summaryWaysOf(analysis)) return null
+  if (!s || s.header.savingPerYearEur <= 0) return null
+  if (!summaryWaysOf(analysis) && !ownTariffCostTodayOf(analysis)) return null
   const shares: SummaryAnnualTotal['shares'] = [
     {
       key: 'switch' as const,
@@ -505,7 +522,8 @@ export function summaryCostTodayYearOf(
   executiveSummary: ExecutiveSummary | null | undefined,
 ): SummaryCostTodayYear | null {
   const front = executiveSummary
-  if (!front || front.todayCostPerYearEur === null || !summaryWaysOf(input.analysis)) return null
+  if (!front || front.todayCostPerYearEur === null) return null
+  if (!summaryWaysOf(input.analysis) && !ownTariffCostTodayOf(input.analysis)) return null
   const { basis, measuredDays } = front.header
   const { readings, intervalMinutes } = input.loadProfile
   const credit =
@@ -581,7 +599,9 @@ export function buildSummaryKpis(
    */
   const storage = catalogStorageEntry(analysis)
   const controlled = ways.ways.find((way) => way.id === 'controlled')
-  const unprofitable = storage && controlled && !storagePaysOff(storage) ? storage : undefined
+  // Ohne Tarifwege (keine Börsenseite) steht der Speicher für sich.
+  const unprofitable =
+    storage && (controlled || ways.ways.length === 0) && !storagePaysOff(storage) ? storage : undefined
   const note = unprofitable
     ? `Mit Speicher und Ladesteuerung zusätzlich ${formatEur(unprofitable.totalSavingPerYear)} ${perYearText(unprofitable)}, ` +
       `bei ${formatEur(unprofitable.totalInvestment)} Investition` +
@@ -829,6 +849,17 @@ export function buildOverview(
 
   const unknown = unknownTariffWaysOf(analysis)
   if (unknown) return t`${equipment} ${unknownTariffOverview(analysis, unknown)}${noRecommendation}`
+
+  if (!ways && ownTariffCostTodayOf(analysis)) {
+    const annualPart: ReportText = summaryExplainsAnnualTotal(analysis, annualTotal)
+      ? ' Die Gesamtzahl entspricht der Seite „Auf einen Blick“ (Jahreswerte).'
+      : ''
+    return t`${equipment} Ihre Stromkosten und der Wert eines Speichers sind mit Ihrem heutigen Tarif gerechnet${ref(
+      block('recommendation'),
+      ` — was ein Speicher darin bringt, steht ${REF_PLACE}`,
+      '',
+    )}. ${NO_DYNAMIC_TARIFF_TERMS_NOTE}${annualPart}${noRecommendation}`
+  }
 
   if (!ways) {
     /* Der Grund steht als strukturierter Befund im Schlusskapitel — hier nur der Zeiger darauf. */
@@ -1191,6 +1222,7 @@ export function buildReportSummary(
   const analysis = input.analysis
   const ways = summaryWaysOf(analysis)
   const unknownWays = unknownTariffWaysOf(analysis)
+  const ownTariff = ownTariffCostTodayOf(analysis)
   /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
   const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
   const annualTotal = summaryAnnualTotalOf(analysis, context?.executiveSummary)
@@ -1207,7 +1239,15 @@ export function buildReportSummary(
         )
       : unknownWays
         ? buildUnknownTariffKpis(analysis, unknownWays)
-        : [],
+        : ownTariff
+          ? buildSummaryKpis(
+              analysis,
+              { ...ownTariff, ways: [], controlVariant: null, comparisonSupplier: null },
+              input.gridProfileContainsPv === true,
+              annualTotal,
+              costYear,
+            )
+          : [],
     notices: buildNotices(input),
     overview: buildOverview(analysis, input, annualTotal),
     /* ⚠ `context ? … : …` wie bei `entry` darüber — der Prüfstand fährt ohne Kontext. */

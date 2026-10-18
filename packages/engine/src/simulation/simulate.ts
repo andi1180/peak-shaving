@@ -228,7 +228,7 @@ export function simulateBattery(
     startSocKwh: socStart,
     grossPvKw,
     rateCtPerKwh: rates.rateCtPerKwh,
-    priceCurveComputable: rates.tariffOptimization?.computable === true,
+    priceCurveComputable: hasPriceSeries(rates),
     hasFeedIn: feedIn,
   }
 }

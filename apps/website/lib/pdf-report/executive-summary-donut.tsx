@@ -56,9 +56,10 @@ export type ExecDonut = {
 export function execDonutOf(summary: ExecutiveSummary): ExecDonut | null {
   const st = summary.storage
   const switchStage = summary.stages.find((stage) => stage.id === 'ohne-anschaffung')
-  if (!st || !switchStage) return null
+  // Ohne Börsenseite gibt es keinen Tarifwechsel-Anteil — der Ring zeigt nur die Speicher-Anteile.
+  if (!st || (!switchStage && summary.variant !== 'nur-speicher')) return null
   const donut = buildSavingsDonut({
-    switchEur: switchStage.savingPerYearEur,
+    switchEur: switchStage?.savingPerYearEur ?? 0,
     controlEur: st.loadShiftEur,
     peakEur: st.peakEur,
   })

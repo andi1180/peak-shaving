@@ -62,7 +62,8 @@ export type AnnualScenarioPvInput = Pick<PdfReportInput, 'hasPv' | 'estimatedPv'
 export type AnnualScenarioSavings = {
   scenario: AnnualScenario
   currentTariffEur: number
-  spotWithoutControlEur: number
+  /** `null` ohne Börsenseite: dann ist `controlledEur` „Ihr Tarif heute mit Speicher". */
+  spotWithoutControlEur: number | null
   controlledEur: number
   /** Die gerundeten Zeilen des Kapitels; `controlEur + peakEur` ist „Davon durch den Speicher". */
   switchEur: number
@@ -80,10 +81,8 @@ export function annualScenarioSavingsOf(
   pv: AnnualScenarioPvInput,
 ): AnnualScenarioSavings | null {
   const scenario = analysis.annualScenario
-  const comparison =
-    analysis.tariffOptimization?.computable === true
-      ? analysis.tariffOptimization.monthlyComparison
-      : undefined
+  // Auch ohne Börsenseite (Konditionen des dynamischen Tarifs fehlen) trägt der Blocker den Vergleich.
+  const comparison = analysis.tariffOptimization?.monthlyComparison
   // Dieselbe Bedingung, an der der Wizard-Lauf die Jahresreihung festmacht (`shared`).
   if (!scenario || !annualBasisApplies(scenario, comparison, pv)) return null
   const { currentTariffEur, spotWithoutControlEur, controlledEur } = scenario.ways
@@ -93,8 +92,8 @@ export function annualScenarioSavingsOf(
     currentTariffEur,
     spotWithoutControlEur,
     controlledEur,
-    switchEur: euros(currentTariffEur - spotWithoutControlEur),
-    controlEur: euros(spotWithoutControlEur - controlledEur),
+    switchEur: spotWithoutControlEur === null ? 0 : euros(currentTariffEur - spotWithoutControlEur),
+    controlEur: euros((spotWithoutControlEur ?? currentTariffEur) - controlledEur),
     peakEur: peakEurOf(scenario.ways.peakShavingSavingEur),
   }
 }
@@ -103,10 +102,10 @@ const peakEurOf = (peakShavingSavingEur: number): number => euros(Math.max(0, pe
 
 /** Die Speicher-Jahresersparnis des Kapitels: Ladesteuerung plus Spitzenkappung, je gerundet. */
 function waysSavingEur(ways: AnnualScenarioWays): number | null {
-  if (ways.controlledEur === null) return null
-  return (
-    euros(ways.spotWithoutControlEur - ways.controlledEur) + peakEurOf(ways.peakShavingSavingEur)
-  )
+  // Ohne Börsenseite misst sich die Ladesteuerung am eigenen Tarif ohne Speicher.
+  const base = ways.spotWithoutControlEur ?? ways.currentTariffEur
+  if (ways.controlledEur === null || base === null) return null
+  return euros(base - ways.controlledEur) + peakEurOf(ways.peakShavingSavingEur)
 }
 
 /**
@@ -124,6 +123,8 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   const savings = annualScenarioSavingsOf(analysis, input)
   if (!savings) return null
   const { scenario, currentTariffEur, spotWithoutControlEur, controlledEur } = savings
+  // Ohne Börsenseite: kein Tarifwechsel, die Ladesteuerung wirkt im eigenen Tarif.
+  const ownTariff = spotWithoutControlEur === null
 
   const days = scenario.measuredDays + scenario.projectedDays
   const measuredPercent = Math.round((scenario.measuredDays / days) * 100)
@@ -150,7 +151,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
       `Die übrigen ${scenario.projectedDays} Tage haben wir ergänzt, indem wir Ihr gemessenes ` +
       'Verbrauchsmuster Woche für Woche rückwärts fortgeschrieben haben: jeder Tag bekommt den ' +
       'Verlauf desselben Wochentags, Feiertage sind nicht gesondert berücksichtigt. Gerechnet ist ' +
-      `der Zeitraum ${window} mit den echten aWATTar-Börsenpreisen dieser Tage; ${ratesNote}.` +
+      `der Zeitraum ${window} ${ownTariff ? 'mit Ihrem heutigen Tarif' : 'mit den echten aWATTar-Börsenpreisen dieser Tage'}; ${ratesNote}.` +
       (noDeviation
         ? ''
         : ' Alle Zahlen auf den Seiten davor beruhen auf dem gemessenen Zeitraum — die Jahreszahlen ' +
@@ -163,8 +164,12 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     amount: null,
     rows: [
       { label: 'Ihr Tarif heute', value: formatEur(currentTariffEur), tone: 'neutral' },
-      { label: uncontrolledWayLabel(tariffName), value: formatEur(spotWithoutControlEur), tone: 'neutral' },
-      { label: controlledWayLabel(tariffName), value: formatEur(controlledEur), tone: 'neutral' },
+      ...(spotWithoutControlEur === null
+        ? [{ label: 'Ihr Tarif heute mit Speicher', value: formatEur(controlledEur), tone: 'neutral' as const }]
+        : [
+            { label: uncontrolledWayLabel(tariffName), value: formatEur(spotWithoutControlEur), tone: 'neutral' as const },
+            { label: controlledWayLabel(tariffName), value: formatEur(controlledEur), tone: 'neutral' as const },
+          ]),
     ],
     body: `Hochgerechnete Jahreskosten (${priceLabel}), gerechnet mit ${deviceRef(scenario)}.`,
   }
@@ -174,7 +179,9 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   const toneOf = (eur: number): ReportRow['tone'] => (eur >= 0 ? 'positive' : 'warning')
 
   const rows: ReportRow[] = [
-    { label: `Tarifwechsel zu ${tariffName}`, value: formatEur(switchEur), tone: toneOf(switchEur) },
+    ...(ownTariff
+      ? []
+      : [{ label: `Tarifwechsel zu ${tariffName}`, value: formatEur(switchEur), tone: toneOf(switchEur) }]),
     {
       label: 'Ladesteuerung des Speichers',
       value: formatEur(controlEur),
@@ -239,9 +246,13 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     rows: [],
     body:
       `Die Ersparnis des Speichers ${elsewhere} ist aus dem gemessenen Zeitraum gleichmässig auf ` +
-      'ein Jahr hochgerechnet. Dieses Kapitel rechnet die ergänzten Monate dagegen mit den echten ' +
-      'Börsenpreisen dieser Monate. Im Winter ist die Spanne zwischen günstigen und teuren Stunden ' +
-      'meist kleiner — die Ladesteuerung bringt dort weniger als im Messzeitraum.',
+      'ein Jahr hochgerechnet. ' +
+      (ownTariff
+        ? 'Dieses Kapitel rechnet die ergänzten Monate dagegen mit ihrem fortgeschriebenen ' +
+          'Verbrauchsmuster und den Sätzen Ihres heutigen Tarifs.'
+        : 'Dieses Kapitel rechnet die ergänzten Monate dagegen mit den echten Börsenpreisen dieser ' +
+          'Monate. Im Winter ist die Spanne zwischen günstigen und teuren Stunden meist kleiner — ' +
+          'die Ladesteuerung bringt dort weniger als im Messzeitraum.'),
   }
 
   return {

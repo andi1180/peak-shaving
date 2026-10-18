@@ -104,13 +104,18 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
   /* Tabellenzeilen der Zusammenfassung (hinter der Agenda): mit Ziffer, mit Spaltenabstand. */
   const TABLE_LINE = /^(?!.*· Seite)(?=.*\d).*\S {2,}\S/
   const shiftColumn = (line: string) => line.replace(/(\S)( {2,})(\S)/, '$1$2 $3')
+  // Erste Seite ab der Zusammenfassung mit einer Tabellenzeile — eine Zusammenfassung mit nur
+  // einer Kopfzahl trägt keine.
+  const tablePage = inserted
+    .split('\f')
+    .findIndex((page, i) => i > agenda && page.split('\n').some((line) => TABLE_LINE.test(line)))
 
   it('Leerraum einer Tabellenzeile um 1 verschoben: Standard OK mit Info, --strict FAIL', () => {
-    const shifted = editLine(inserted, agenda + 1, TABLE_LINE, shiftColumn)
+    const shifted = editLine(inserted, tablePage, TABLE_LINE, shiftColumn)
     const result = verifyInsert(old, shifted, OPTIONS)
     expect(result.problems).toEqual([])
     expect(result.spacingOnly).toHaveLength(1)
-    expect(result.spacingOnly[0]).toMatch(new RegExp(`^neu Seite ${agenda + 2}, Zeile \\d+$`))
+    expect(result.spacingOnly[0]).toMatch(new RegExp(`^neu Seite ${tablePage + 1}, Zeile \\d+$`))
     expect(verifyInsert(old, shifted, { ...OPTIONS, strict: true }).ok).toBe(false)
   })
 
@@ -125,14 +130,14 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
 
   it('eine geänderte Ziffer neben verschobenem Leerraum', () => {
     fails(
-      editLine(inserted, agenda + 1, TABLE_LINE, (line) =>
+      editLine(inserted, tablePage, TABLE_LINE, (line) =>
         shiftColumn(line.replace(/\d/, (d) => `${(+d + 1) % 10}`)),
       ),
     )
   })
 
   it('eine in zwei Zeilen aufgeteilte Zeile', () => {
-    fails(editLine(inserted, agenda + 1, TABLE_LINE, (line) => line.replace(/ {2,}/, '\n')))
+    fails(editLine(inserted, tablePage, TABLE_LINE, (line) => line.replace(/ {2,}/, '\n')))
   })
 })
 

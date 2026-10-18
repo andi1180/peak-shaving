@@ -3,7 +3,7 @@ import type {
   GridTariffRowInput,
   LevyPeriodInput,
   LoadProfile,
-  MonthlyFixedCosts,
+  MonthlyCostComparison,
   MonthlyTariffComparison,
   TariffParams,
   TariffPricingInputs,
@@ -162,6 +162,33 @@ export function buildMonthlyTariffComparison(
 ): MonthlyTariffComparison | undefined {
   const spotSide = combinedIntervalPrices(loadProfile, pricing)
   if ('blocker' in spotSide) return undefined
+  return monthlyComparisonOf(loadProfile, tariffParams, pricing, gridAfterKw, spotSide.prices) as
+    | MonthlyTariffComparison
+    | undefined
+}
+
+/**
+ * Der Vergleich OHNE Börsenseite: fehlen nur die Konditionen des dynamischen Tarifs, steht „Ihr
+ * Tarif heute" vollständig da (Arbeitspreis, Netz, Abgaben, Fixkosten); aWATTar- und
+ * Vergleichstarif-Reihen entfallen. `undefined` bei unbekanntem Liefertarif oder Lücke.
+ */
+export function buildOwnTariffMonthlyComparison(
+  loadProfile: LoadProfile,
+  tariffParams: TariffParams,
+  pricing: TariffPricingInputs,
+): MonthlyCostComparison | undefined {
+  if (tariffParams.supplierTariff === 'unknown') return undefined
+  return monthlyComparisonOf(loadProfile, tariffParams, pricing, undefined, null)
+}
+
+function monthlyComparisonOf(
+  loadProfile: LoadProfile,
+  tariffParams: TariffParams,
+  pricing: TariffPricingInputs,
+  gridAfterKw: number[] | undefined,
+  /** `null` = ohne Börsenseite. */
+  spotPrices: number[] | null,
+): MonthlyCostComparison | undefined {
   // Bei unbekanntem Liefertarif gibt es „Ihr Tarif heute" nicht — die Reihe wird `null`, nicht 0.
   const currentSide =
     tariffParams.supplierTariff === 'unknown'
@@ -175,7 +202,9 @@ export function buildMonthlyTariffComparison(
    * lässt den Weg entfallen, statt durch einen geratenen Steuersatz zu teilen (`tariff.ts`).
    */
   const comparisonTariff =
-    tariffParams.comparisonSupplier?.priceBasis === 'net' ? tariffParams.comparisonSupplier : null
+    spotPrices && tariffParams.comparisonSupplier?.priceBasis === 'net'
+      ? tariffParams.comparisonSupplier
+      : null
   const comparisonSide = comparisonTariff
     ? combinedIntervalPrices(loadProfile, pricing, comparisonTariff.energyPriceCtPerKwh)
     : null
@@ -222,8 +251,8 @@ export function buildMonthlyTariffComparison(
     energyCostEur(grid, { drawCtPerKwh, feedInCtPerKwh: feedInCt, deltaHours }, monthIndex).byMonthEur
   const zeros = (): number[] => new Array<number>(12).fill(0)
   const current = currentSide ? costByMonth(rawKw, currentSide.prices) : zeros()
-  const withoutControl = costByMonth(rawKw, spotSide.prices)
-  const withBattery = afterKw ? costByMonth(afterKw, spotSide.prices) : zeros()
+  const withoutControl = spotPrices ? costByMonth(rawKw, spotPrices) : zeros()
+  const withBattery = afterKw && spotPrices ? costByMonth(afterKw, spotPrices) : zeros()
   const comparison = comparisonPrices ? costByMonth(rawKw, comparisonPrices) : zeros()
 
   /*
@@ -239,9 +268,11 @@ export function buildMonthlyTariffComparison(
   const supplierFeeEurPerMonth = tariffParams.supplierBaseFeeEurPerMonth ?? 0
   // `null` kann hier nicht vorkommen: `combinedIntervalPrices` hat den Vergleich dann schon verweigert.
   const dynamicTariff = resolveDynamicTariff(pricing)
-  const awattarFeeEurPerMonth = dynamicTariff
-    ? dynamicTariff.baseFeeEurPerMonth
-    : AWATTAR_BASE_FEE.eurPerMonth
+  const awattarFeeEurPerMonth = !spotPrices
+    ? 0
+    : dynamicTariff
+      ? dynamicTariff.baseFeeEurPerMonth
+      : AWATTAR_BASE_FEE.eurPerMonth
   const networkFix = new Array<number>(12).fill(0)
   const meteringFix = new Array<number>(12).fill(0)
   const eagFlatFix = new Array<number>(12).fill(0)
@@ -317,15 +348,15 @@ export function buildMonthlyTariffComparison(
   }
 
   const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0)
-  const fixedCosts: MonthlyFixedCosts = {
+  const fixedCosts: MonthlyCostComparison['fixedCosts'] = {
     networkBaseFeeEur: sum(networkFix),
     meteringFeeEur: sum(meteringFix),
     eagFlatFeeEur: sum(eagFlatFix),
     usageChargeOnFixedEur: sum(usageChargeFix),
     supplierBaseFeeEur: sum(supplierFix),
-    awattarBaseFeeEur: sum(awattarFix),
+    ...(spotPrices ? { awattarBaseFeeEur: sum(awattarFix) } : {}),
     supplierFeeEurPerMonth,
-    awattarFeeEurPerMonth,
+    ...(spotPrices ? { awattarFeeEurPerMonth } : {}),
     coveredDays: coveredDates.size,
     ...(comparisonPrices ? { comparisonSupplierBaseFeeEur: sum(comparisonFix) } : {}),
   }
@@ -335,8 +366,8 @@ export function buildMonthlyTariffComparison(
 
   return {
     currentTariffEur: currentSide ? mask(current) : null,
-    spotWithoutControlEur: mask(withoutControl),
-    ...(gridAfterKw ? { spotWithBatteryEur: mask(withBattery) } : {}),
+    ...(spotPrices ? { spotWithoutControlEur: mask(withoutControl) } : {}),
+    ...(gridAfterKw && spotPrices ? { spotWithBatteryEur: mask(withBattery) } : {}),
     ...(comparisonPrices && comparisonTariff
       ? { comparisonTariffEur: mask(comparison), comparisonSupplier: comparisonTariff.supplier }
       : {}),

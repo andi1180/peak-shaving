@@ -16,6 +16,7 @@ import {
   type BatteryRoiSummary,
   type BatteryTaxEffect,
   type LevyComponentLabel,
+  type MonthlyCostComparison,
   type MonthlyTariffComparison,
   type RecommendationRationale,
 } from 'shared'
@@ -68,6 +69,23 @@ export function isAnnualized(entry: Pick<BatteryResultEntry, 'annualizationFacto
 export function perYearText(entry: Pick<BatteryResultEntry, 'annualizationFactor'>): string {
   return isAnnualized(entry) ? `pro Jahr (${ANNUALIZED_LABEL})` : 'pro Jahr'
 }
+
+/**
+ * Fehlen nur die Konditionen des dynamischen Tarifs, trägt der Blocker den Monatsvergleich OHNE
+ * Börsenseite: „Ihr Tarif heute" vollständig, kein Tarifvergleich. Sonst `undefined`.
+ */
+export function ownTariffOnlyComparisonOf(
+  analysis: Pick<AnalysisResult, 'tariffOptimization'>,
+): MonthlyCostComparison | undefined {
+  const status = analysis.tariffOptimization
+  return status?.computable === false && status.side === 'dynamic_tariff'
+    ? status.monthlyComparison
+    : undefined
+}
+
+/** Der eine Hinweis, warum ein Report ohne Konditionen des dynamischen Tarifs keinen Tarifvergleich trägt. */
+export const NO_DYNAMIC_TARIFF_TERMS_NOTE =
+  'Ein Vergleich mit einem dynamischen Tarif ist nicht enthalten, weil keine Konditionen angegeben wurden.'
 
 /** §3.7 — ohne rechenbare Preisdaten ist der Energie-Anteil nur zum Arbeitspreis bewertet. */
 export const ENERGY_PRICE_ONLY_NOTE =
@@ -157,18 +175,25 @@ export function hasDemandChargeComponent(
 export function dispatchMethodText({ analysis, isStandardProfile, withUpperBound }: DispatchMethodInput): string {
   const comparison =
     analysis.tariffOptimization?.computable === true ? analysis.tariffOptimization.monthlyComparison : undefined
+  const ownTariffOnly = ownTariffOnlyComparisonOf(analysis) !== undefined
   const plan =
-    analysis.tariffOptimization?.computable !== true
+    analysis.tariffOptimization?.computable !== true && !ownTariffOnly
       ? 'Ohne Börsenpreise gibt es keinen Tagesplan: der Speicher lädt aus PV-Überschuss und im ' +
         'günstigen Tarif-Fenster und entscheidet dabei nur mit dem, was bis zu diesem Zeitpunkt ' +
         'bekannt ist.'
       : isStandardProfile
         ? 'Ihr Verbrauch ist ein Standardprofil aus Ihrem Jahresverbrauch; der Speicher plant jeden ' +
           'Tag mit genau diesem Profil, es ist zugleich Erwartung und gerechneter Verbrauch.'
-        : 'Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen und einer ' +
-          'Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen ' +
-          'Verbrauch des Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, ' +
-          'Amortisation und die Reihung der Geräte stammen aus genau diesem Fahrplan.'
+        : ownTariffOnly
+          ? 'Der Speicher plant jeden Tag am Vorabend: mit den Preisen Ihres heutigen Tarifs und ' +
+            'einer Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem ' +
+            'tatsächlichen Verbrauch des Tages. Ausgeführt wird dieser Plan auf Ihrem echten ' +
+            'Lastgang; Ersparnis, Amortisation und die Reihung der Geräte stammen aus genau diesem ' +
+            'Fahrplan.'
+          : 'Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen und einer ' +
+            'Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen ' +
+            'Verbrauch des Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, ' +
+            'Amortisation und die Reihung der Geräte stammen aus genau diesem Fahrplan.'
   const peak = hasDemandChargeComponent(analysis.current)
     ? ' Anders die Spitzenkappung: Kappschwelle und Reserve für die Spitzen sind aus dem ganzen ' +
       'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungs-Anteil ' +

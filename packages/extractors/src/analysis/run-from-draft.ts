@@ -43,7 +43,7 @@ import {
   type Country,
   type IntervalFileKind,
   type LoadProfile,
-  type MonthlyTariffComparison,
+  type MonthlyCostComparison,
   type TariffPricingInputs,
 } from 'shared'
 
@@ -920,11 +920,9 @@ function unreadableMessage(
     : `${label} konnte nicht gelesen werden (${error.code}): ${error.message}`
 }
 
-/** Der Monatsvergleich des gemessenen Laufs — nur, wenn er rechenbar ist. */
-function comparisonOf(result: AnalysisResult): MonthlyTariffComparison | undefined {
-  return result.tariffOptimization?.computable === true
-    ? result.tariffOptimization.monthlyComparison
-    : undefined
+/** Der Monatsvergleich des gemessenen Laufs — auch ohne Börsenseite (fehlende dynamische Konditionen). */
+function comparisonOf(result: AnalysisResult): MonthlyCostComparison | undefined {
+  return result.tariffOptimization?.monthlyComparison
 }
 
 /** Ohne Jahreskapitel trägt das Szenario keine Jahresreihung — sie gälte für nichts im Report. */

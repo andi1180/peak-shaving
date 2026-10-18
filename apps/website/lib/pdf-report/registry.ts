@@ -375,7 +375,7 @@ export function buildReportRegistry(
     }),
     statement('charge_price', () => {
       const plan = context.insightPlan.chargePrice
-      return plan ? buildChargePrice(plan.price).statement : null
+      return plan ? buildChargePrice(plan.price, plan.ownTariff).statement : null
     }),
 
     /*
