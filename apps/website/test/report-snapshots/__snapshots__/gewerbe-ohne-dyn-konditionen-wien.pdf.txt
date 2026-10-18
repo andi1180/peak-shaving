@@ -1,0 +1,570 @@
+                    COOLiN ENERGY
+                    Peak Shaving & Speicher-Wirtschaftlichkeit
+
+
+
+
+Wirtschaftlichkeitsanalyse
+Batteriespeicher
+Auf Basis Ihres Viertelstunden-Lastgangs
+
+
+   E R S T E L LT F Ü R
+
+   Referenzfall Gewerbe
+
+
+
+Ausgewerteter Zeitraum             01.01.2025 – 31.12.2025
+Erstellt am                        27.09.2026
+     COOLiN ENERGY         Referenzfall Gewerbe
+
+
+
+
+Referenzfall Gewerbe · Zeitraum 01.01.2025 – 31.12.2025 · Erstellt am 27.09.2026
+
+Auf einen Blick
+   Ersparnis pro Jahr
+
+   Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.
+
+
+
+gerechnet mit Ihren Messwerten von 365 Tagen
+
+
+Ihr Lastgang
+  Höchste Leistung pro Tag
+ 6 kW
+
+
+     3
+
+
+     0
+            Jän     Feb       Mär      Apr       Mai       Jun      Jul       Aug      Sep      Okt       Nov       Dez
+
+Die Balken zeigen Ihre höchste Leistung pro Tag.
+
+Ihre Stromkosten pro Jahr
+Ihr Tarif heute
+                                                                                                                  € 2.976
+
+
+
+
+Mit Ihrem heutigen Tarif kostet Ihr Strom rund € 2.976. Ein Vergleich mit einem dynamischen Tarif
+ist nicht enthalten, weil keine Konditionen angegeben wurden.
+
+Ihr Speicher
+Ein neuer Speicher (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40) würde rund € 4 pro
+Jahr sparen. Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.
+Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 2 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Inhalt
+Was in diesem Dokument steht — und auf welcher Seite es beginnt.
+
+
+
+Zusammenfassung                                                                                4
+
+Voraussetzungen                                                                                5
+
+Ihr Lastgang                                                                                   6
+
+Empfehlung und Wirtschaftlichkeit                                                              7
+
+Kostenverlauf und ein Tag im Detail                                                            8
+
+Das Ladeverhalten Ihres Speichers                                                              9
+
+Speichergrösse und Gerätewahl                                                                 10
+
+Unser Vorschlag                                                                               11
+
+Methodik & Vorbehalte                                                                         12
+
+   Grundlage ist Ihr echter Lastgang
+   Ein Fahrplan, keine addierten Einzelrechnungen
+   Physikalische Simulation, kein Hochrechnen von Spitzen
+   Wie der Fahrplan entsteht
+   Konstante Batterieeigenschaften über den Betrachtungszeitraum
+
+Annahmen und Datengrundlage                                                                   13
+
+   Annahmen & Rechenweise — Stand dieser Berechnung
+   Datenqualität
+   Vergleich mit einem dynamischen Tarif: nicht enthalten
+   Tarifsätze
+   Tarifkomponenten
+   Datenquellen
+   Bekannte Einschränkungen
+
+
+Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 3 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Zusammenfassung
+Die Zahlen, um die es geht — und was sie für Sie bedeuten.
+
+
+
+€ 2.976
+Ihre Stromkosten heute
+über 365 gemessene Tage, netto
+Mit Speicher und Ladesteuerung zusätzlich € 4
+pro Jahr, bei € 7.691 Investition (Dyness Stack
+100 30,72 kWh mit Solinteg MHT-15K-40). Im
+Betrachtungszeitraum von 10 Jahren rechnet er sich
+damit nicht.
+
+
+
+Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage. Ihre Stromkosten und der Wert
+eines Speichers sind mit Ihrem heutigen Tarif gerechnet — was ein Speicher darin bringt, steht im Kapitel
+„Empfehlung und Wirtschaftlichkeit". Ein Vergleich mit einem dynamischen Tarif ist nicht enthalten, weil keine
+Konditionen angegeben wurden.
+
+
+Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 4 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Voraussetzungen
+Womit gerechnet wird — Ihre Anlage, Ihr Netzanschluss, und der Rahmen, in dem sich Ihre Ersparnis bewegt.
+
+Voraussetzungen für diese Auswertung
+ Ihr Netzanschluss                                               Netzebene 7, ohne Leistungsmessung
+
+
+
+   Ein wichtiger Rahmen vorweg
+   Ihr Anschluss hat keinen Leistungspreis-Bestandteil (eine Zusatzgebühr für hohe Verbrauchsspitzen,
+   vor allem bei Gewerbekunden üblich). Die gesamte Ersparnis in dieser Auswertung kommt deshalb allein
+   aus der gezielten Steuerung eines Speichers in Ihrem heutigen Tarif.
+
+
+Ihr Verbrauch heute
+ Kosten                                                                                    € 2.976 (netto)
+
+ Zeitraum                                                                         365 gemessene Tage
+
+ Höchste gemessene Verbrauchsspitze                                                                 5,5 kW
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 5 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Ihr Lastgang
+Ihr Netzbezug über den ausgewerteten Zeitraum, in Viertelstundenwerten — die tatsächliche Grundlage für
+alle Zahlen in dieser Auswertung.
+
+
+  Das Lastgang-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Ihr Verbrauch in Zahlen
+ Gesamtverbrauch über den Zeitraum                                                                   11 110 kWh
+
+ Ø Tagesverbrauch                                                                                30 kWh / Tag
+
+ Lastfaktor                                                                                                23 %
+ Ø Leistung im Verhältnis zur Spitze von 5,5 kW
+
+Der Lastfaktor setzt Ihre durchschnittliche Leistung ins Verhältnis zu Ihrer höchsten. Ein niedriger Wert steht
+für einen spitzigen Verlauf — kurze, hohe Ausschläge über einem ruhigen Grundverbrauch. Ein hoher Wert
+steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über dem Durchschnitt liegt.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 15
+      COOLiN ENERGY        Referenzfall Gewerbe
+
+
+
+
+Empfehlung und Wirtschaftlichkeit
+Welches Gerät — und was es kostet.
+
+Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
+2 106,5 Jahre bis sich die Investition von € 7.691 bezahlt gemacht hat
+    Speicher (15 kW / 29,2 kWh)                                                                        € 5.791
+
+    Installationspauschale (Richtwert)                                                                 € 1.900
+
+    Gesamtinvestition                                                                                   € 7.691
+
+    Ersparnis pro Jahr                                                                                      €4
+
+    Netto über 10 Jahre                                                                               -€ 7.654
+
+1       Die wirtschaftlichste Option
+        Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
+        Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ein grösserer
+        Speicher spart fast immer mehr und kostet auch mehr.
+
+2       Woher Preis und Wirkungsgrad stammen
+        Hardware-Listenpreis netto, Preisstand 22.09.2026. Installationspauschale (Richtwert), Preisstand
+        24.09.2026. Der Wirkungsgrad (88 %) ist ein Erfahrungswert: das Datenblatt dieses Geräts nennt
+        keinen Systemwirkungsgrad über Laden und Entladen.
+
+3       Ohne Steuervorteil gerechnet
+        Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen enthalten — mit
+        einer Förderung fiele die Investition niedriger aus.
+
+
+     Hinweis zu diesem Gerät
+     Tarif ohne Leistungspreis: es gibt keinen Leistungspreis-Anteil, der sich kappen liesse — die
+     Spitzenkappung wird deshalb nicht gerechnet und nicht kreditiert. Das ist kein fehlender Wert, sondern
+     eine Eigenschaft Ihrer Abrechnung; die volle Batteriekapazität steht dafür dem Eigenverbrauch und der
+     Lastverschiebung zur Verfügung.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 7 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Kostenverlauf und ein Tag im Detail
+Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit aussieht.
+
+
+  Der Kostenvergleich konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon nicht
+  betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 8 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Das Ladeverhalten Ihres Speichers
+Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
+
+
+  Die Stunden-Heatmap konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Wann lädt und entlädt Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40?
+ Stärkste Zelle                                                                                          1,4 kWh
+
+ Am meisten geladen um                                                                                 11:00 Uhr
+
+Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im Speicher
+ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. Gesteuert wird nach den
+Preisen Ihres heutigen Tarifs. Die Auflösung ist bewusst stündlich und nicht viertelstündlich — eine feinere
+Darstellung zeigte Unterschiede, die aus der Last stammen und nicht aus der Steuerung.
+
+
+  Der Ø-Ladepreis konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon nicht
+  betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Zu welchem Preis wird geladen?
+ Geladen zu                                                                                                      —
+
+ Entladen zu                                                             25,02 ct/kWh · 14,6 kWh abgegeben
+
+ Unter dem Monatsdurchschnitt                                               in 0 von 12 gemessenen Monaten
+
+Alle Beträge netto (ohne USt.) und mengengewichtet: ein Monat mit wenigen Kilowattstunden und einem sehr
+guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz bezogene, also die bezahlte.
+Gerechnet ist das mit dem vollen Preis Ihres heutigen Tarifs (Arbeitspreis, Netzentgelte, Abgaben) — ein
+Vergleich mit Börsenpreisen ist nicht enthalten. Die Ladesteuerung plant jeden Tag im Voraus, ohne den
+tatsächlichen Verbrauch des Tages zu kennen: der Abstand zum Durchschnitt ist, was dieser Plan erreicht
+hat.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 9 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Speichergrösse und Gerätewahl
+Was jede weitere Kilowattstunde Speicher noch bringt — und wie die Geräte des Katalogs dabei abschneiden.
+
+
+  Die Grenznutzen-Kurve konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Lohnt sich ein Speicher?
+
+Derzeit nicht
+Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus den Preisunterschieden Ihres
+heutigen Tarifs über den Tag; bei Ihrem Verbrauch reicht das nicht aus, um die Investition zu decken. Gereiht
+ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und
+wie das beste Gerät im Kapitel „Empfehlung und Wirtschaftlichkeit". Das beste Gerät steht deshalb hier nicht
+noch einmal: es ist dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten Alternativen — und um
+welchen Betrag das beste Gerät besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. Die Hinweise
+zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der
+Investition bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim besten Gerät.
+
+34 Geräte geprüft, davon 0 im Betrachtungszeitraum wirtschaftlich.
+
+ Gerät                      Grösse            Investition   Ersparnis/Jahr   Amortisation    Netto über     Abstand zum
+                                                                                               10 Jahre     besten Gerät
+
+ Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550              € 4 2 341,8 Jahre        -€ 8.513    € 859 weniger
+ S                        kW                                                                                über 10 Jahre
+
+ Dyness Stack 100       38,9 kWh / 20            € 9.099              €5     1 869,1 Jahre     -€ 9.050          € 1.396
+ 40,96 kWh mit Solinteg kW                                                                                  weniger über
+ MHT-20K-40                                                                                                     10 Jahre
+
+ Kostal & Dyness Retrofit 48,6 kWh /             € 11.000             €6     1 807,7 Jahre    -€ 10.939          € 3.285
+ M                        20,5 kW                                                                           weniger über
+                                                                                                                10 Jahre
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 10 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Unser Vorschlag
+Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
+
+Was wir vorschlagen
+Speicher
+Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel „Speichergrösse und
+Gerätewahl".
+
+Woher diese Zahlen stammen
+Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze und — sofern zutreffend — die PV-Rekonstruktion
+sind ausführlich im Kapitel „Annahmen und Datengrundlage" nachvollziehbar.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 11 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Methodik & Vorbehalte
+Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.
+
+Grundlage ist Ihr echter Lastgang
+Gerechnet wird auf den Viertelstundenwerten, die Sie hochgeladen haben, und auf den Tarifwerten Ihrer
+Netzrechnung. Wo uns ein Wert fehlt, weisen wir das aus, statt ihn zu schätzen — eine geratene Zahl fällt
+später niemandem als Fehler auf, sondern als Ergebnis.
+
+Ein Fahrplan, keine addierten Einzelrechnungen
+Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Batteriekapazität.
+Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungs-
+und Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle
+Kostendifferenz Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile
+ergeben zusammen genau die ausgewiesene Gesamtersparnis. Der Leistungs-Anteil umfasst den
+Leistungspreis, die Gebrauchsabgabe darauf und den EAG-Förderbeitrag Leistung.
+
+Physikalische Simulation, kein Hochrechnen von Spitzen
+Die Batterie wird über den gesamten Zeitraum chronologisch mit Ladestand, Leistungsgrenze und
+Wirkungsgrad durchgerechnet. Der Ladestand bleibt dabei jederzeit innerhalb der nutzbaren Kapazität; eine
+Spitze gilt nur dann als abgefangen, wenn zu diesem Zeitpunkt tatsächlich genug Energie und Leistung
+vorhanden waren.
+
+Wie der Fahrplan entsteht
+Der Speicher plant jeden Tag am Vorabend: mit den Preisen Ihres heutigen Tarifs und einer
+Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen Verbrauch des
+Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, Amortisation und die Reihung der
+Geräte stammen aus genau diesem Fahrplan.
+
+Konstante Batterieeigenschaften über den Betrachtungszeitraum
+Nutzbare Kapazität und Wirkungsgrad werden über den gesamten Horizont als unverändert angenommen.
+Reale Speicher verlieren mit den Jahren an Kapazität. Diese Alterung ist hier bewusst nicht modelliert — eine
+erfundene Alterungskurve wäre schlechter als eine offengelegte Vereinfachung. Die ausgewiesene Ersparnis
+der späteren Jahre ist dadurch eher optimistisch.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 12 von 15
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+Annahmen und Datengrundlage
+Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
+
+Annahmen & Rechenweise — Stand dieser Berechnung
+ Betrachtungshorizont                                                                                      10 Jahre
+
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                           88 % (angenommen)
+
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                € 198,43 / kWh
+
+ Gesamtinvestition                                                                                            € 7.691
+
+ Nettoinvestition nach Förderung                                               keine Angabe (nicht einbezogen)
+
+Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
+Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
+im Rechner ändern, und ein danach erzeugter Report trägt dann andere Zahlen als dieser. Die Tarifgrössen
+selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkunft daneben.
+
+
+   Datenqualität
+   Abgedeckt: 365 Tage · interpolierte Lücken: 0
+   · Die Zeitstempel bezeichnen das Ende des Messintervalls (Spalte „Ende Ablesezeitraum“) und wurden
+   auf den Intervallbeginn umgerechnet.
+
+
+
+   Vergleich mit einem dynamischen Tarif: nicht enthalten
+   Ein Vergleich mit einem dynamischen Tarif ist nicht enthalten, weil keine Konditionen angegeben
+   wurden. Ihre Stromkosten, der Fahrplan des Speichers und seine Ersparnis sind mit dem vollen Preis
+   Ihres heutigen Tarifs gerechnet (Arbeitspreis, Netzentgelte, Abgaben).
+
+
+Tarifsätze
+Gerechnet mit den bei diesem Zählpunkt hinterlegten Leistungspreis-, Abrechnungs- und Mindestleistungswerten, laut
+hinterlegtem Tarif Wiener Netze.
+
+
+Tarifkomponenten
+ Position                            Wert                           Status
+
+ Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
+
+ Arbeitspreis                        13,34 ct/kWh                   aus Ihren Angaben (Energieseite)
+
+ Einspeisevergütung                  11,04 ct/kWh                   aus Ihren Angaben (Energieseite)
+
+ Grundgebühr Lieferant               € 7,58 / Monat                 aus Ihren Angaben (Energieseite)
+
+
+Datenquellen
+ Quelle                         Was daraus verwendet wurde                Zeitraum / Stand
+
+ Lastgang
+ Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.    01.01.2025 – 31.12.2025 · 365 abgedeckte
+ Netzbezugs                     Herkunft: hochgeladener Lastgang, nur     Tage (gerundet aus Messwerte ÷ 96, wie im
+                                Bezug. Monats- und Tagesgrenzen in        Datenqualitäts-Hinweis oben)
+                                Ortszeit Europe/Vienna.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 13 von 15
+    COOLiN ENERGY           Referenzfall Gewerbe
+
+
+
+
+ Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
+                                Lastgangs.                                 verfügbar)
+
+ Tarif
+ Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2025.
+                                Mindestleistung; bei berechenbarem          Name, Version und Fundstelle des Blatts:
+                                Vergleich zusätzlich die Netz-Arbeitspreise nicht erfasst.
+                                je Zeitfenster.
+
+ Lieferanten-Tarif              Arbeitspreis, Grundgebühr und              Kundenrechnung: nicht erfasst. Kein
+                                Einspeisevergütung der Energieseite.       Vergleichstarif (keine Konditionen
+                                                                           angegeben).
+
+ Batterie
+ Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
+ mit Solinteg MHT-15K-40    Wirkungsgrad und Preis je kWh.             — Hardware-Listenpreis netto.
+                                                                       Installationspauschale (Richtwert),
+                                                                       Preisstand 24.09.2026. Wirkungsgrad:
+                                                                       Erfahrungswert, kein Datenblattwert.
+
+
+
+   Bekannte Einschränkungen
+   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
+   Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
+   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
+   auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
+   Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
+   der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.
+   Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse im
+   Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um diesen Posten
+   zu hoch angesetzt.
+   Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
+   einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
+   abgerechneten Leistungswert nach unten begrenzt.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 15
+                    COOLiN ENERGY
+                    Peak Shaving & Speicher-Wirtschaftlichkeit
+
+
+
+
+Sprechen wir über Ihre Zahlen.
+Diese Auswertung ist der Ausgangspunkt, nicht das Angebot. Wir gehen sie mit Ihnen
+durch, prüfen die Annahmen gegen Ihre Netzrechnung und rechnen die Auslegung auf
+Ihren Betrieb.
+
+
+   I H R A N S P R E C H PA R T N E R
+
+   Martin Neubauer
+   CEO
+   +43 676 76 30456
+   energy@coolin.at
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich · www.coolin.at
+Wirtschaftlichkeitsanalyse Batteriespeicher · Zeitraum 01.01.2025 – 31.12.2025 · Erstellt am 27.09.2026
+

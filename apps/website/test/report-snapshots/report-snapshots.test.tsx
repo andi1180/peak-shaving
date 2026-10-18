@@ -62,6 +62,8 @@ type SnapshotCase = {
   catalogMetaFile: string | null
   /** Zusätzliche Entwurfsfelder über dem eingefrorenen Entwurf (Varianten). */
   draftPatch?: Record<string, unknown>
+  /** Felder über jedem eingefrorenen Preisstand (Varianten). */
+  pricingPatch?: Partial<TariffPricingInputs>
   /** Zusätzliche Prüfung am Ergebnis des Laufs (netto, wie gerechnet). */
   checkResult?: (result: AnalysisResult) => void
   /** Variante der Vorderseite „Auf einen Blick"; fehlt = keine Vorderseite. */
@@ -172,6 +174,20 @@ const CASES: SnapshotCase[] = [
       supplierBaseFeeEurPerMonth: 7.58,
       einspeiseverguetungCtPerKwh: 11.0352,
     },
+  },
+  // Eigener Tarif bekannt, Konditionen des dynamischen Tarifs fehlen: kein Tarifvergleich, sonst vollständig.
+  {
+    ...GEWERBE,
+    name: 'gewerbe-ohne-dyn-konditionen-wien',
+    executiveSummary: 'speicher-lohnt-nicht',
+    draftPatch: {
+      invoiceSkipped: false,
+      supplierPriceBasis: 'net',
+      energyPriceCtPerKwh: 13.339,
+      supplierBaseFeeEurPerMonth: 7.58,
+      einspeiseverguetungCtPerKwh: 11.0352,
+    },
+    pricingPatch: { dynamicTariff: null },
   },
   // Privatpfad: Steuerwerte im Entwurf bleiben unbeachtet — derselbe Snapshot wie ohne.
   {
@@ -364,8 +380,8 @@ async function runCase(c: SnapshotCase) {
       const pricing = pricingByWindow.get(windowKey(request))
       if (pricing === undefined)
         throw new Error(`Kein eingefrorener Preisstand für ${windowKey(request)}`)
-      lastPricing = pricing
-      return pricing
+      lastPricing = { ...pricing, ...c.pricingPatch }
+      return lastPricing
     },
   }, { category: c.category })
   return { run, draft, catalog, lastPricing: lastPricing as TariffPricingInputs | null }

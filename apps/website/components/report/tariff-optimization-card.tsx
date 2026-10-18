@@ -17,6 +17,8 @@ import {
   levySideLabel,
   loadControlValueOf,
   monthlyBatteryRef,
+  NO_DYNAMIC_TARIFF_TERMS_NOTE,
+  ownTariffOnlyComparisonOf,
   uncontrolledWayLabel,
   vatNote,
 } from '@/lib/report-copy'
@@ -118,6 +120,32 @@ export function TariffOptimizationCard({
   tariffName?: string
 }) {
   if (!status) return null
+
+  // Nur die Konditionen des dynamischen Tarifs fehlen: gerechnet ist mit dem eigenen Tarif.
+  if (ownTariffOnlyComparisonOf({ tariffOptimization: status })) {
+    return (
+      <Card
+        className="border-warning print:break-inside-avoid"
+        data-testid="tarifoptimierung-blocker"
+      >
+        <CardHeader>
+          <div className="flex items-center gap-2 text-warning">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <h3 className="text-base font-semibold">
+              Vergleich mit einem dynamischen Tarif: nicht enthalten
+            </h3>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <p className="text-text">
+            {NO_DYNAMIC_TARIFF_TERMS_NOTE} Ihre Stromkosten, der Fahrplan des Speichers und seine
+            Ersparnis sind mit dem vollen Preis Ihres heutigen Tarifs gerechnet (Arbeitspreis,
+            Netzentgelte, Abgaben).
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!status.computable) {
     return (

@@ -68,11 +68,13 @@ import type { PdfReportAnalysis } from './types'
 export type InsightHourFlowPlan = {
   grid: (number | null)[][]
   batteryName: string
+  /** Gesteuert nach der Preisreihe des eigenen Tarifs statt nach Börsenpreisen. */
+  ownTariff?: boolean
 }
 
 export type InsightChartPlan = {
   hourFlow: InsightHourFlowPlan | null
-  chargePrice: { price: MonthlyChargePrice } | null
+  chargePrice: { price: MonthlyChargePrice; ownTariff: boolean } | null
 }
 
 /**
@@ -218,9 +220,15 @@ export function insightChartPlan(analysis: PdfReportAnalysis): InsightChartPlan 
   return {
     hourFlow:
       entry && grid && summarizeHourFlow(grid).hasData
-        ? { grid, batteryName: entry.battery.name }
+        ? {
+            grid,
+            batteryName: entry.battery.name,
+            ...(entry.energySavingBasis === 'own_tariff_full_price' ? { ownTariff: true } : {}),
+          }
         : null,
-    chargePrice: entry && price ? { price } : null,
+    chargePrice: entry && price
+      ? { price, ownTariff: entry.energySavingBasis === 'own_tariff_full_price' }
+      : null,
   }
 }
 
@@ -307,11 +315,15 @@ export function buildHourFlow(
       body:
         `Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im ` +
         'Speicher ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. ' +
-        'Wandert der Ladeschwerpunkt über die Monate, folgt die Steuerung dem Preis: im Winter ' +
-        'liegen die günstigen Stunden meist nachts, im Sommer um die Mittagszeit. Die Auflösung ist ' +
-        'bewusst stündlich und nicht viertelstündlich — die Börsenpreise, an denen sich die Ladung ' +
-        'ausrichtet, gelten je Stunde, und eine feinere Darstellung zeigte Unterschiede, die aus der ' +
-        'Last stammen und nicht aus der Steuerung.',
+        (plan.ownTariff
+          ? 'Gesteuert wird nach den Preisen Ihres heutigen Tarifs. Die Auflösung ist bewusst ' +
+            'stündlich und nicht viertelstündlich — eine feinere Darstellung zeigte Unterschiede, die ' +
+            'aus der Last stammen und nicht aus der Steuerung.'
+          : 'Wandert der Ladeschwerpunkt über die Monate, folgt die Steuerung dem Preis: im Winter ' +
+            'liegen die günstigen Stunden meist nachts, im Sommer um die Mittagszeit. Die Auflösung ist ' +
+            'bewusst stündlich und nicht viertelstündlich — die Börsenpreise, an denen sich die Ladung ' +
+            'ausrichtet, gelten je Stunde, und eine feinere Darstellung zeigte Unterschiede, die aus der ' +
+            'Last stammen und nicht aus der Steuerung.'),
     },
   }
 }
@@ -327,6 +339,8 @@ export function buildHourFlow(
  */
 export function buildChargePrice(
   price: MonthlyChargePrice,
+  /** Bewertet mit der vollen Preisreihe des eigenen Tarifs statt mit Börsenpreisen. */
+  ownTariff = false,
 ): { figure: ReportFigure; statement: ReportStatement } {
   const summary = summarizeChargePrice(price)
 
@@ -375,8 +389,13 @@ export function buildChargePrice(
         `Alle Beträge ${displayedPriceBasis(price) === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'} ` +
         'und mengengewichtet: ein Monat mit wenigen Kilowattstunden ' +
         'und einem sehr guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz ' +
-        'bezogene, also die bezahlte. Gerechnet ist das auf die tatsächlichen Marktpreise Ihres ' +
-        'Zeitraums — kein Versprechen für die Zukunft. Die Ladesteuerung plant jeden Tag im Voraus, ' +
+        'bezogene, also die bezahlte. ' +
+        (ownTariff
+          ? 'Gerechnet ist das mit dem vollen Preis Ihres heutigen Tarifs (Arbeitspreis, ' +
+            'Netzentgelte, Abgaben) — ein Vergleich mit Börsenpreisen ist nicht enthalten. '
+          : 'Gerechnet ist das auf die tatsächlichen Marktpreise Ihres Zeitraums — kein ' +
+            'Versprechen für die Zukunft. ') +
+        'Die Ladesteuerung plant jeden Tag im Voraus, ' +
         'ohne den tatsächlichen Verbrauch des Tages zu kennen: der Abstand zum Durchschnitt ist, was ' +
         'dieser Plan erreicht hat.',
     },
@@ -418,7 +437,9 @@ export function buildInsightChapter(
 ): InsightChapter {
   const plan = context ? context.insightPlan : insightChartPlan(analysis)
   const hourFlow = plan.hourFlow ? buildHourFlow(plan.hourFlow) : null
-  const chargePrice = plan.chargePrice ? buildChargePrice(plan.chargePrice.price) : null
+  const chargePrice = plan.chargePrice
+    ? buildChargePrice(plan.chargePrice.price, plan.chargePrice.ownTariff)
+    : null
 
   return {
     hourFlow,

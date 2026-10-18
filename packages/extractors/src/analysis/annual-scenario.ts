@@ -151,15 +151,18 @@ export async function buildAnnualScenario(
    * ⚠ `computable === true` allein reicht nicht: der Monatsvergleich ist im Contract auch dort
    * optional (`TariffOptimizationStatus`), und ohne ihn gäbe es keine der vier Tarifzeilen.
    */
-  const comparison =
-    result.tariffOptimization?.computable === true
-      ? result.tariffOptimization.monthlyComparison
-      : undefined
+  // Ohne Konditionen des dynamischen Tarifs steht der Vergleich ohne Börsenseite am Blocker.
+  const comparison = result.tariffOptimization?.monthlyComparison
   if (!comparison) return { ok: false, blocker: 'not_computable' }
-  const ways = tariffWayCosts(comparison)
+  const costs = tariffWayCosts(comparison)
   const entry = primaryBatteryEntry(result)
   if (!entry) return { ok: false, blocker: 'no_device' }
   const peakShavingSavingEur = peakShavingSavingPerYearOf(entry)
+  // Ohne Börsenseite ist Weg 4 „Ihr Tarif mit Speicher": Ist-Kosten minus Energie-Anteil des Geräts.
+  const ways =
+    costs.spotWithoutControlEur === null && costs.currentTariffEur !== null
+      ? { ...costs, controlledEur: costs.currentTariffEur - entry.energySavingOverCoveredPeriod }
+      : costs
 
   return {
     ok: true,

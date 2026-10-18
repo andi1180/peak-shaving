@@ -11,6 +11,7 @@ import {
   isAnnualized,
   storagePaysOff,
   levyNamesOf,
+  ownTariffOnlyComparisonOf,
 } from '@/lib/report-copy'
 import { formatIsoDate, operatorLabelOf } from './basis'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
@@ -408,6 +409,8 @@ function gridCostSentence(input: PdfReportInput): string | null {
 function provenanceSentences(input: PdfReportInput): string[] {
   const analysis = input.analysis
   const computable = analysis.tariffOptimization?.computable === true
+  // Ohne Börsenseite sind die Abgaben gerechnet, Börsenpreise gibt es keine.
+  const leviesComputed = computable || ownTariffOnlyComparisonOf(analysis) !== undefined
   const sentences: string[] = []
 
   const energy = energyPriceSentence(input)
@@ -416,7 +419,7 @@ function provenanceSentences(input: PdfReportInput): string[] {
   const grid = gridCostSentence(input)
   if (grid) sentences.push(grid)
 
-  if (computable) {
+  if (leviesComputed) {
     const levyNames = levyNamesOf(analysis.assumptions)
     sentences.push(
       levyNames
@@ -425,6 +428,10 @@ function provenanceSentences(input: PdfReportInput): string[] {
         : 'Elektrizitätsabgabe, EAG-Förderbeitrag, EAG-Pauschale und Gebrauchsabgabe sind mit den ' +
             'Verordnungssätzen gerechnet, die für Ihren Netzbetreiber und Ihre Netzebene im ' +
             'ausgewerteten Zeitraum galten.',
+    )
+  }
+  if (computable) {
+    sentences.push(
       'Die aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — ' +
         'keine Prognose und kein Durchschnittswert.',
     )
@@ -463,7 +470,7 @@ export function buildProvenance(input: PdfReportInput): ReportStatement | null {
     title: 'Woher diese Zahlen stammen',
     amount: null,
     rows: [],
-    body: `Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze, aWATTar-Stundenpreise und — sofern ` +
+    body: `Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze${ownTariffOnlyComparisonOf(input.analysis) ? '' : ', aWATTar-Stundenpreise'} und — sofern ` +
       `zutreffend — die PV-Rekonstruktion sind ausführlich im Kapitel „${BASIS_SECTION.title}" ` +
       'nachvollziehbar.',
   }

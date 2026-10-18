@@ -24,6 +24,7 @@ gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 | `privat-bestand-pv-wien.foerderung-fix-ueber-investition` | wie oben + Fixbetrag 100.000 € inkl. USt | Begrenzung auf die Investition |
 | `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer` | Gewerbe + 50 %, 15 Jahre, Steuersatz 23 %, IFB 20 %, AfA 10 Jahre | Steuerwirkung neben der Förderung |
 | (Privat, Datei `privat-bestand-pv-wien`) | Privat + Steuerwerte im Entwurf | Steuerwerte im Privatpfad unbeachtet |
+| `gewerbe-ohne-dyn-konditionen-wien` | Gewerbe + eigener Tarif von Hand (13,339 ct, 7,58 €/Monat), Preisstand mit `dynamicTariff: null` | Report ohne Tarifvergleich, sonst vollständig |
 | `gewerbe-leistungspreis-teiljahr-wien` | `fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json` | anonymisierte Render-Anfrage Gewerbe, s. unten |
 | `gewerbe-leistungspreis-teiljahr-jahr-wien` | dieselbe Render-Anfrage, `analysis_result` ersetzt durch `fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/analysis-result.json` | Jahreskapitel mit Jahresreihung (E2), s. unten |
 

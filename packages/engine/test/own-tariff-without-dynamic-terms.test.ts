@@ -28,7 +28,7 @@ const kostal = readJson<BatteryCandidate[]>('battery-catalog.json').find((b) =>
   b.id.startsWith('6845c64d'),
 )!
 
-const run = (pricing: TariffPricingInputs) =>
+const analyse = (pricing: TariffPricingInputs) =>
   computeAnalysis(
     {
       tariff,
@@ -38,7 +38,8 @@ const run = (pricing: TariffPricingInputs) =>
     },
     10,
     [kostal],
-  ).perBattery[0]!
+  )
+const run = (pricing: TariffPricingInputs) => analyse(pricing).perBattery[0]!
 
 describe('Ohne Konditionen des dynamischen Tarifs: eigene volle Preisreihe', () => {
   it('Energie-Anteil gleich der Bewertung mit eigener Preisreihe; Kappung unverändert', () => {
@@ -64,23 +65,34 @@ describe('Ohne Konditionen des dynamischen Tarifs: eigene volle Preisreihe', () 
     expect(without.newBilledKw).toBeCloseTo(withT.newBilledKw, 9)
   })
 
+  it('Monatsvergleich: „Ihr Tarif heute" vollständig, Börsenreihen fehlen; mit Konditionen voll', () => {
+    const own = analyse(withoutTerms).tariffOptimization
+    const full = analyse(withTerms).tariffOptimization
+    if (own?.computable !== false || full?.computable !== true) throw new Error('unerwarteter Status')
+    expect(own.side).toBe('dynamic_tariff')
+    const mc = own.monthlyComparison!
+    const reference = full.monthlyComparison!
+
+    expect(mc.spotWithoutControlEur).toBeUndefined()
+    expect(mc.spotWithBatteryEur).toBeUndefined()
+    expect(mc.comparisonTariffEur).toBeUndefined()
+    expect(mc.fixedCosts.awattarBaseFeeEur).toBeUndefined()
+    // Ist-Kosten hängen nicht an den Konditionen: Monat für Monat dieselbe Reihe wie mit Konditionen.
+    expect(mc.currentTariffEur).toEqual(reference.currentTariffEur)
+    expect(mc.fixedCosts.supplierBaseFeeEur).toBe(reference.fixedCosts.supplierBaseFeeEur)
+    // Positivkontrolle: mit Konditionen bleiben die Börsenreihen da.
+    expect(reference.spotWithoutControlEur).toHaveLength(12)
+    expect(reference.spotWithBatteryEur).toHaveLength(12)
+  })
+
   it('Positivkontrolle: Netzentgelt-Lücke gewinnt → Arbeitspreis-Rückfall wie bisher', () => {
     const gap: TariffPricingInputs = {
       ...withoutTerms,
       gridTariffRows: withoutTerms.gridTariffRows!.filter((r) => r.validFrom !== '2025-01-01'),
     }
-    const entry = run(gap)
-    expect(entry.energySavingBasis).toBe('energy_price_only')
-    const result = computeAnalysis(
-      {
-        tariff,
-        pv: null,
-        tariffPricing: gap,
-        load: { fileName: 'lastgang.csv', profile, dataQuality: parsed.dataQuality },
-      },
-      10,
-      [kostal],
-    )
+    const result = analyse(gap)
+    expect(result.perBattery[0]!.energySavingBasis).toBe('energy_price_only')
     expect(result.tariffOptimization).toMatchObject({ computable: false, side: 'grid_tariff', kind: 'gap' })
+    expect(result.tariffOptimization?.monthlyComparison).toBeUndefined()
   })
 })

@@ -24,7 +24,12 @@ import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
 import { tierChangesWithStorage } from './tier-change'
-import { recommendedEntryOf, summaryWaysOf, unknownTariffWaysOf } from './summary'
+import {
+  ownTariffCostTodayOf,
+  recommendedEntryOf,
+  summaryWaysOf,
+  unknownTariffWaysOf,
+} from './summary'
 import type { PdfReportInput } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -41,7 +46,12 @@ export type ExecutiveSummaryBasis = 'projected' | 'annual' | 'linear'
  * bewertbar. Teiljahr oder ohne Speicherempfehlung gibt es bei unbekanntem Tarif keine Vorderseite.
  */
 export type ExecutiveSummaryVariant =
-  'tarif-und-speicher' | 'nur-tarif' | 'speicher-lohnt-nicht' | 'tarif-unbekannt'
+  | 'tarif-und-speicher'
+  | 'nur-tarif'
+  | 'speicher-lohnt-nicht'
+  | 'tarif-unbekannt'
+  /** Ohne Konditionen des dynamischen Tarifs: kein Tarifwechsel, der Speicher rechnet sich im eigenen Tarif. */
+  | 'nur-speicher'
 
 export type ExecutiveSummaryWayId = 'today' | 'comparison' | 'spot' | 'spot-storage'
 
@@ -132,7 +142,8 @@ type YearlyWays = {
   /** `null` bei unbekanntem Liefertarif. */
   todayEur: number | null
   comparison: { eur: number; supplier: string | null } | null
-  spotEur: number
+  /** `null` ohne Börsenseite (Konditionen des dynamischen Tarifs fehlen). */
+  spotEur: number | null
   spotStorageEur: number | null
 }
 
@@ -145,6 +156,8 @@ export const MIN_DAYS_LINEAR_ANNUAL = 335
 function yearlyWaysOf(input: PdfReportInput): YearlyWays | null {
   const analysis = input.analysis
   const measured = summaryWaysOf(analysis)
+  const own = measured ? null : ownTariffCostTodayOf(analysis)
+  if (own) return ownTariffYearlyOf(input, own)
   if (!measured) {
     // Liefertarif unbekannt: nur mit einem ganzen gemessenen Jahr, sonst fehlt die Jahresbasis.
     const unknown = unknownTariffWaysOf(analysis)
@@ -179,6 +192,43 @@ function yearlyWaysOf(input: PdfReportInput): YearlyWays | null {
   // Mit PV entfällt das Jahresszenario; fast ein ganzes Jahr trägt dann eine lineare Streckung.
   if (annualScenarioInvolvesPv(input) && measured.coveredDays >= MIN_DAYS_LINEAR_ANNUAL) {
     return measuredYearlyWays(measured, 'linear', DAYS_PER_YEAR / measured.coveredDays)
+  }
+  return null
+}
+
+/** Ohne Börsenseite: nur „Ihr Tarif heute", aus dem Jahreslauf oder dem gemessenen Zeitraum. */
+function ownTariffYearlyOf(
+  input: PdfReportInput,
+  own: NonNullable<ReturnType<typeof ownTariffCostTodayOf>>,
+): YearlyWays | null {
+  const ownWays = (
+    basis: ExecutiveSummaryBasis,
+    todayEur: number,
+    measuredDays: number,
+    projectedDays = 0,
+  ) => ({
+    basis,
+    measuredDays,
+    projectedDays,
+    todayEur,
+    comparison: null,
+    spotEur: null,
+    spotStorageEur: null,
+  })
+  const annual = SHOW_ANNUAL_SCENARIO_CHAPTER
+    ? annualScenarioSavingsOf(input.analysis, input)
+    : null
+  if (annual) {
+    return ownWays(
+      'projected',
+      annual.currentTariffEur,
+      annual.scenario.measuredDays,
+      annual.scenario.projectedDays,
+    )
+  }
+  if (own.coveredDays >= DAYS_PER_YEAR) return ownWays('annual', own.costTodayEur, own.coveredDays)
+  if (annualScenarioInvolvesPv(input) && own.coveredDays >= MIN_DAYS_LINEAR_ANNUAL) {
+    return ownWays('linear', (own.costTodayEur * DAYS_PER_YEAR) / own.coveredDays, own.coveredDays)
   }
   return null
 }
@@ -272,32 +322,42 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     headline !== null && storagePaysOff({ netSavingOverHorizon: headline.netSavingOverHorizonEur })
 
   const tariffKnown = yearly.todayEur !== null
+  // Ohne Börsenseite gibt es keinen Tarifwechsel; ohne Speicher dann auch nichts für diese Seite.
+  const spotEur = yearly.spotEur
+  if (spotEur === null && !headline) return null
   if (!tariffKnown && !(paysOff && yearly.spotStorageEur !== null)) return null
   const variant: ExecutiveSummaryVariant = !tariffKnown
     ? 'tarif-unbekannt'
     : !headline
       ? 'nur-tarif'
       : paysOff
-        ? 'tarif-und-speicher'
+        ? spotEur === null
+          ? 'nur-speicher'
+          : 'tarif-und-speicher'
         : 'speicher-lohnt-nicht'
 
   // Stufe 1: ohne neue Anschaffung. Mit neuem Speicher gilt aWATTar, weil er darauf aufbaut.
   const withStorage =
-    (variant === 'tarif-und-speicher' || variant === 'tarif-unbekannt') &&
-    yearly.spotStorageEur !== null
+    variant === 'nur-speicher' ||
+    ((variant === 'tarif-und-speicher' || variant === 'tarif-unbekannt') &&
+      yearly.spotStorageEur !== null)
   const bestTariff =
-    yearly.comparison && yearly.comparison.eur < yearly.spotEur && !withStorage
-      ? ('comparison' as const)
-      : ('spot' as const)
-  const tariffCost = bestTariff === 'comparison' ? yearly.comparison!.eur : yearly.spotEur
+    spotEur === null
+      ? null
+      : yearly.comparison && yearly.comparison.eur < spotEur && !withStorage
+        ? ('comparison' as const)
+        : ('spot' as const)
+  const tariffCost = bestTariff === 'comparison' ? yearly.comparison!.eur : spotEur
   const stages: ExecutiveSummaryStage[] =
-    yearly.todayEur === null
+    yearly.todayEur === null || tariffCost === null
       ? []
       : [{ id: 'ohne-anschaffung', savingPerYearEur: euros(yearly.todayEur - tariffCost) }]
   const storage = withStorage && headline ? storageOf(input, catalogStorage!, headline) : null
   if (storage) stages.push({ id: 'mit-speicher', savingPerYearEur: storage.savingPerYearEur })
 
-  const recommendedWay: ExecutiveSummaryWayId = withStorage ? 'spot-storage' : bestTariff
+  // Ohne Börsenseite steht nur „Ihr Tarif heute" da, und es gibt keinen empfohlenen Weg.
+  const recommendedWay: ExecutiveSummaryWayId | null =
+    spotEur === null ? null : withStorage ? 'spot-storage' : bestTariff
   const way = (
     id: ExecutiveSummaryWayId,
     costPerYearEur: number,
@@ -314,7 +374,7 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     ...(yearly.comparison
       ? [way('comparison', yearly.comparison.eur, yearly.comparison.supplier)]
       : []),
-    way('spot', yearly.spotEur),
+    ...(spotEur !== null ? [way('spot', spotEur)] : []),
     ...(yearly.spotStorageEur !== null ? [way('spot-storage', yearly.spotStorageEur)] : []),
   ]
 

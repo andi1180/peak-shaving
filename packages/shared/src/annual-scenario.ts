@@ -1,5 +1,5 @@
 import type { LoadProfile } from './load-profile'
-import type { MonthlyTariffComparison } from './tariff-pricing'
+import type { MonthlyCostComparison } from './tariff-pricing'
 import type { ControlVariant } from './tariff-ways'
 
 /**
@@ -51,8 +51,12 @@ export type AnnualScenarioWays = {
   currentTariffEur: number | null
   comparisonTariffEur: number | null
   comparisonSupplier: string | null
-  spotWithoutControlEur: number
-  /* K3b-2: `null` = ohne Speicher gerechnet, der Weg entfällt — wie `comparisonTariffEur` oben. */
+  /** `null` ohne Börsenseite (Konditionen des dynamischen Tarifs fehlen) — dann gibt es keinen Tarifwechsel. */
+  spotWithoutControlEur: number | null
+  /*
+   * K3b-2: `null` = ohne Speicher gerechnet, der Weg entfällt — wie `comparisonTariffEur` oben.
+   * Ohne Börsenseite: „Ihr Tarif heute" MIT dem Speicher (Ist-Kosten − Energie-Anteil).
+   */
   controlledEur: number | null
   controlVariant: ControlVariant | null
   /**
@@ -139,7 +143,7 @@ export function annualScenarioInvolvesPv(input: AnnualBasisPvInput): boolean {
  */
 export function annualBasisApplies(
   scenario: AnnualScenario | undefined,
-  measuredComparison: MonthlyTariffComparison | undefined,
+  measuredComparison: MonthlyCostComparison | undefined,
   pv: AnnualBasisPvInput,
 ): boolean {
   return measuredComparison?.currentTariffEur != null && annualScenarioCarriesChapter(scenario, pv)

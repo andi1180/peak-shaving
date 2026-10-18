@@ -40,6 +40,8 @@ import {
   levyNamesOf,
   levySideLabel,
   dynamicTariffOf,
+  NO_DYNAMIC_TARIFF_TERMS_NOTE,
+  ownTariffOnlyComparisonOf,
   type DynamicTariffView,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
@@ -377,6 +379,20 @@ function formatRange(range: TariffPriceRange, timeZone: string): string {
 export function buildBlocker(analysis: PdfReportAnalysis, timeZone: string): ReportNotice | null {
   const status = analysis.tariffOptimization
   if (!status || status.computable) return null
+
+  if (ownTariffOnlyComparisonOf(analysis)) {
+    return {
+      id: 'tariff_blocker',
+      tone: 'warning',
+      title: 'Vergleich mit einem dynamischen Tarif: nicht enthalten',
+      body:
+        `${NO_DYNAMIC_TARIFF_TERMS_NOTE} Ihre Stromkosten, der Fahrplan des Speichers und seine ` +
+        'Ersparnis sind mit dem vollen Preis Ihres heutigen Tarifs gerechnet (Arbeitspreis, ' +
+        'Netzentgelte, Abgaben).',
+      list: null,
+      hints: [],
+    }
+  }
 
   return {
     id: 'tariff_blocker',
@@ -834,7 +850,7 @@ function loadProfileRows(
 function tariffRows(
   source: PdfReportTariffSource,
   provenance: PdfReportTariffProvenance | undefined,
-  dynamicTariff: DynamicTariffView,
+  dynamicTariff: DynamicTariffView | null,
   country: Country | undefined,
 ): ReportTableRow[] {
   return [
@@ -919,7 +935,8 @@ function gridTariffVintage(
  */
 function supplierVintage(
   provenance: PdfReportTariffProvenance | undefined,
-  dynamicTariff: DynamicTariffView,
+  /** `null` = keine Konditionen des dynamischen Tarifs, also kein Vergleichstarif. */
+  dynamicTariff: DynamicTariffView | null,
   country: Country | undefined,
 ): string {
   const periods = distinctInvoicePeriods(provenance?.invoicePeriods ?? [])
@@ -931,6 +948,7 @@ function supplierVintage(
     )
   }
 
+  if (dynamicTariff === null) return `Kundenrechnung: ${NOT_RECORDED}. Kein Vergleichstarif (keine Konditionen angegeben).`
   const markup = `${formatCtPerKwh(dynamicTariff.markupCtPerKwh)} netto`
   if (matchingDynamicPreset(dynamicTariff, country) === null) {
     return (
@@ -1100,7 +1118,8 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
       ...tariffRows(
         input.tariffSource,
         input.tariffProvenance,
-        dynamicTariffOf(input.analysis),
+        // Ohne Konditionen gibt es keinen Vergleichstarif, dessen Fundstelle hier stünde.
+        ownTariffOnlyComparisonOf(input.analysis) ? null : dynamicTariffOf(input.analysis),
         input.country,
       ),
       ...batteryRowsForSources(input.analysis, input.batteryCatalogMeta),
@@ -1254,10 +1273,8 @@ function billingModelRow(
  * Angabe diesen Render-Lauf gar nicht erreicht, s. Kopf.
  */
 function supplierFeeRow(analysis: PdfReportAnalysis, fromInvoice: boolean): ReportTableRow[] {
-  const comparison =
-    analysis.tariffOptimization?.computable === true
-      ? analysis.tariffOptimization.monthlyComparison
-      : undefined
+  // Auch ohne Börsenseite: „Ihr Tarif heute" trägt die Grundgebühr.
+  const comparison = analysis.tariffOptimization?.monthlyComparison
   if (!comparison) return []
 
   const fee = comparison.fixedCosts.supplierFeeEurPerMonth
@@ -1605,7 +1622,7 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
       : null
   const levyNames = levyNamesOf(analysis.assumptions)
   const hints: string[] = [
-    analysis.tariffOptimization?.computable === true
+    analysis.tariffOptimization?.computable === true || ownTariffOnlyComparisonOf(analysis)
       ? (basisSentence ?? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer.') +
         ` Die Abgaben auf den Bezug sind ${basisSentence ? 'ebenfalls' : 'dagegen'} enthalten: ` +
         (levyNames
