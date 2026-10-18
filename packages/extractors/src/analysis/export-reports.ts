@@ -85,7 +85,6 @@ export async function combineLoadWithExportReports(
 
   const fromMs = Date.parse(diagnostics.range.from)
   const toMs = Date.parse(diagnostics.range.to)
-  // Auch gegen Bezug saldierte Einspeisung zählt — die negativen Viertelstunden allein sind zu wenig.
   const assignedKwh = diagnostics.assignedExportKwh
 
   const warnings = [
@@ -95,13 +94,14 @@ export async function combineLoadWithExportReports(
   if (diagnostics.droppedExportKwh > 0) {
     warnings.push(
       `${kwhFormatFine.format(diagnostics.droppedExportKwh)} kWh Einspeisung in ` +
-        `${diagnostics.droppedExportHours} Stunden ohne Viertelstunde im Lastgang nicht zugeordnet.`,
+        `${diagnostics.droppedExportHours} Stunden ohne Viertelstunde mit Nullbezug nicht zugeordnet.`,
     )
   }
-  if (diagnostics.overCapExportKwh > 0) {
+  if (diagnostics.cappedExportKwh > 0) {
     warnings.push(
-      `${kwhFormatFine.format(diagnostics.overCapExportKwh)} kWh Einspeisung in ` +
-        `${diagnostics.overCapExportHours} Stunden über der Leistungsgrenze verteilt – bitte prüfen.`,
+      `${kwhFormatFine.format(diagnostics.cappedExportKwh)} kWh Einspeisung in ` +
+        `${diagnostics.cappedExportHours} Stunden über der Leistungsgrenze von ` +
+        `${kwhFormatFine.format(diagnostics.capKwUsed)} kW nicht zugeordnet.`,
     )
   }
   if (diagnostics.missingExportHours > 0) {

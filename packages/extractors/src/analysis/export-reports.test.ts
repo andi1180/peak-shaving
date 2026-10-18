@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { IMPORT_ONLY_WITHOUT_PV_WARNING, parseLoadProfile, utcMsToLocalFields } from 'engine'
+import { IMPORT_ONLY_WITHOUT_PV_WARNING, parseLoadProfile } from 'engine'
 import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
 
 import {
@@ -34,7 +34,7 @@ function loadCsv(signed = false): string {
   return rows.join('\n')
 }
 
-/** Einspeisung je Stunde (kWh): Mittag 4, 14 Uhr 2, 8 Uhr 1 (ohne Nullbezug → gegen Bezug saldiert). */
+/** Einspeisung je Stunde (kWh): Mittag 4, 14 Uhr 2, 8 Uhr 1 (ohne Nullbezug → verworfen). */
 function einspeisungKwh(hour: number): number {
   if (hour >= 10 && hour < 14) return 4
   if (hour === 14) return 2
@@ -106,36 +106,38 @@ describe('combineLoadWithExportReports', () => {
     expect(out.profile.readings[0]!.ts).toBe('2025-03-30T22:00:00.000Z')
     expect(out.profile.readings.at(-1)!.ts).toBe('2025-04-01T09:45:00.000Z')
 
-    // 8 Uhr hat keinen Nullbezug: 1 kWh wird gegen den Bezug (18 kW) saldiert, sonst bitgleich.
     const byTs = new Map(input.profile.readings.map((r) => [r.ts, r.gridPowerKw]))
     for (const r of out.profile.readings) {
-      const hour = utcMsToLocalFields(Date.parse(r.ts), 'Europe/Vienna').hour
-      if (r.gridPowerKw > 0) expect(r.gridPowerKw).toBe(byTs.get(r.ts)! - (hour === 8 ? 1 : 0))
+      if (r.gridPowerKw > 0) expect(r.gridPowerKw).toBe(byTs.get(r.ts))
     }
 
-    // Exportiert im Überlappungsfenster: 31.03. 19 kWh + 01.04. bis 12 Uhr (8 und 10–11 Uhr) 9 kWh.
-    const deltaKwh = out.profile.readings.reduce((s, r) => s + byTs.get(r.ts)! - r.gridPowerKw, 0)
-    expect(deltaKwh * 0.25).toBeCloseTo(28, 9)
+    // Exportiert im Überlappungsfenster: 31.03. 19 kWh + 01.04. bis 12 Uhr (8 und 10–11 Uhr) 9 kWh;
+    // verworfen 2 × 1 kWh um 8 Uhr (kein Nullbezug).
+    const negativeKwh =
+      out.profile.readings.reduce((s, r) => s + Math.min(r.gridPowerKw, 0), 0) * 0.25
+    expect(negativeKwh).toBeCloseTo(-(28 - 2), 9)
 
     const w = out.dataQuality.warnings
     expect(w).not.toContain(IMPORT_ONLY_WITHOUT_PV_WARNING)
     expect(w).toContain(
-      `${EXPORT_REPORTS_COMBINED_WARNING_PREFIX} 28 kWh, Zeitraum 31.03.2025–01.04.2025 (Überlappung mit dem Lastgang).`,
+      `${EXPORT_REPORTS_COMBINED_WARNING_PREFIX} 26 kWh, Zeitraum 31.03.2025–01.04.2025 (Überlappung mit dem Lastgang).`,
     )
-    expect(w.some((x) => x.includes('nicht zugeordnet'))).toBe(false)
+    expect(w).toContain(
+      '2 kWh Einspeisung in 2 Stunden ohne Viertelstunde mit Nullbezug nicht zugeordnet.',
+    )
     expect(w.some((x) => x.startsWith('Zeitabgleich'))).toBe(false)
     expect(out.dataQuality.coveredMonths).toBe(2)
   })
 
-  it('Leistungsgrenze aus den Modulflächen: zu klein → Überlauf ohne Grenze verteilt und gemeldet', async () => {
+  it('Leistungsgrenze aus den Modulflächen: zu klein → Überlauf verworfen und mit Grenze gemeldet', async () => {
     const input = parsed()
     const draft = { ...STORED, _pvArrays: [{ peakPowerKwp: 2 }, { peakPowerKwp: 1 }] }
     const out = await combineLoadWithExportReports(draft, input, reader())
 
-    // Mittag 4 kWh auf vier Nullslots bei 3 kW: 1 kWh je Stunde darüber, 10–13 Uhr 31.03. und 10–11 Uhr 01.04.
-    expect(Math.min(...out.profile.readings.map((r) => r.gridPowerKw))).toBe(-4)
+    // Nullslots bei 3 kW gedeckelt: 10–13 Uhr je 1 kWh, 14 Uhr 0,5 kWh (31.03.), 10–11 Uhr je 1 kWh (01.04.).
+    expect(Math.min(...out.profile.readings.map((r) => r.gridPowerKw))).toBe(-3)
     expect(out.dataQuality.warnings).toContain(
-      '6 kWh Einspeisung in 6 Stunden über der Leistungsgrenze verteilt – bitte prüfen.',
+      '6,5 kWh Einspeisung in 7 Stunden über der Leistungsgrenze von 3 kW nicht zugeordnet.',
     )
   })
 
