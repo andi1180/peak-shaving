@@ -1,7 +1,7 @@
 import {
   DEFAULT_DRAFT_BILLING_MODEL,
   describeTariffParamsProblems,
-  draftMinBillableKwDefaults,
+  minBillableKwFallsBackToZero,
   tariffParamsSchema,
   type BillingModel,
   type TariffParams,
@@ -163,15 +163,11 @@ export function mapDraftToTariffParams(
   ) {
     candidate.leistungspreisEurPerKwYear = 0
   }
-  // Ohne Leistungspreis gibt es keinen Sockel, auf den eine Mindestleistung wirken könnte.
-  if (candidate.leistungspreisEurPerKwYear === 0 && !('minBillableKw' in candidate)) {
-    candidate.minBillableKw = 0
-  }
-  // Mit Leistungsmessung, aber ohne genannte Mindestleistung: ohne Untergrenze rechnen (Annahme,
-  // im Report ausgewiesen) — s. `draftMinBillableKwDefaults`.
+  // Ohne Leistungspreis gibt es keinen Sockel; mit Leistungsmessung, aber ohne genannte
+  // Mindestleistung wird ohne Untergrenze gerechnet (Annahme, im Report ausgewiesen).
   if (
     !('minBillableKw' in candidate) &&
-    draftMinBillableKwDefaults(draft, options.billingModelOverride)
+    minBillableKwFallsBackToZero(draft, options.billingModelOverride)
   ) {
     candidate.minBillableKw = 0
   }

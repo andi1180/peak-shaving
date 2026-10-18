@@ -1,4 +1,4 @@
-import { tariffParamsSchema } from 'shared'
+import { minBillableKwFallsBackToZero, tariffParamsSchema } from 'shared'
 
 import { billingModelApplies } from './billing-model'
 
@@ -229,9 +229,13 @@ export function checkDraftCompleteness(
   const catalogKeys = new Set(catalog.map((entry) => entry.question_key))
   const answeredElsewhere = new Set(answeredOnProject)
 
-  const missing: DraftMissingEntry[] = DRAFT_REQUIRED_FIELDS.filter((key) => !(key in draft)).map(
-    (field) => ({ field }),
-  )
+  // Setzt die Abbildung für eine fehlende Mindestleistung ohnehin 0 ein, fehlt sie nicht.
+  const minBillableKwDefaulted =
+    (draft.minBillableKw === undefined || draft.minBillableKw === null) &&
+    minBillableKwFallsBackToZero(draft)
+  const missing: DraftMissingEntry[] = DRAFT_REQUIRED_FIELDS.filter(
+    (key) => !(key in draft) && !(minBillableKwDefaulted && key === 'minBillableKw'),
+  ).map((field) => ({ field }))
   for (const entry of catalog) {
     if (!entry.required) continue
     if (entry.question_key in draft) continue
@@ -251,7 +255,10 @@ export function checkDraftCompleteness(
         .map((issue) => ({ field: issue.path.join('.'), problem: issue.message }))
         // Fehlende Pflichtfelder stehen oben schon; hier bleiben die echten Typprobleme.
         .filter(
-          (issue) => issue.field !== '' && !missing.some((gap) => gap.field === issue.field),
+          (issue) =>
+            issue.field !== '' &&
+            !missing.some((gap) => gap.field === issue.field) &&
+            !(minBillableKwDefaulted && issue.field === 'minBillableKw'),
         )
 
   const unknown = present.filter((key) => !contractFields.has(key) && !catalogKeys.has(key))

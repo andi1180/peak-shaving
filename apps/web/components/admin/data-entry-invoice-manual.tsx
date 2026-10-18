@@ -429,7 +429,7 @@ export function DataEntryInvoiceManual({
                 value={minBillableKw}
                 onValueChange={setMinBillableKw}
                 error={fieldError('minBillableKw')}
-                hint="Die Untergrenze, die der Netzbetreiber mindestens verrechnet."
+                hint="Nur eintragen, wenn auf der Rechnung eine Mindestleistung ausgewiesen ist – nicht die vereinbarte Anschlussleistung. Sonst leer lassen."
               />
               {/* H3: gespeichert wird netto; die Basis sagt, wie die drei Lieferantenpreise gemeint sind. */}
               <AdminSelect
