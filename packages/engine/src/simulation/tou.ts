@@ -57,6 +57,16 @@ export type IntervalTariffRates = {
    * `undefined` = gar nicht angefordert (kein Fehlerfall, unveränderter Stand vor B21).
    */
   tariffOptimization?: TariffOptimizationStatus
+  /**
+   * Die Raten sind die volle Preisreihe des EIGENEN Tarifs (Arbeitspreis, Netz, Abgaben), weil der
+   * Tarifvergleich nur an fehlenden Konditionen des dynamischen Tarifs scheitert.
+   */
+  ownTariffPriceSeries?: true
+}
+
+/** Planen und bewerten die Raten auf einer echten Preisreihe (Börse oder eigener Tarif)? */
+export function hasPriceSeries(rates: IntervalTariffRates): boolean {
+  return rates.tariffOptimization?.computable === true || rates.ownTariffPriceSeries === true
 }
 
 /**
@@ -116,6 +126,22 @@ function mergeRanges(ranges: TariffPriceRange[]): TariffPriceRange[] {
 function isNetBasis(basis: string): boolean {
   return basis === 'net'
 }
+
+/**
+ * Fehlen nur die Konditionen des dynamischen Tarifs, entfällt allein der Tarifvergleich; Fahrplan und
+ * Ersparnis laufen auf der vollen Preisreihe des eigenen Tarifs (`intervalTariffRates`).
+ */
+const DYNAMIC_TARIFF_MISSING_MESSAGE =
+  'Tarifvergleich nicht berechenbar: Für den dynamischen Tarif fehlen die Konditionen (Aufschlag ' +
+  'und Grundgebühr). Der Vergleich mit dem dynamischen Tarif entfällt; Speicher-Fahrplan und ' +
+  'Ersparnis sind mit dem vollen Preis Ihres eigenen Tarifs bewertet (Arbeitspreis, Netzentgelte, ' +
+  'Abgaben).'
+
+/** Wie oben, aber ein Zeitfenster-Tarif lässt sich nicht als eine Preisreihe bilden. */
+const DYNAMIC_TARIFF_MISSING_TOU_MESSAGE =
+  'Tarifvergleich nicht berechenbar: Für den dynamischen Tarif fehlen die Konditionen (Aufschlag ' +
+  'und Grundgebühr). Der Vergleich mit dem dynamischen Tarif entfällt; der Energie-Anteil des ' +
+  'Speichers ist nur mit Ihrem Arbeitspreis bewertet, Peak Shaving ist davon nicht betroffen.'
 
 /**
  * Das Ergebnis von `combinedIntervalPrices` — entweder die Preisreihe oder der EINE Grund, aus dem
@@ -273,9 +299,7 @@ export function combinedIntervalPrices(
         side: 'dynamic_tariff',
         kind: 'unavailable',
         ranges: [],
-        message:
-          'Tarifoptimierung nicht berechenbar: Für den dynamischen Tarif fehlen die Konditionen ' +
-          '(Aufschlag und Grundgebühr). Peak Shaving und Eigenverbrauch sind davon nicht betroffen.',
+        message: DYNAMIC_TARIFF_MISSING_MESSAGE,
       },
     }
   }
@@ -510,6 +534,8 @@ function cheapAgainstDailyMean(loadProfile: LoadProfile, rateCtPerKwh: number[])
  * damit nichts (statt einer Zahl aus einer anderen Grundlage), und `tariffOptimization` sagt warum.
  * Ein stiller Rückfall wäre die stille Verschlechterung, vor der Delta 15 warnt: eine zu niedrige
  * Vergleichszahl fällt niemandem als Fehler auf, sondern als Ergebnis.
+ * Ausnahme: fehlen NUR die Konditionen des dynamischen Tarifs, gilt die volle Preisreihe des eigenen
+ * Tarifs (`ownTariffPriceSeries`) — der Status bleibt der Blocker, der Tarifvergleich entfällt.
  */
 export function intervalTariffRates(
   loadProfile: LoadProfile,
@@ -538,11 +564,30 @@ export function intervalTariffRates(
   if (pricing) {
     const combined = combinedIntervalPrices(loadProfile, pricing)
     if ('blocker' in combined) {
+      let blocker = combined.blocker
+      // Nur die Konditionen des dynamischen Tarifs fehlen: eigene volle Preisreihe statt `std`.
+      // Meldet sie eine andere Lücke, gewinnt diese (sie war bisher vom dynamic_tariff-Befund verdeckt).
+      if (blocker.side === 'dynamic_tariff') {
+        if (hasTimeOfUseWindows(tariffParams)) {
+          blocker = { ...blocker, message: DYNAMIC_TARIFF_MISSING_TOU_MESSAGE }
+        } else {
+          const own = combinedIntervalPrices(loadProfile, pricing, std)
+          if ('blocker' in own) {
+            blocker = own.blocker
+          } else {
+            return {
+              ...ratesFromCombinedPrices(loadProfile, own.prices),
+              tariffOptimization: blocker,
+              ownTariffPriceSeries: true,
+            }
+          }
+        }
+      }
       return {
         rateCtPerKwh: new Array<number>(count).fill(std),
         isCheapWindow: new Array<boolean>(count).fill(false),
         touActive: false,
-        tariffOptimization: combined.blocker,
+        tariffOptimization: blocker,
       }
     }
 
@@ -614,4 +659,16 @@ export function evaluateTariffOptimization(
     return 'blocker' in combined ? combined.blocker : { computable: true }
   }
   return intervalTariffRates(loadProfile, tariffParams, pricing).tariffOptimization
+}
+
+/** Profilweit: plant der Fahrplan auf einer echten Preisreihe? (s. `hasPriceSeries`) */
+export function evaluatePriceSeries(
+  loadProfile: LoadProfile,
+  tariffParams: TariffParams,
+  pricing?: TariffPricingInputs,
+): boolean {
+  if (tariffParams.supplierTariff === 'unknown') {
+    return evaluateTariffOptimization(loadProfile, tariffParams, pricing)?.computable === true
+  }
+  return hasPriceSeries(intervalTariffRates(loadProfile, tariffParams, pricing))
 }

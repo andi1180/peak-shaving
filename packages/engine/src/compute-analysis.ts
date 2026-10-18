@@ -37,6 +37,7 @@ import {
   buildDispatchTrace,
   buildMonthlyTariffComparison,
   dispatchPlanningFor,
+  evaluatePriceSeries,
   evaluateTariffOptimization,
   HINDSIGHT_PLANNING,
   type DispatchPlanning,
@@ -453,10 +454,10 @@ export function computeAnalysis(
    * Annahmen-Panel ein Bestandsblock aus einer anderen Rechnung neben dem übrigen Report.
    */
   // Die Vorabend-Prognose EINMAL je Lauf; ohne Preiskurve gibt es keine Rangfolge, die sie bräuchte.
-  const planning =
-    baseTariffOptimization?.computable === true
-      ? dispatchPlanningFor(loadProfile)
-      : HINDSIGHT_PLANNING
+  // Sie braucht nur den Lastgang — also auch auf der eigenen Preisreihe ohne dynamische Konditionen.
+  const planning = evaluatePriceSeries(loadProfile, payload.tariff, payload.tariffPricing)
+    ? dispatchPlanningFor(loadProfile)
+    : HINDSIGHT_PLANNING
 
   const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog, planning)
 

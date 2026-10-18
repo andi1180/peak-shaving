@@ -24,7 +24,12 @@ export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './p
 // Delta 4 (B21-3b): der kombinierte Intervallpreis. `evaluateTariffOptimization` ist der Weg für
 // einen Aufrufer, der EINMAL profilweit wissen will, ob der Tarifoptimierungs-Hebel rechenbar ist —
 // dieselbe Rechnung wie in `intervalTariffRates`, keine zweite Prüfung daneben.
-export { intervalTariffRates, evaluateTariffOptimization, combinedIntervalPrices } from './tou'
+export {
+  intervalTariffRates,
+  evaluatePriceSeries,
+  evaluateTariffOptimization,
+  combinedIntervalPrices,
+} from './tou'
 export type { IntervalTariffRates, CombinedIntervalPrices } from './tou'
 // Tages-Rangfolge für Laden/Entladen (§3.6 Schritt 5, 02.09.2026): zwei Schranken auf denselben
 // EINEN Fahrplan — Ladeobergrenze und Preis-Untergrenze —, gebildet aus der Preisreihe (Delta 4)
