@@ -72,7 +72,9 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
       formatEur(entry.energySavingOverCoveredPeriod),
       entry.energySavingBasis === 'full_price'
         ? 'vollem Intervallpreis (Energie, Netz, Abgaben)'
-        : 'nur Arbeitspreis (ohne Netz und Abgaben)',
+        : entry.energySavingBasis === 'own_tariff_full_price'
+          ? 'vollem Preis des eigenen Tarifs (Energie, Netz, Abgaben)'
+          : 'nur Arbeitspreis (ohne Netz und Abgaben)',
       formatEur(entry.totalSavingPerYear),
       formatYears(entry.amortizationYears),
       formatEur(entry.netSavingOverHorizon),

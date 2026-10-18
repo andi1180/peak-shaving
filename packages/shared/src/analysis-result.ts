@@ -176,9 +176,11 @@ export type MonthlyChargePrice = {
 /**
  * Womit der Energie-Anteil bewertet ist: `full_price` = voller Intervallpreis aus den Preisdaten
  * (Energie, Netz, Abgaben); `energy_price_only` = ohne rechenbare Preisdaten nur Arbeitspreis bzw.
- * Nachttarif und Einspeisevergütung — Netzentgelte und Abgaben auf die Mengendifferenz fehlen.
+ * Nachttarif und Einspeisevergütung — Netzentgelte und Abgaben auf die Mengendifferenz fehlen;
+ * `own_tariff_full_price` = voller Intervallpreis des EIGENEN Tarifs (Arbeitspreis, Netz, Abgaben),
+ * weil nur die Konditionen des dynamischen Tarifs fehlen und der Tarifvergleich deshalb entfällt.
  */
-export type EnergySavingBasis = 'full_price' | 'energy_price_only'
+export type EnergySavingBasis = 'full_price' | 'own_tariff_full_price' | 'energy_price_only'
 
 /**
  * Benutzungsdauer-Stufen einer Netzreihe (DE, Schritt 8b): gewählte Stufe = die günstigere je

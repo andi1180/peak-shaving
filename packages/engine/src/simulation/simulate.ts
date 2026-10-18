@@ -13,7 +13,7 @@ import {
 } from './planning'
 import { alignPvGrossToLoad } from './pv'
 import { runSurplusOptimizedDispatch } from './surplus-optimization'
-import { intervalTariffRates } from './tou'
+import { hasPriceSeries, intervalTariffRates } from './tou'
 
 /**
  * Gesamt-Ergebnis der Batterie-Simulation für EINEN Kandidaten (§3.6/§3.6.1). Trägt die
@@ -166,10 +166,10 @@ export function simulateBattery(
   // Pfad: bei tiefer Kappung verfehlt der Plan auf der Prognose die Ladefenster unter der Schwelle.
   const feedIn = hasFeedIn(loadProfile)
   const surplusOptimized =
-    feedIn && peakShavingDisabled && rates.tariffOptimization?.computable === true
+    feedIn && peakShavingDisabled && hasPriceSeries(rates)
   // Geplant wird mit der Erwartung vom Vorabend (`planning.ts`), ausgeführt unten auf `draws`.
   let priceOrder: DailyPriceOrder | undefined
-  if (!surplusOptimized && rates.tariffOptimization?.computable === true) {
+  if (!surplusOptimized && hasPriceSeries(rates)) {
     const plan = planning ?? dispatchPlanningFor(loadProfile)
     priceOrder =
       plan.basis === 'forecast'

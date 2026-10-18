@@ -104,7 +104,11 @@ export function computeBatterySavings(
     energyCostEur(drawSeries(loadProfile), prices).totalEur -
     energyCostEur(sim.dispatch.gridAfterKw, prices).totalEur
   const energySavingBasis: EnergySavingBasis =
-    rates.tariffOptimization?.computable === true ? 'full_price' : 'energy_price_only'
+    rates.tariffOptimization?.computable === true
+      ? 'full_price'
+      : rates.ownTariffPriceSeries
+        ? 'own_tariff_full_price'
+        : 'energy_price_only'
   // Der Leistungspreis-Anteil ist bereits eine Jahresgrösse; hochgerechnet wird nur die Energie.
   const factor = annualizationFactor(loadProfile)
   const energySavingPerYear = energySavingOverCoveredPeriod * factor

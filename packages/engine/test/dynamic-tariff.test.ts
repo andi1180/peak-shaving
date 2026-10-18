@@ -65,7 +65,7 @@ const base: TariffPricingInputs = { gridTariffRows: [row], spotPrices, levies: L
 const withoutFeld = () => buildMonthlyTariffComparison(load, tariff, base, undefined)!.spotWithoutControlEur[0]!
 
 describe('Konditionen dynamischer Tarif', () => {
-  it('DE ohne Konditionen (null) → Blocker "dynamic_tariff", Analyse läuft ohne Vergleich durch', () => {
+  it('ohne Konditionen (null) → Blocker "dynamic_tariff", kein Vergleich, Raten aus dem eigenen Tarif', () => {
     const pricing = { ...base, dynamicTariff: null }
     const result = computeAnalysis(
       {
@@ -83,6 +83,10 @@ describe('Konditionen dynamischer Tarif', () => {
     )
     expect(result.tariffOptimization).toMatchObject({ computable: false, side: 'dynamic_tariff' })
     expect(result.monthlyComparison).toBeUndefined()
+    // Eigener Tarif voll: 25 ct Arbeitspreis + 6,98 ct Netz + 0,70 ct Netzverlust (keine Abgaben).
+    const rates = intervalTariffRates(load, tariff, pricing)
+    expect(rates.ownTariffPriceSeries).toBe(true)
+    expect(rates.rateCtPerKwh[0]).toBeCloseTo(32.68, 9)
     // Ungültige Zahlen zählen wie fehlende.
     for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
       const rates = intervalTariffRates(load, tariff, {
