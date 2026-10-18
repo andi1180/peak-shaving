@@ -2,6 +2,8 @@ import { IMPORT_ONLY_WITHOUT_PV_WARNING, type PvOutageMonth } from 'engine'
 import {
   AWATTAR_BASE_FEE,
   AWATTAR_HOURLY_AT_DYNAMIC,
+  COUNTRY_LABELS,
+  DEFAULT_COUNTRY,
   DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY,
   demandChargeKwPerYear,
   NETZBETREIBER_LABELS,
@@ -930,14 +932,7 @@ function supplierVintage(
   }
 
   const markup = `${formatCtPerKwh(dynamicTariff.markupCtPerKwh)} netto`
-  // Gültigkeit und Fundstelle belegen die Vorbelegung des Projektlands — nur bei genau deren Konditionen;
-  // ohne Land die AT-Vorgabe wie bisher.
-  const preset = country ? DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY[country] : AWATTAR_HOURLY_AT_DYNAMIC
-  const isPreset =
-    preset != null &&
-    dynamicTariff.markupCtPerKwh === preset.markupCtPerKwh &&
-    dynamicTariff.baseFeeEurPerMonth === preset.baseFeeEurPerMonth
-  if (!isPreset) {
+  if (matchingDynamicPreset(dynamicTariff, country) === null) {
     return (
       `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${dynamicTariff.name} — Aufschlag auf den ` +
       `Börsenpreis: ${markup}, Grundgebühr ${formatEur2(dynamicTariff.baseFeeEurPerMonth)}/Monat netto.`
@@ -948,6 +943,26 @@ function supplierVintage(
     `gültig ab ${formatIsoDate(AWATTAR_BASE_FEE.validFrom) ?? AWATTAR_BASE_FEE.validFrom} — ` +
     `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote} Aufschlag auf den Börsenpreis: ${markup}.`
   )
+}
+
+/**
+ * Die Vorbelegung des Projektlands, wenn der Vergleichstarif GENAU deren Konditionen trägt; ohne Land
+ * die AT-Vorgabe. `validFrom` ist der Stand der Vorgabe (aWATTar: der der Grundgebühr), sonst `null`.
+ */
+function matchingDynamicPreset(
+  dynamicTariff: DynamicTariffView,
+  country: Country | undefined,
+): { country: Country; validFrom: string | null } | null {
+  const preset = country ? DEFAULT_DYNAMIC_TARIFF_BY_COUNTRY[country] : AWATTAR_HOURLY_AT_DYNAMIC
+  const isPreset =
+    preset != null &&
+    dynamicTariff.markupCtPerKwh === preset.markupCtPerKwh &&
+    dynamicTariff.baseFeeEurPerMonth === preset.baseFeeEurPerMonth
+  if (!isPreset) return null
+  return {
+    country: country ?? DEFAULT_COUNTRY,
+    validFrom: preset === AWATTAR_HOURLY_AT_DYNAMIC ? AWATTAR_BASE_FEE.validFrom : null,
+  }
 }
 
 function formatInvoicePeriod(period: PdfReportInvoicePeriod): string {
@@ -1264,6 +1279,33 @@ function supplierFeeRow(analysis: PdfReportAnalysis, fromInvoice: boolean): Repo
   ]
 }
 
+/** Konditionen des Vergleichstarifs — nur mit Monatsvergleich, wie `supplierFeeRow`. */
+function dynamicTariffRow(
+  analysis: PdfReportAnalysis,
+  country: Country | undefined,
+): ReportTableRow[] {
+  const computable =
+    analysis.tariffOptimization?.computable === true &&
+    analysis.tariffOptimization.monthlyComparison !== undefined
+  if (!computable) return []
+
+  const tariff = dynamicTariffOf(analysis)
+  const preset = matchingDynamicPreset(tariff, country)
+  const presetDate = preset?.validFrom
+    ? (formatIsoDate(preset.validFrom) ?? preset.validFrom)
+    : null
+  return [
+    dataRow('tariff_dynamic', [
+      'Vergleichstarif',
+      `${tariff.name}: Börsenpreis + ${formatCtPerKwh(tariff.markupCtPerKwh)} + ` +
+        `${formatEur2(tariff.baseFeeEurPerMonth)}/Monat, netto`,
+      preset === null
+        ? 'angenommen (eigene Eingabe, kein Kundenvertrag)'
+        : `Vorgabe für ${COUNTRY_LABELS[preset.country]}${presetDate ? `, Stand ${presetDate}` : ''}`,
+    ]),
+  ]
+}
+
 /** Die Mindestleistung erscheint nur, wenn sie fehlte und mit 0 gerechnet wurde — als Annahme benannt. */
 function minBillableKwAssumedRow(input: PdfReportInput): ReportTableRow[] {
   if (input.minBillableKwAssumed !== true) return []
@@ -1328,6 +1370,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
         SUPPLIER_STATUS,
       ]),
       ...supplierFeeRow(input.analysis, input.baseFeeFromInvoice === true),
+      ...dynamicTariffRow(input.analysis, input.country),
       ...netzebeneRow(source),
     ],
   }

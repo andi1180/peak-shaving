@@ -723,11 +723,11 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                        10 Jahre
+ Betrachtungshorizont                                                                                       10 Jahre
 
- Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                            88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                           88 % (angenommen)
 
- Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                 € 198,43 / kWh
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                € 198,43 / kWh
 
  Gesamtinvestition                                                                                             € 7.691
 
@@ -753,41 +753,44 @@ Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
 
 
 Tarifkomponenten
- Position                            Wert                            Status
+ Position                            Wert                           Status
 
- Leistungspreis                      € 82,92 / kW·a                  laut hinterlegtem Tarif Wiener Netze
+ Leistungspreis                      € 82,92 / kW·a                 laut hinterlegtem Tarif Wiener Netze
 
- Abrechnungsmodell                   Summe der 12                    laut hinterlegtem Tarif Wiener Netze
+ Abrechnungsmodell                   Summe der 12                   laut hinterlegtem Tarif Wiener Netze
                                      Monatshöchstwerte
 
- Mindestleistung                     keine Angabe                    ohne Untergrenze gerechnet (Annahme)
+ Mindestleistung                     keine Angabe                   ohne Untergrenze gerechnet (Annahme)
 
- Arbeitspreis                        16,20 ct/kWh                    aus Ihren Rechnungen (Energieseite)
+ Arbeitspreis                        16,20 ct/kWh                   aus Ihren Rechnungen (Energieseite)
 
- Einspeisevergütung                  nicht angegeben                 aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  nicht angegeben                aus Ihren Angaben (Energieseite)
 
- Grundgebühr Lieferant               € 3,99 / Monat                  aus Ihren Rechnungen (Energieseite)
+ Grundgebühr Lieferant               € 3,99 / Monat                 aus Ihren Rechnungen (Energieseite)
+
+ Vergleichstarif                     aWATTar: Börsenpreis + 1,50    Vorgabe für Österreich, Stand 01.01.2025
+                                     ct/kWh + € 4,79/Monat, netto
 
 
 Datenquellen
- Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand
+ Quelle                         Was daraus verwendet wurde                Zeitraum / Stand
 
  Lastgang
- Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.     28.03.2026 – 31.08.2026 · 157 abgedeckte
- Netzbezugs                     Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96, wie im
-                                Bezug. Monats- und Tagesgrenzen in         Datenqualitäts-Hinweis oben)
+ Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.    28.03.2026 – 31.08.2026 · 157 abgedeckte
+ Netzbezugs                     Herkunft: hochgeladener Lastgang, nur     Tage (gerundet aus Messwerte ÷ 96, wie im
+                                Bezug. Monats- und Tagesgrenzen in        Datenqualitäts-Hinweis oben)
                                 Ortszeit Europe/Vienna.
 
- Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
-                                Lastgangs.                                 verfügbar)
 
 
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 17 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 17 von 20
     COOLiN ENERGY           Muster Gastro GmbH
 
 
 
+
+ Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
+                                Lastgangs.                                 verfügbar)
 
  Tarif
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2026.
@@ -837,6 +840,16 @@ je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge 
 gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
 der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
 aus einem Rückblick.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 18 von 20
+    COOLiN ENERGY          Muster Gastro GmbH
+
+
+
+
 Kappung Ihrer Lastspitzen
 Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am
 abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel der simulierte
@@ -845,13 +858,6 @@ anfällt, denn mit dem Leistungspreis sinkt auch sie. Der abgerechnete Wert folg
 Ihres Netzbetreibers und wird von der Mindestleistung nach unten begrenzt. Als Jahresgrösse gehört er zu
 keinem der Beträge darüber dazu. Die Ersparnis enthält den Leistungspreis, die Gebrauchsabgabe darauf
 und den EAG-Förderbeitrag Leistung, der am selben abgerechneten Wert hängt.
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 18 von 20
-    COOLiN ENERGY          Muster Gastro GmbH
-
 
 
 

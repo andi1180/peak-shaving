@@ -605,6 +605,10 @@ Tarifkomponenten
 
  Grundgebühr Lieferant               keine Angabe                    nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
+ Vergleichstarif                     aWATTar HOURLY: Börsenpreis     Vorgabe für Österreich, Stand 01.01.2025
+                                     + 1,50 ct/kWh + € 4,79/Monat,
+                                     netto
+
 
 Datenquellen
  Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand

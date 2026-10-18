@@ -459,7 +459,7 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                      10 Jahre
+ Betrachtungshorizont                                                                                       10 Jahre
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -500,20 +500,23 @@ Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
 
 
 Tarifkomponenten
- Position                            Wert                           Status
+ Position                            Wert                            Status
 
- Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
+ Leistungspreis                      € 0,00 / kW·a                   laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        15,70 ct/kWh                   aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        15,70 ct/kWh                    aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  4,56 ct/kWh                    aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  4,56 ct/kWh                     aus Ihren Angaben (Energieseite)
 
- Grundgebühr Lieferant               € 4,20 / Monat                 aus Ihren Angaben (Energieseite)
+ Grundgebühr Lieferant               € 4,20 / Monat                  aus Ihren Angaben (Energieseite)
+
+ Vergleichstarif                     aWATTar HOURLY: Börsenpreis     Vorgabe für Österreich, Stand 01.01.2025
+                                     + 1,50 ct/kWh + € 4,79/Monat,
+                                     netto
 
 
 
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 13 von 16
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 13 von 16
     COOLiN ENERGY           Referenzfall Privat
 
 

@@ -626,6 +626,10 @@ Tarifkomponenten
 
  Grundgebühr Lieferant               € 4,20 / Monat                     aus Ihren Angaben (Energieseite)
 
+ Vergleichstarif                     aWATTar HOURLY: Börsenpreis        Vorgabe für Österreich, Stand 01.01.2025
+                                     + 1,50 ct/kWh + € 4,79/Monat,
+                                     netto
+
 
 Datenquellen
  Quelle                          Was daraus verwendet wurde                    Zeitraum / Stand
@@ -664,6 +668,16 @@ Datenquellen
 
 
 Berechnungsmethodik je Kennzahl
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 16 von 18
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
 Was für alle Wege gleich gerechnet ist
 Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal dem
 Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie
@@ -676,15 +690,6 @@ Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je Weg nur
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 16 von 18
-    COOLiN ENERGY          Referenzfall Privat
-
-
-
-
 Ihr Vergleichstarif (gogreenenergy) — getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten;
 Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
 aWATTar HOURLY ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen

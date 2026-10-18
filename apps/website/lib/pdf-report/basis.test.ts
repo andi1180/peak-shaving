@@ -609,6 +609,7 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
       'tariff_energy_price',
       'tariff_einspeiseverguetung',
       'tariff_supplier_fee',
+      'tariff_dynamic',
       'tariff_netzebene',
     ])
 
@@ -685,6 +686,52 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
       'tariff_einspeiseverguetung',
     ])
     expect(bare.rows.flatMap((row) => row.cells)).not.toContain('keine Angabe')
+  })
+
+  it('nennt die Konditionen des Vergleichstarifs — Vorgabe des Landes oder eigene Eingabe', () => {
+    const withTariff = (dynamicTariff: PdfReportAnalysis['assumptions']['dynamicTariff']) =>
+      buildBasisChapter({
+        title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+        subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+        period: '01.01.2025 – 31.12.2025',
+        printedAt: '17.09.2026',
+        analysis: {
+          ...FULL_ANALYSIS,
+          assumptions: { ...FULL_ANALYSIS.assumptions, dynamicTariff },
+        },
+        loadProfile: LOAD_PROFILE,
+        tariffSource: REAL_REF,
+        tariffVintage: null,
+        country: 'AT',
+      }).tariffComponents
+
+    const preset = withTariff({
+      name: 'aWATTar HOURLY',
+      markupCtPerKwh: 1.5,
+      baseFeeEurPerMonth: 4.79,
+    })
+    expect(componentRow(preset, 'tariff_dynamic')).toEqual([
+      'Vergleichstarif',
+      'aWATTar HOURLY: Börsenpreis + 1,50 ct/kWh + €\u00a04,79/Monat, netto',
+      'Vorgabe für Österreich, Stand 01.01.2025',
+    ])
+
+    // formatCtPerKwh rundet auf zwei Stellen: 1,499 ct steht als 1,50 ct da.
+    const own = withTariff({ name: 'Börsentarif', markupCtPerKwh: 1.499, baseFeeEurPerMonth: 120 })
+    expect(componentRow(own, 'tariff_dynamic')).toEqual([
+      'Vergleichstarif',
+      'Börsentarif: Börsenpreis + 1,50 ct/kWh + €\u00a0120,00/Monat, netto',
+      'angenommen (eigene Eingabe, kein Kundenvertrag)',
+    ])
+  })
+
+  it('lässt die Vergleichstarif-Zeile ohne rechenbaren Tarifvergleich weg — wie die Grundgebühr', () => {
+    const keys = componentsFor(ANALYSIS, REAL_REF).rows.map((row) => row.key)
+    expect(keys).not.toContain('tariff_dynamic')
+    expect(keys).not.toContain('tariff_supplier_fee')
+    expect(componentsFor(FULL_ANALYSIS, REAL_REF).rows.map((row) => row.key)).toContain(
+      'tariff_dynamic',
+    )
   })
 
   /**
