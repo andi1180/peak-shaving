@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   gridProfileContainsPv,
+  minBillableKwFallsBackToZero,
   parseNetzebeneDraftValue,
   readDraftFinancialParams,
 } from './metering-point-draft'
@@ -124,5 +125,38 @@ describe('readDraftFinancialParams — Programme „€ pro kWh"', () => {
       ],
     })
     expect(readDraftFinancialParams({ ...draft, subsidyPercent: 20 })).toEqual({ subsidyPercent: 20 })
+  })
+})
+
+describe('minBillableKwFallsBackToZero — dieselbe Bedingung wie mapDraftToTariffParams', () => {
+  it('true: Leistungspreis 0, ohne Leistungsmessung ohne Leistungspreis, mit Leistungsmessung', () => {
+    expect(minBillableKwFallsBackToZero({ leistungspreisEurPerKwYear: 0 })).toBe(true)
+    expect(minBillableKwFallsBackToZero({ meteringVariant: 'ohne_leistungsmessung' })).toBe(true)
+    expect(
+      minBillableKwFallsBackToZero({
+        meteringVariant: 'mit_leistungsmessung',
+        leistungspreisEurPerKwYear: 50,
+      }),
+    ).toBe(true)
+  })
+
+  it('false: unterbrechbar oder ohne Messvariante bei Leistungspreis > 0', () => {
+    expect(
+      minBillableKwFallsBackToZero({
+        meteringVariant: 'unterbrechbar',
+        leistungspreisEurPerKwYear: 50,
+      }),
+    ).toBe(false)
+    expect(minBillableKwFallsBackToZero({ leistungspreisEurPerKwYear: 50 })).toBe(false)
+  })
+
+  it('ein vorhandener Wert ändert die Antwort nicht — gefragt ist der Fall „fehlt"', () => {
+    expect(
+      minBillableKwFallsBackToZero({
+        meteringVariant: 'mit_leistungsmessung',
+        leistungspreisEurPerKwYear: 50,
+        minBillableKw: 30,
+      }),
+    ).toBe(true)
   })
 })

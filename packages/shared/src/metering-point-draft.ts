@@ -50,6 +50,27 @@ export function draftMinBillableKwDefaults(
 }
 
 /**
+ * Ob `mapDraftToTariffParams` für eine FEHLENDE Mindestleistung 0 einsetzt — dieselbe Bedingung für
+ * die Abbildung (`engine`) und die Vollständigkeitsprüfung des Assistenten (`apps/web`), damit der
+ * Assistent nicht nach einem Wert fragt, den die Rechnung gar nicht braucht.
+ */
+export function minBillableKwFallsBackToZero(
+  draft: Record<string, unknown>,
+  billingModelOverride?: BillingModel,
+): boolean {
+  const leistungspreis = draft.leistungspreisEurPerKwYear
+  if (leistungspreis === 0) return true
+  // „Ohne Leistungsmessung" ohne genannten Leistungspreis setzt die Abbildung den Leistungspreis auf 0.
+  if (
+    draft.meteringVariant === 'ohne_leistungsmessung' &&
+    (leistungspreis === undefined || leistungspreis === null)
+  ) {
+    return true
+  }
+  return draftMinBillableKwDefaults({ ...draft, minBillableKw: undefined }, billingModelOverride)
+}
+
+/**
  * Der Netzbetreiber im Entwurf.
  *
  * ── ⚠ ER WAR BIS ZUM 16.09.2026 AUSDRÜCKLICH NICHT IM ENTWURF ─────────────────────────────────

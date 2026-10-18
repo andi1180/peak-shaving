@@ -92,7 +92,7 @@ export const INVOICE_MERGE_FIELD_LABELS: Record<InvoiceMergeFieldKey, string> = 
   billingModel: 'Abrechnungsmodell',
   annualConsumptionKwh: 'Jahresverbrauch',
   leistungspreisEurPerKwYear: 'Leistungspreis',
-  minBillableKw: 'vereinbarte Leistung',
+  minBillableKw: 'Mindestleistung',
   arbeitspreisNetzCtPerKwh: 'Netz-Arbeitspreis',
   energyPriceCtPerKwh: 'Arbeitspreis',
   energyPriceNightCtPerKwh: 'Nachttarif',

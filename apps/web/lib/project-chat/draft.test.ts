@@ -229,3 +229,36 @@ describe('checkDraftCompleteness — admin-gepflegter Fragenkatalog', () => {
     expect(checkDraftCompleteness(draft).complete).toBe(true)
   })
 })
+
+describe('checkDraftCompleteness — Mindestleistung folgt der 0-Ersetzung der Abbildung', () => {
+  const withMeasurement = {
+    meteringVariant: 'mit_leistungsmessung',
+    leistungspreisEurPerKwYear: 50,
+    billingModel: 'monthly_max_sum',
+    energyPriceCtPerKwh: 24.4,
+    einspeiseverguetungCtPerKwh: 8,
+  }
+  const fields = (entries: { field: string }[]) => entries.map((entry) => entry.field)
+
+  it('fehlt nicht, wenn die Abbildung 0 einsetzt', () => {
+    const state = checkDraftCompleteness(withMeasurement)
+    expect(fields(state.missing)).not.toContain('minBillableKw')
+    expect(fields(state.invalid)).not.toContain('minBillableKw')
+  })
+
+  it('null gilt dann ebenfalls nicht als ungültig', () => {
+    const state = checkDraftCompleteness({ ...withMeasurement, minBillableKw: null })
+    expect(fields(state.missing)).not.toContain('minBillableKw')
+    expect(fields(state.invalid)).not.toContain('minBillableKw')
+  })
+
+  it('fehlt weiterhin, wenn die Abbildung abbräche (unterbrechbar, Leistungspreis > 0)', () => {
+    const state = checkDraftCompleteness({ ...withMeasurement, meteringVariant: 'unterbrechbar' })
+    expect(fields(state.missing)).toContain('minBillableKw')
+  })
+
+  it('ein negativer Wert bleibt ungültig', () => {
+    const state = checkDraftCompleteness({ ...withMeasurement, minBillableKw: -5 })
+    expect(fields(state.invalid)).toContain('minBillableKw')
+  })
+})
