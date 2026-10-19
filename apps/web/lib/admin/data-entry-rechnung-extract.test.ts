@@ -24,9 +24,8 @@ vi.mock('@/lib/project-documents/storage', () => ({
   getProjectDocumentBytes: (path: string) => getProjectDocumentBytes(path),
 }))
 
-const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction } =
+const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction, listInvoiceExtractionsAction } =
   await import('./data-entry-actions-rechnung-extract')
-const { readStoredInvoicesAction } = await import('./data-entry-actions-rechnung-upload')
 const { removeMeteringPointInvoiceAction } = await import('./data-entry-actions-rechnung')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
@@ -42,6 +41,7 @@ type Row = {
   status: 'pending' | 'running' | 'done' | 'failed' | 'removed'
   result: unknown
   error: string | null
+  attempts: number
   started_at: string | null
 }
 
@@ -134,6 +134,7 @@ rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
         status: 'pending',
         result: null,
         error: null,
+        attempts: 0,
         started_at: null,
       }
       table.push(row)
@@ -144,6 +145,7 @@ rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
       return { data: { status: 'already_running', extraction: row }, error: null }
     Object.assign(row, {
       status: 'running',
+      attempts: row.attempts + 1,
       metering_point_id: args.p_metering_point_id,
       started_at: new Date().toISOString(),
       error: null,
@@ -164,6 +166,12 @@ rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     if (!row) return { data: { status: 'no_row' }, error: null }
     row.status = 'removed'
     return { data: { status: 'ok', extraction: json(row) }, error: null }
+  }
+  if (fn === 'list_project_documents') {
+    const documents = [...files.entries()]
+      .filter(([, f]) => f.project === args.p_project_id)
+      .map(([id, f]) => ({ id, original_filename: f.name, content_type: 'application/pdf' }))
+    return { data: { status: 'ok', documents }, error: null }
   }
   if (fn === 'list_document_extractions') {
     const rows = table.filter((r) => r.metering_point_id === args.p_metering_point_id)
@@ -206,7 +214,7 @@ async function extractAndFinalize(ids: string[]) {
 }
 
 describe('Rechnung je Dokument + Abschluss', () => {
-  it('⚠ GLEICHHEITS-GATE: ergibt bit-identisch den Entwurf des Sammelwegs', async () => {
+  it('⚠ GLEICHHEITS-GATE: ergibt bit-identisch den Entwurf des entfernten Sammelwegs', async () => {
     // Widerspruch (a ↔ b beim Arbeitspreis) und unklare Preisbasis (c), wie im #514-Gleichheitstest.
     outcomes.set(
       'a.pdf',
@@ -216,21 +224,58 @@ describe('Rechnung je Dokument + Abschluss', () => {
     outcomes.set('c.pdf', extraction({ minBillableKw: 44 }, { supplierPriceBasis: null }))
     const ids = [file('a.pdf'), file('b.pdf'), file('c.pdf')]
 
-    await readStoredInvoicesAction(
-      {},
-      { projectId: PROJECT_ID, meteringPointId: POINT_ID, documentIds: ids },
-    )
-    const viaSammelweg = draft
-    // Nicht leer verglichen: der Sammelweg hat drei Belege und den übereinstimmenden Wert geschrieben.
-    expect(viaSammelweg._invoiceExtractions).toHaveLength(3)
-    expect(viaSammelweg.leistungspreisEurPerKwYear).toBe(38.52)
-
-    draft = {}
-    const state = await extractAndFinalize(ids)
+    // Wie die Station: jede Rechnung einzeln, danach EIN Abschluss ohne Kennungen.
+    for (const id of ids) await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, id)
+    const state = await finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
 
     expect(state.open).toEqual([])
     expect(state.success).toContain('widersprechen einander')
-    expect(JSON.stringify(draft)).toBe(JSON.stringify(viaSammelweg))
+    expect(JSON.stringify(draft)).toBe(JSON.stringify(SAMMELWEG_ENTWURF))
+  })
+
+  it('Statusliste: Zeilen aus document_extractions mit Dateinamen, ohne entfernte — auch nach Neuladen', async () => {
+    outcomes.set('a.pdf', extraction({ energyPriceCtPerKwh: 24.5 }))
+    outcomes.set('kaputt.pdf', { ok: false, reason: 'unreadable' })
+    const [a, kaputt, weg] = [file('a.pdf'), file('kaputt.pdf'), file('weg.pdf')]
+    await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, a)
+    await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, kaputt)
+    table.push({
+      id: 'e-weg',
+      project_id: PROJECT_ID,
+      document_id: weg,
+      metering_point_id: POINT_ID,
+      kind: 'invoice',
+      status: 'removed',
+      result: null,
+      error: null,
+      attempts: 1,
+      started_at: null,
+    })
+
+    // Ein neuer Aufruf ohne Browserzustand — genau das, was ein Neuladen der Station tut.
+    const listed = await listInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
+
+    expect(listed).toEqual({
+      ok: true,
+      rows: [
+        {
+          documentId: a,
+          filename: 'a.pdf',
+          status: 'done',
+          error: null,
+          attempts: 1,
+          startedAt: '2026-10-19T08:00:00.000Z',
+        },
+        {
+          documentId: kaputt,
+          filename: 'kaputt.pdf',
+          status: 'failed',
+          error: expect.stringContaining('keine der gesuchten Angaben'),
+          attempts: 1,
+          startedAt: '2026-10-19T08:00:00.000Z',
+        },
+      ],
+    })
   })
 
   it('ersetzt beim Neulesen derselben Kennung statt zu verdoppeln; zweimal abschliessen ändert nichts', async () => {
@@ -288,6 +333,7 @@ describe('Rechnung je Dokument + Abschluss', () => {
       status: 'running',
       result: null,
       error: null,
+      attempts: 1,
       started_at: new Date().toISOString(),
     })
 
@@ -380,3 +426,114 @@ describe('Rechnung je Dokument + Abschluss', () => {
     })
   })
 })
+
+/**
+ * Der Entwurf, den der entfernte Sammelweg (alle Rechnungen in einer Action) für a/b/c oben geschrieben
+ * hat — erzeugt aus dessen letztem Lauf vor dem Entfernen (Uhr fest auf 2026-10-19T08:00Z).
+ * Nicht anpassen, um einen Test grün zu machen: er ist die Erwartung „identisch zu vorher".
+ */
+const SAMMELWEG_ENTWURF = {
+  "_invoiceExtractions": [
+    {
+      "documentId": "00000000-0000-4000-8000-000000000001",
+      "filename": "a.pdf",
+      "extraction": {
+        "netzbetreiber": "wiener_netze",
+        "netzebene": 5,
+        "meteringVariant": null,
+        "annualConsumptionKwh": null,
+        "billingPeriodFrom": null,
+        "billingPeriodTo": null,
+        "billingPeriodAssumed": null,
+        "supplierPriceBasis": "net",
+        "rates": {
+          "leistungspreisEurPerKwYear": 38.52,
+          "minBillableKw": null,
+          "arbeitspreisNetzCtPerKwh": null,
+          "energyPriceCtPerKwh": 24.5,
+          "energyPriceNightCtPerKwh": null,
+          "einspeiseverguetungCtPerKwh": null,
+          "supplierBaseFeeEurPerMonth": null
+        }
+      }
+    },
+    {
+      "documentId": "00000000-0000-4000-8000-000000000002",
+      "filename": "b.pdf",
+      "extraction": {
+        "netzbetreiber": "wiener_netze",
+        "netzebene": 5,
+        "meteringVariant": null,
+        "annualConsumptionKwh": null,
+        "billingPeriodFrom": null,
+        "billingPeriodTo": null,
+        "billingPeriodAssumed": null,
+        "supplierPriceBasis": "net",
+        "rates": {
+          "leistungspreisEurPerKwYear": null,
+          "minBillableKw": null,
+          "arbeitspreisNetzCtPerKwh": null,
+          "energyPriceCtPerKwh": 26.9,
+          "energyPriceNightCtPerKwh": null,
+          "einspeiseverguetungCtPerKwh": null,
+          "supplierBaseFeeEurPerMonth": null
+        }
+      }
+    },
+    {
+      "documentId": "00000000-0000-4000-8000-000000000003",
+      "filename": "c.pdf",
+      "extraction": {
+        "netzbetreiber": "wiener_netze",
+        "netzebene": 5,
+        "meteringVariant": null,
+        "annualConsumptionKwh": null,
+        "billingPeriodFrom": null,
+        "billingPeriodTo": null,
+        "billingPeriodAssumed": null,
+        "supplierPriceBasis": null,
+        "rates": {
+          "leistungspreisEurPerKwYear": null,
+          "minBillableKw": 44,
+          "arbeitspreisNetzCtPerKwh": null,
+          "energyPriceCtPerKwh": null,
+          "energyPriceNightCtPerKwh": null,
+          "einspeiseverguetungCtPerKwh": null,
+          "supplierBaseFeeEurPerMonth": null
+        }
+      }
+    }
+  ],
+  "supplierPriceBasis": "net",
+  "netzbetreiber": "wiener_netze",
+  "_provenance": {
+    "netzbetreiber": {
+      "source": "measured",
+      "at": "2026-10-19T08:00:00.000Z",
+      "origin": "invoice"
+    },
+    "netzebene": {
+      "source": "measured",
+      "at": "2026-10-19T08:00:00.000Z",
+      "origin": "invoice"
+    },
+    "leistungspreisEurPerKwYear": {
+      "source": "measured",
+      "at": "2026-10-19T08:00:00.000Z",
+      "origin": "invoice"
+    },
+    "minBillableKw": {
+      "source": "measured",
+      "at": "2026-10-19T08:00:00.000Z",
+      "origin": "invoice"
+    },
+    "invoiceSkipped": {
+      "source": "measured",
+      "at": "2026-10-19T08:00:00.000Z"
+    }
+  },
+  "netzebene": "NE 5",
+  "leistungspreisEurPerKwYear": 38.52,
+  "minBillableKw": 44,
+  "invoiceSkipped": false
+}

@@ -67,27 +67,13 @@ import { ANNUAL_CONSUMPTION_KWH_KEY } from './standard-profile'
 export const DRAFT_INVOICE_EXTRACTIONS_KEY = '_invoiceExtractions'
 
 /**
- * Wie viele Rechnungen ein Vorgang entgegennimmt.
+ * Wie viele Rechnungen eine Auswahl der Rechnung-Station entgegennimmt.
  *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ EINE KOSTENBREMSE, KEINE BEDIENHILFE — jede Datei ist genau EIN abrechenbarer Modellaufruf
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Dieselbe Zahl wie `MAX_ATTACHED_DOCUMENTS_PER_TURN` im Chat (`lib/project-chat/chat.ts`) und aus
- * demselben Grund: sie entspricht der Grössenordnung eines realen Anlasses — zwölf Monatsrechnungen
- * statt einer Jahresrechnung (Delta §3.2). Mehr ist kein Fehler des Admins; der Vorgang ist
- * wiederholbar, die übrigen Dateien kommen im nächsten dazu.
- *
- * ⚠ SIE STEHT HIER UND NICHT IN DER ACTION, weil sie drei Leser hat: die Action prüft sie, die
- * Station nennt sie am Feld, und der Test misst beide gegen dieselbe Zahl. In einer
- * `'use server'`-Datei kann sie gar nicht stehen — dort sind nur async Funktionen exportierbar
- * (`lib/use-server-exports.test.ts`).
- *
- * ⚠ ZWEITE, DAVON UNABHÄNGIGE GRENZE, die keine Prüfung im Anwendungscode erreichen kann:
- * `bodySizeLimit` (24 MB, `next.config.mjs`) begrenzt den GESAMTEN Rumpf einer Server Action, und
- * die Plattform schneidet ihn ab, BEVOR eine Zeile davon läuft. Zwölf Rechnungen üblicher Grösse
- * liegen weit darunter, zwölf hochauflösende Scans zu je 6 MB nicht.
+ * Eine fachliche Obergrenze und Kostenbremse (jede Datei ist ein abrechenbarer Modellaufruf), keine
+ * technische: jede Rechnung geht direkt in den Storage und wird in einem eigenen Request gelesen.
+ * Steht hier statt in einer `'use server'`-Datei, weil Station, Abschluss und Tests sie lesen.
  */
-export const MAX_INVOICES_PER_UPLOAD = 12
+export const MAX_INVOICES_PER_SELECTION = 50
 
 /**
  * „Für diesen Zählpunkt gibt es bewusst keine Tarifangabe."

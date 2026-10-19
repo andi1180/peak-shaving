@@ -2,9 +2,7 @@
  * Gemeinsame Teile des Rechnungs-Auslesens aus der Ablage: Dokument prüfen, eine Datei scannen, den
  * Entwurf aus den gelesenen Rechnungen bauen.
  *
- * Benutzt vom Sammelweg (`readStoredInvoicesAction`) UND vom Weg je Dokument
- * (`data-entry-actions-rechnung-extract.ts`). Beide sollen für dieselbe Rechnungsmenge denselben
- * Entwurf schreiben — deshalb gibt es jeden Schritt nur einmal.
+ * Benutzt vom Auslesen je Dokument und vom Abschluss (`data-entry-actions-rechnung-extract.ts`).
  *
  * Kein `'use server'`: das Modul exportiert Konstanten und synchrone Funktionen.
  */
@@ -51,7 +49,7 @@ export type InvoiceFileFailure =
   | 'storage_failed'
 
 /**
- * Der Grund je Datei, in einem Satz — kürzer als im öffentlichen Rechner, weil bis zu zwölf Gründe
+ * Der Grund je Datei, in einem Satz — kürzer als im öffentlichen Rechner, weil mehrere Gründe
  * in EINER Zeile stehen. `wrong_type` und `unreadable` verweisen dort auf andere Einstiege, die es
  * hier nicht gibt.
  */

@@ -1,8 +1,8 @@
 /**
  * Auslesestatus je Dokument (`platform.document_extractions`) über die vier Wrapper.
  *
- * Noch ohne Aufrufer: der parallele Rechnungs-Scan (je Rechnung ein Request, am Ende einmal
- * zusammenführen) baut darauf auf. Die Zugriffsprüfung liegt in der Datenbank
+ * Benutzt vom Rechnungs-Scan je Dokument (`lib/admin/data-entry-actions-rechnung-extract.ts`).
+ * Die Zugriffsprüfung liegt in der Datenbank
  * (`platform.project_accessible`), dieses Modul übersetzt nur die Antworten.
  */
 import 'server-only'

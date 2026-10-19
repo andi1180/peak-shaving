@@ -729,8 +729,7 @@ export async function saveMeteringPointManualTariffAction(
   /*
    * ⚠ WIE BEIM UPLOAD: eine von Hand eingetragene Tarifangabe widerlegt ein früheres „ohne
    * Rechnungsdaten fortgefahren". Ohne diese Zeile stünden beide Aussagen zugleich im Entwurf,
-   * und ein späterer Leser müsste raten, welche gilt — die vollständige Begründung steht in
-   * `readStoredInvoicesAction`.
+   * und ein späterer Leser müsste raten, welche gilt (s. `buildInvoiceDraft`).
    *
    * ⚠ Es geht BEWUSST NICHT über `values`: dort zählt jeder Eintrag als „Angabe des Kunden" (die
    * Erfolgsmeldung nennt die Zahl, und `values.length === 0` weist ein leeres Formular ab). Das
