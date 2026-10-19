@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { INVOICE_SCAN_MIN_ATTEMPT_MS, MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
+import { MAX_INVOICE_FILE_BYTES } from 'extractors'
 import {
   claimDirectUpload,
   discardDirectUpload,
@@ -9,20 +9,18 @@ import {
   registerDirectUpload,
 } from '@/lib/project-documents/direct-upload'
 import type { DirectUploadGrant } from '@/lib/project-documents/direct-upload-client'
-import { getProjectDocumentBytes } from '@/lib/project-documents/storage'
-import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
-import { replaceInvoiceDraftFields } from './invoice-draft-fields'
 import { mapWithConcurrency } from './map-with-concurrency'
+import { MAX_INVOICES_PER_UPLOAD, readStoredInvoiceExtractions } from './invoice-extractions'
 import {
-  INVOICE_SKIPPED_KEY,
-  MAX_INVOICES_PER_UPLOAD,
-  foldStoredInvoices,
-  readStoredInvoiceExtractions,
-  withInvoicePriceBasis,
-  withStoredInvoiceExtractions,
-  type StoredInvoiceExtraction,
-} from './invoice-extractions'
+  INVOICE_FAILURE_TEXT,
+  INVOICE_UPLOAD_BUDGET_MS,
+  buildInvoiceDraft,
+  loadStoredInvoiceDocument,
+  readOneStoredInvoice,
+  type InvoiceFileResult,
+  type StoredInvoiceDocument,
+} from './invoice-stored-read'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -59,56 +57,6 @@ import {
 
 /** Höchstens so viele Rechnungs-Scans gleichzeitig je Vorgang. */
 const INVOICE_SCAN_CONCURRENCY = 4
-/** Zeit für alle Scans eines Vorgangs; der Rest von `maxDuration` 300 s bleibt fürs Lesen der Ablage und den Entwurf. */
-const INVOICE_UPLOAD_BUDGET_MS = 250_000
-
-/**
- * Warum eine einzelne Datei nicht gelesen werden konnte.
- *
- * ── ⚠ DIE FÜNF ERSTEN SIND WORTWÖRTLICH DIE ZUSTÄNDE DES ÖFFENTLICHEN RECHNUNGS-SCANS ─────────
- * `apps/website/components/flow/invoice-scan-panel.tsx` führt dieselbe Liste (`ERROR_TEXT`), und
- * sie wird hier bewusst nicht erweitert oder umbenannt: es ist derselbe Extraktor, dieselben
- * Ausgänge, und zwei Vokabulare für dieselben Zustände liefen beim nächsten Umbau auseinander.
- *
- * `storage_failed`: die abgelegte Datei liess sich nicht aus der Ablage lesen — kein Fehler der
- * Datei, deshalb nicht unter `unavailable`.
- */
-type InvoiceFileFailure =
-  | 'no_file'
-  | 'wrong_type'
-  | 'too_large'
-  | 'not_configured'
-  | 'unreadable'
-  | 'unavailable'
-  | 'timeout'
-  | 'not_started'
-  | 'storage_failed'
-
-/**
- * Der Grund je Datei, in einem Satz — kürzer als im öffentlichen Rechner, weil bis zu zwölf Gründe
- * in EINER Zeile stehen. `wrong_type` und `unreadable` verweisen dort auf andere Einstiege, die es
- * hier nicht gibt.
- */
-const INVOICE_FAILURE_TEXT: Record<InvoiceFileFailure, string> = {
-  no_file: 'Die Datei scheint leer zu sein.',
-  wrong_type: 'Nur PDF — ein Foto oder Screenshot der Rechnung lässt sich nicht auslesen.',
-  too_large: `Grösser als ${Math.floor(MAX_INVOICE_FILE_BYTES / (1024 * 1024))} MB. Eine Rechnung von ein bis wenigen Seiten liegt normalerweise weit darunter.`,
-  not_configured: 'Das Auslesen von Rechnungen ist auf diesem Server nicht eingerichtet.',
-  unreadable:
-    'Auf diesem Dokument war keine der gesuchten Angaben zu finden — das kann an der Bildqualität liegen, aber auch daran, dass es keine Strom- oder Netzrechnung ist.',
-  unavailable: 'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen.',
-  timeout:
-    'Das Auslesen hat zu lange gedauert und wurde abgebrochen; die Datei ist abgelegt. Bitte diese Rechnung einzeln noch einmal hochladen.',
-  not_started:
-    'Nicht mehr gelesen — die Zeit für diesen Vorgang war aufgebraucht; die Datei ist abgelegt. Bitte in einem eigenen Vorgang noch einmal hochladen.',
-  storage_failed:
-    'Die abgelegte Datei liess sich nicht aus der Ablage des Projekts lesen; sie wurde deshalb nicht ausgelesen.',
-}
-
-/** Das Ergebnis einer einzelnen Datei — gelesen, oder benannt gescheitert. */
-type InvoiceFileResult =
-  | { ok: true; entry: StoredInvoiceExtraction }
-  | { ok: false; filename: string; reason: InvoiceFileFailure }
 
 // ── Ablegen ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -242,13 +190,6 @@ export type StoredInvoicesInput = {
   documentIds: string[]
 }
 
-type StoredInvoiceDocument = {
-  documentId: string
-  filename: string
-  contentType: string
-  storagePath: string
-}
-
 /**
  * Liest die abgelegten Rechnungen EINES Vorgangs aus und schreibt den zusammengeführten Stand in
  * den Entwurf.
@@ -309,22 +250,16 @@ export async function readStoredInvoicesAction(
   const db = await createClient()
   const documents: StoredInvoiceDocument[] = []
   for (const documentId of documentIds) {
-    const { data, error } = await db.rpc('get_project_document', { p_document_id: documentId })
-    if (error && isForbidden(error)) return { formError: FORBIDDEN }
-    const doc = (data as { status?: string; document?: Record<string, unknown> } | null)?.document
-    if (error || statusOf(data) !== 'ok' || !doc || doc.project_id !== projectId) {
+    const loaded = await loadStoredInvoiceDocument(db, projectId, documentId)
+    if (!loaded.ok && loaded.reason === 'forbidden') return { formError: FORBIDDEN }
+    if (!loaded.ok) {
       return {
         formError:
           'Mindestens eine Datei gehört nicht zu diesem Projekt oder ist nicht mehr vorhanden. ' +
           'Es wurde nichts ausgelesen. Bitte laden Sie die Seite neu.',
       }
     }
-    documents.push({
-      documentId,
-      filename: String(doc.original_filename ?? '').trim() || 'Unbenannte Datei',
-      contentType: String(doc.content_type ?? ''),
-      storagePath: String(doc.storage_path ?? ''),
-    })
+    documents.push(loaded.document)
   }
 
   const before = await db.rpc('list_metering_points', { p_project_id: projectId })
@@ -360,9 +295,7 @@ export async function readStoredInvoicesAction(
       ? null
       : failed
           .map((result) =>
-            result.ok
-              ? ''
-              : `„${result.filename}": ${INVOICE_FAILURE_TEXT[result.reason as InvoiceFileFailure]}`,
+            result.ok ? '' : `„${result.filename}": ${INVOICE_FAILURE_TEXT[result.reason]}`,
           )
           .join(' · ')
 
@@ -397,49 +330,18 @@ export async function readStoredInvoicesAction(
 
   const stored = readStoredInvoiceExtractions(point.draft)
   const all = [...stored, ...read.map((result) => result.entry)]
-  const fold = foldStoredInvoices(all, await readKnownOperatorIdsForProject(supabase, projectId))
-  const { conflicts } = fold
-
-  /*
-   * ⚠ EIN EINZIGER SCHREIBVORGANG. Der Seiteneintrag und die übernommenen Werte gehören zusammen:
-   * die Werte sind die Auswertung genau dieser Liste. Getrennt geschrieben gäbe es einen Zustand,
-   * in dem der Entwurf Werte trägt, deren Belege fehlen (oder umgekehrt) — und `update_metering_point_draft`
-   * ERSETZT ohnehin, ein zweiter Aufruf müsste also den ersten mitführen.
-   */
-  let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, all), fold)
-  const now = new Date()
-  /*
-   * `measured`: jeder dieser Werte steht übereinstimmend auf allen Rechnungen, die etwas dazu sagen.
-   * Ein früher übernommener Wert, zu dem keine gelesene Rechnung mehr etwas sagt, wird entfernt;
-   * Handeingaben und widersprüchliche Felder bleiben (s. `replaceInvoiceDraftFields`).
-   */
-  nextDraft = replaceInvoiceDraftFields(nextDraft, fold.values, conflicts, now, stored.length > 0)
-
-  /*
-   * ⚠ EIN ECHTER UPLOAD WIDERLEGT EIN FRÜHERES „ohne Rechnungsdaten fortgefahren" — deshalb wird
-   * das Signal hier ausdrücklich auf `false` gesetzt und nicht bloss stehen gelassen.
-   *
-   * Ohne diese Zeile stünden ZWEI Aussagen gleichzeitig im Entwurf: „es gibt bewusst keine
-   * Tarifangabe für diesen Zählpunkt" und eine gelesene Rechnung mit genau diesen Angaben. Ein
-   * späterer Leser (Tarif-Station, Report) müsste raten, welche gilt — und die falsche Antwort
-   * wäre die teure: eine Analyse, die den Kostenvergleich weglässt, obwohl die Werte vorliegen.
-   *
-   * ⚠ Es steht IM SELBEN Schreibvorgang, nicht daneben: `update_metering_point_draft` ERSETZT den
-   * Entwurf; ein zweiter Aufruf gäbe es ein Fenster, in dem genau der widersprüchliche Stand von
-   * oben gespeichert ist.
-   *
-   * ⚠ ABWEICHUNG VON DER AUFTRAGSFORMULIERUNG, offengelegt: der Auftrag nannte
-   * `writeMeteringPointDraftFields`. Diese Action ruft den Helfer NICHT — sie liest den Entwurf
-   * selbst, weil sie zusätzlich `withStoredInvoiceExtractions` anwenden muss (den Seiteneintrag
-   * kann der Helfer nicht schreiben). Die Sache ist dieselbe: EIN Schreibvorgang, dieselbe
-   * Herkunft `measured`, derselbe Zeitstempel.
-   */
-  nextDraft = setDraftField(nextDraft, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
+  const { draft: nextDraft, conflicts } = buildInvoiceDraft({
+    draft: point.draft,
+    stored,
+    all,
+    knownOperatorIds: await readKnownOperatorIdsForProject(supabase, projectId),
+    now: new Date(),
+  })
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie im Standardprofil-Zweig: zur Laufzeit dasselbe, TypeScript kann es nur nicht wissen.
-    p_draft: dropInapplicableBillingModel(nextDraft) as Json,
+    p_draft: nextDraft as Json,
   })
 
   if (draftRes.error) {
@@ -468,63 +370,5 @@ export async function readStoredInvoicesAction(
   return {
     success: `${gelesen}. ${gesamt}${widerspruch}`,
     ...(failureText ? { fieldErrors: { files: failureText } } : {}),
-  }
-}
-
-/**
- * Eine einzelne abgelegte Datei: prüfen, aus der Ablage lesen, auslesen.
- *
- * Wirft nie — jeder Ausgang ist ein benanntes Ergebnis. Ein Wurf aus einer der nebenläufigen
- * Ketten liesse `mapWithConcurrency` scheitern und nähme die anderen mit, obwohl sie längst gelesen
- * (und bezahlt) sind.
- */
-async function readOneStoredInvoice(
-  doc: StoredInvoiceDocument,
-  deadline: number,
-): Promise<InvoiceFileResult> {
-  const filename = doc.filename
-
-  // ── prüfen. Vor jedem abrechenbaren Aufruf.
-  if (doc.contentType !== PDF_MEDIA_TYPE) return { ok: false, filename, reason: 'wrong_type' }
-  if (deadline - Date.now() < INVOICE_SCAN_MIN_ATTEMPT_MS) {
-    return { ok: false, filename, reason: 'not_started' }
-  }
-
-  // ── aus der Ablage lesen. Der Pfad kommt aus der Datenbank, nicht vom Browser.
-  let bytes: ArrayBuffer
-  try {
-    const got = await getProjectDocumentBytes(doc.storagePath)
-    if (!got.ok) {
-      console.error('[admin/dateneingabe] getProjectDocumentBytes (Rechnung):', got.message)
-      return { ok: false, filename, reason: 'storage_failed' }
-    }
-    bytes = got.bytes
-  } catch (cause) {
-    console.error('[admin/dateneingabe] getProjectDocumentBytes (Rechnung):', cause)
-    return { ok: false, filename, reason: 'storage_failed' }
-  }
-  if (bytes.byteLength === 0) return { ok: false, filename, reason: 'no_file' }
-  if (bytes.byteLength > MAX_INVOICE_FILE_BYTES) return { ok: false, filename, reason: 'too_large' }
-
-  // ── auslesen. Der einzige abrechenbare Aufruf dieser Kette.
-  const outcome = await extractInvoiceData(Buffer.from(bytes).toString('base64'), { deadline })
-
-  if (!outcome.ok) {
-    /*
-     * `not_configured` und `unreadable` reisen als eigene Zustände weiter — „noch nicht
-     * eingerichtet" ist kein Fehler der Datei, „darauf war nichts zu finden" keiner der Technik.
-     * `api_error` wird zu `unavailable`: was genau schiefging, gehört ins Log, nicht in die
-     * Oberfläche.
-     */
-    if (outcome.reason === 'not_configured')
-      return { ok: false, filename, reason: 'not_configured' }
-    if (outcome.reason === 'unreadable') return { ok: false, filename, reason: 'unreadable' }
-    if (outcome.reason === 'timeout') return { ok: false, filename, reason: 'timeout' }
-    return { ok: false, filename, reason: 'unavailable' }
-  }
-
-  return {
-    ok: true,
-    entry: { documentId: doc.documentId, filename, extraction: outcome.extraction },
   }
 }
