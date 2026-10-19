@@ -368,6 +368,10 @@ Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
   Prototyps sind auf die neutralen Tokens abgebildet; sein „faint" (`#94a3b8`, 2,56:1) wurde als
   `--color-text-faint` mit `#737373` übernommen, weil die Fußzeile „Prinzipdarstellung, keine
   Messwerte" lesbar (AA) bleiben muss.
+- **Dieselbe Ausnahme gilt für die Schnellcheck-Karte (Leadgen-Umbau Schritt 3a,**
+  `docs/prototypes/schnellcheck-prototyp.html`, `components/schnellcheck.tsx`): Radius 16px, weicher
+  Schatten, Prototyp-Slate auf die neutralen Tokens abgebildet (`--bar` → `line-strong`). Abweichend
+  vom Prototyp tragen die Eingabefelder `line-input` statt `line` (1.4.11, 3:1).
 - **Responsive:** Mobile/Tablet/Desktop gleichwertig (§7.5). `html`/`body` haben eine globale
   `overflow-x`-Bremse — als **`clip`**, nicht `hidden`, s. nächste Regel.
 - **Header-Höhe ist ein Token:** `--header-h: 4rem`. Sie steuert drei Dinge, die sonst

@@ -1,7 +1,8 @@
 /**
- * Die Rechnung des SCHNELLRECHNERS (§5.4) — herausgezogen aus
- * `components/quick-calculator.tsx`, damit sie zweimal gebraucht werden kann und trotzdem nur
- * einmal existiert:
+ * Die Rechnung des früheren SCHNELLRECHNERS (§5.4). Seit Leadgen-Umbau 3a ersetzt der Schnellcheck
+ * die Oberfläche; die Formel bleibt für den Versandpfad 'rechnerergebnis' (Lead-Erfassung, Mail)
+ * bestehen, bis 3b über ihn entscheidet. Ursprünglich herausgezogen, damit sie zweimal gebraucht
+ * werden kann und trotzdem nur einmal existiert:
  *
  *   1. im Browser, für die live nachgerechnete Anzeige (unverändert),
  *   2. auf dem Server, wenn jemand sich sein Ergebnis zuschicken lässt (B3-2, 'rechnerergebnis').

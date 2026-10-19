@@ -32,7 +32,7 @@ export const EMPTY_GRATIS_CHECK_VALUES: GratisCheckRawValues = {
 
 /**
  * de-AT-Zahlen-Eingabe: Komma = Dezimaltrenner (Muster wie
- * `components/quick-calculator.tsx:parseField` — dieselbe Ambiguitäts-Regel:
+ * `parseField` im früheren Schnellrechner — dieselbe Ambiguitäts-Regel:
  * ohne Komma gilt ein einzelner Punkt als Dezimaltrenner, „1.500" wird also
  * als 1,5 gelesen). Leere/kaputte Eingabe → `NaN`, damit `z.number()` sie
  * einheitlich über `invalid_type_error` ablehnt statt über einen eigenen

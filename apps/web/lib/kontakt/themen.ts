@@ -62,6 +62,10 @@ const LEISTUNGS_THEMEN: Thema[] = LEISTUNGEN.map((leistung) => ({
 export const THEMEN: Thema[] = [
   ...LEISTUNGS_THEMEN,
   { key: 'peakShaving', labelKey: 'themen.peakShaving', labelNamespace: 'Kontakt' },
+  // Ziele der drei Wege aus dem Schnellcheck (Leadgen-Umbau 3a), bis der Mailversand (3b) steht.
+  { key: 'schnellreport', labelKey: 'themen.schnellreport', labelNamespace: 'Kontakt' },
+  { key: 'profiReport', labelKey: 'themen.profiReport', labelNamespace: 'Kontakt' },
+  { key: 'erstgespraech', labelKey: 'themen.erstgespraech', labelNamespace: 'Kontakt' },
   { key: 'sonstiges', labelKey: 'themen.sonstiges', labelNamespace: 'Kontakt' },
 ]
 
@@ -94,13 +98,18 @@ export function isThemaKey(key: string | null | undefined): boolean {
  */
 export const THEMA_PARAM = 'thema'
 
+/** Vorbelegung des Nachrichtenfelds (`/kontakt?thema=…&nachricht=…`), z. B. mit Schnellcheck-Werten. */
+export const NACHRICHT_PARAM = 'nachricht'
+
 /**
  * `/kontakt` mit vorgewähltem Thema. Wirft bei unbekanntem Key (wie
  * `resolveCrossLink` in `lib/leistungen.ts`): ein Deep-Link, der auf ein nicht
  * existierendes Thema zeigt, wäre am gerenderten Formular unsichtbar — das
  * Dropdown stünde einfach auf „Bitte wählen".
  */
-export function kontaktHrefFor(themaKey: string): string {
+export function kontaktHrefFor(themaKey: string, nachricht?: string): string {
   findThema(themaKey)
-  return `${KONTAKT_HREF}?${THEMA_PARAM}=${encodeURIComponent(themaKey)}`
+  const query = new URLSearchParams({ [THEMA_PARAM]: themaKey })
+  if (nachricht) query.set(NACHRICHT_PARAM, nachricht)
+  return `${KONTAKT_HREF}?${query.toString()}`
 }

@@ -457,7 +457,8 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
   },
 
   /*
-   * PLATZIERT: unter dem Ergebnis des Schnellrechners.
+   * SEIT LEADGEN-UMBAU 3a NICHT MEHR PLATZIERT: die Erfassung stand unter dem Ergebnis des alten
+   * Schnellrechners, den der Schnellcheck ersetzt hat. Schlüssel und Pfad bleiben für 3b bestehen.
    *
    * 'result_delivery' ist NICHT bestätigungspflichtig (B1-1, `purpose_requires_double_opt_in`): die
    * Zusendung IST die unmittelbar angeforderte Leistung. Seit B3-2 entsteht die Einwilligung
@@ -469,7 +470,7 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     offersMarketingConsent: true,
     fields: EMAIL_ONLY,
     carriesCalculatorResult: true,
-    placed: true,
+    placed: false,
   },
 
   /* PLATZIERT: in einem Wissen-Artikel. Nur die Adresse — wer einen Fachtext liest, soll für den
