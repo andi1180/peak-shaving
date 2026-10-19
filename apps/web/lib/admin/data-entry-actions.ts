@@ -15,6 +15,7 @@
 export * from './data-entry-actions-segment'
 export * from './data-entry-actions-lastgang'
 export * from './data-entry-actions-rechnung'
+export * from './data-entry-actions-rechnung-upload'
 export * from './data-entry-actions-batterie'
 export * from './data-entry-actions-pv'
 export * from './data-entry-actions-tarif'
