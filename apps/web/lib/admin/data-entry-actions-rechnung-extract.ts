@@ -45,6 +45,7 @@ export type ExtractStoredInvoiceStatus =
   | 'failed'
   | 'not_found'
   | 'already_running'
+  | 'removed'
   | 'not_running'
   | 'invalid_kind'
   | 'invalid_status'
@@ -141,12 +142,11 @@ function sameReading(stored: StoredInvoiceExtraction, fresh: StoredInvoiceExtrac
 }
 
 /**
- * Führt die fertig gelesenen Rechnungen EINES Vorgangs mit den schon gespeicherten zusammen und
+ * Führt die fertig gelesenen Rechnungen eines Zählpunkts mit den schon gespeicherten zusammen und
  * schreibt den Entwurf genau einmal.
  *
- * ⚠ `documentIds` sind die Dokumente DIESES Vorgangs, nicht „alles, was am Zählpunkt fertig ist":
- * eine entfernte Rechnung behält ihre `done`-Zeile (`removeMeteringPointInvoiceAction` löscht nur
- * den Entwurfseintrag) und käme sonst beim nächsten Abschluss still zurück.
+ * Ohne `documentIds` gelten alle Auslese-Zeilen des Zählpunkts; mit ihnen nur diese. Eine im Wizard
+ * entfernte Rechnung steht als `removed` und wird nie zusammengeführt oder als offen gemeldet.
  *
  * Eine schon gespeicherte Kennung wird an ihrer Stelle ersetzt (Neulesen), nie verdoppelt; die vom
  * Menschen gewählte Preisbasis bleibt, weil sie sich auf dieselbe Datei bezieht. Ändert sich nichts,
@@ -155,26 +155,40 @@ function sameReading(stored: StoredInvoiceExtraction, fresh: StoredInvoiceExtrac
 export async function finalizeInvoiceExtractionsAction(
   projectId: string,
   meteringPointId: string,
-  documentIds: string[],
+  documentIds?: string[],
 ): Promise<FinalizeInvoiceExtractionsState> {
   if (typeof projectId !== 'string' || !UUID.test(projectId))
     return { formError: GENERIC, open: [] }
   if (typeof meteringPointId !== 'string' || !UUID.test(meteringPointId)) {
     return { formError: GENERIC, open: [] }
   }
-  const rawIds = Array.isArray(documentIds) ? documentIds : []
-  if (!rawIds.every((id) => typeof id === 'string' && UUID.test(id))) {
+  const filtered = documentIds !== undefined && documentIds !== null
+  if (filtered) {
+    if (!Array.isArray(documentIds)) return { formError: GENERIC, open: [] }
+    if (!documentIds.every((id) => typeof id === 'string' && UUID.test(id))) {
+      return { formError: GENERIC, open: [] }
+    }
+    if (new Set(documentIds).size > MAX_INVOICES_PER_UPLOAD) {
+      return {
+        fieldErrors: { files: `Höchstens ${MAX_INVOICES_PER_UPLOAD} Rechnungen pro Vorgang.` },
+        open: [],
+      }
+    }
+  }
+
+  const listed = await listDocumentExtractions({ projectId, meteringPointId, kind: 'invoice' })
+  if (!listed.ok) {
+    console.error('[admin/dateneingabe] list_document_extractions:', listed.reason)
     return { formError: GENERIC, open: [] }
   }
-  const ids = [...new Set(rawIds)]
+  const byDocument = new Map<string, DocumentExtraction>(
+    listed.extractions.map((row) => [row.document_id, row]),
+  )
+  const ids = (
+    filtered ? [...new Set(documentIds)] : listed.extractions.map((row) => row.document_id)
+  ).filter((id) => byDocument.get(id)?.status !== 'removed')
   if (ids.length === 0) {
     return { fieldErrors: { files: 'Bitte mindestens eine PDF-Rechnung auswählen.' }, open: [] }
-  }
-  if (ids.length > MAX_INVOICES_PER_UPLOAD) {
-    return {
-      fieldErrors: { files: `Höchstens ${MAX_INVOICES_PER_UPLOAD} Rechnungen pro Vorgang.` },
-      open: [],
-    }
   }
 
   const db = await createClient()
@@ -193,15 +207,6 @@ export async function finalizeInvoiceExtractionsAction(
     documents.push(loaded.document)
   }
 
-  const listed = await listDocumentExtractions({ projectId, meteringPointId, kind: 'invoice' })
-  if (!listed.ok) {
-    console.error('[admin/dateneingabe] list_document_extractions:', listed.reason)
-    return { formError: GENERIC, open: [] }
-  }
-  const byDocument = new Map<string, DocumentExtraction>(
-    listed.extractions.map((row) => [row.document_id, row]),
-  )
-
   const fresh: StoredInvoiceExtraction[] = []
   const open: OpenInvoiceExtraction[] = []
   for (const doc of documents) {
@@ -214,7 +219,11 @@ export async function finalizeInvoiceExtractionsAction(
     open.push({
       documentId: doc.documentId,
       filename: doc.filename,
-      status: row?.status === 'done' ? 'failed' : (row?.status ?? 'missing'),
+      status: !row
+        ? 'missing'
+        : row.status === 'done' || row.status === 'removed'
+          ? 'failed'
+          : row.status,
       error: row?.status === 'done' ? BROKEN_RESULT : (row?.error ?? null),
     })
   }

@@ -27,6 +27,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction } =
   await import('./data-entry-actions-rechnung-extract')
 const { readStoredInvoicesAction } = await import('./data-entry-actions-rechnung-upload')
+const { removeMeteringPointInvoiceAction } = await import('./data-entry-actions-rechnung')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_PROJECT_ID = '22222222-2222-4333-8444-555555555555'
@@ -38,7 +39,7 @@ type Row = {
   document_id: string
   metering_point_id: string | null
   kind: 'invoice'
-  status: 'pending' | 'running' | 'done' | 'failed'
+  status: 'pending' | 'running' | 'done' | 'failed' | 'removed'
   result: unknown
   error: string | null
   started_at: string | null
@@ -48,6 +49,7 @@ let draft: Record<string, unknown> = {}
 let table: Row[] = []
 const files = new Map<string, { name: string; project: string }>()
 let draftWrites = 0
+let discardFails = false
 
 function idFor(name: string): string {
   const n = [...files.values()].findIndex((f) => f.name === name)
@@ -136,6 +138,8 @@ rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
       }
       table.push(row)
     }
+    if (row.status === 'removed')
+      return { data: { status: 'removed', extraction: row }, error: null }
     if (row.status === 'running')
       return { data: { status: 'already_running', extraction: row }, error: null }
     Object.assign(row, {
@@ -154,6 +158,13 @@ rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     Object.assign(row, { status: args.p_status, result: json(args.p_result), error: args.p_error })
     return { data: { status: 'ok', extraction: json(row) }, error: null }
   }
+  if (fn === 'discard_document_extraction') {
+    if (discardFails) return { data: null, error: { code: 'XX000', message: 'kaputt' } }
+    const row = table.find((r) => r.document_id === args.p_document_id)
+    if (!row) return { data: { status: 'no_row' }, error: null }
+    row.status = 'removed'
+    return { data: { status: 'ok', extraction: json(row) }, error: null }
+  }
   if (fn === 'list_document_extractions') {
     const rows = table.filter((r) => r.metering_point_id === args.p_metering_point_id)
     return { data: { status: 'ok', extractions: json(rows) }, error: null }
@@ -167,6 +178,7 @@ beforeEach(() => {
   files.clear()
   outcomes.clear()
   draftWrites = 0
+  discardFails = false
   rpc.mockClear()
   getProjectDocumentBytes.mockReset()
   getProjectDocumentBytes.mockImplementation(async (path: string) => {
@@ -301,5 +313,70 @@ describe('Rechnung je Dokument + Abschluss', () => {
     ).toEqual({ status: 'not_found' })
     expect(rpc.mock.calls.some(([fn]) => fn === 'start_document_extraction')).toBe(false)
     expect(getProjectDocumentBytes).not.toHaveBeenCalled()
+  })
+
+  describe('Entfernen und Abschluss ohne Kennungen', () => {
+    function removeForm(documentId: string): FormData {
+      const fd = new FormData()
+      fd.set('projectId', PROJECT_ID)
+      fd.set('meteringPointId', POINT_ID)
+      fd.set('documentId', documentId)
+      return fd
+    }
+
+    it('⚠ eine entfernte Rechnung kommt beim Abschluss ohne Kennungen nicht zurück', async () => {
+      outcomes.set('a.pdf', extraction({ energyPriceCtPerKwh: 24.5 }))
+      outcomes.set('b.pdf', extraction({ leistungspreisEurPerKwYear: 38.52 }))
+      const [a, b] = [file('a.pdf'), file('b.pdf')]
+      await extractAndFinalize([a, b])
+
+      const removed = await removeMeteringPointInvoiceAction({}, removeForm(a))
+      expect(removed.formError).toBeUndefined()
+      expect(table.find((r) => r.document_id === a)?.status).toBe('removed')
+
+      const state = await finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
+      const entries = draft._invoiceExtractions as { documentId: string }[]
+      expect(entries.map((e) => e.documentId)).toEqual([b])
+      expect(state.open).toEqual([])
+      // Neu lesen lässt sich ein entferntes Dokument nicht.
+      expect(await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, a)).toEqual({
+        status: 'removed',
+      })
+    })
+
+    it('Abschluss ohne Kennungen ergibt denselben Entwurf wie mit allen Kennungen', async () => {
+      outcomes.set('a.pdf', extraction({ energyPriceCtPerKwh: 24.5 }))
+      outcomes.set('b.pdf', extraction({ energyPriceCtPerKwh: 26.9 }))
+      outcomes.set('c.pdf', { ok: false, reason: 'unreadable' })
+      const ids = [file('a.pdf'), file('b.pdf'), file('c.pdf')]
+      for (const id of ids) await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, id)
+
+      const withIds = await finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID, ids)
+      const viaIds = JSON.stringify(draft)
+
+      draft = {}
+      const withoutIds = await finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
+
+      expect(JSON.stringify(draft)).toBe(viaIds)
+      expect(withoutIds.open).toEqual(withIds.open)
+      expect(withoutIds.open.map((o) => o.filename)).toEqual(['c.pdf'])
+    })
+
+    it('⚠ scheitert das Markieren, bleibt der Entwurf unverändert', async () => {
+      outcomes.set('a.pdf', extraction({ energyPriceCtPerKwh: 24.5 }))
+      const a = file('a.pdf')
+      await extractAndFinalize([a])
+      const before = JSON.stringify(draft)
+      const writes = draftWrites
+
+      discardFails = true
+      const state = await removeMeteringPointInvoiceAction({}, removeForm(a))
+
+      expect(state.formError).toBeDefined()
+      expect(state.success).toBeUndefined()
+      expect(draftWrites).toBe(writes)
+      expect(JSON.stringify(draft)).toBe(before)
+      expect(table.find((r) => r.document_id === a)?.status).toBe('done')
+    })
   })
 })

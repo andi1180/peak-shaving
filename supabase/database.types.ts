@@ -2701,6 +2701,10 @@ export type Database = {
         Args: { p_deleted_by: string; p_tariff_id: string }
         Returns: Json
       }
+      discard_document_extraction: {
+        Args: { p_document_id: string; p_kind: string }
+        Returns: Json
+      }
       finish_contract_reminder_run: {
         Args: {
           p_detail?: string

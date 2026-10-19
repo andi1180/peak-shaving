@@ -400,6 +400,8 @@ function withInvoiceWrappers() {
       draft = args.p_draft as Record<string, unknown>
       return { data: { status: 'ok' }, error: null }
     }
+    // Rechnungen dieses Tests haben keine Auslese-Zeile (Sammelweg).
+    if (fn === 'discard_document_extraction') return { data: { status: 'no_row' }, error: null }
     throw new Error(`unerwarteter Wrapper: ${fn}`)
   })
 }

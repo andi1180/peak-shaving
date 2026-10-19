@@ -1,5 +1,5 @@
 /**
- * Auslesestatus je Dokument (`platform.document_extractions`) über die drei Wrapper.
+ * Auslesestatus je Dokument (`platform.document_extractions`) über die vier Wrapper.
  *
  * Noch ohne Aufrufer: der parallele Rechnungs-Scan (je Rechnung ein Request, am Ende einmal
  * zusammenführen) baut darauf auf. Die Zugriffsprüfung liegt in der Datenbank
@@ -11,7 +11,7 @@ import type { Json } from '@/db-types'
 import { createClient } from '@/lib/supabase/server'
 
 export type DocumentExtractionKind = 'invoice'
-export type DocumentExtractionStatus = 'pending' | 'running' | 'done' | 'failed'
+export type DocumentExtractionStatus = 'pending' | 'running' | 'done' | 'failed' | 'removed'
 
 export interface DocumentExtraction {
   id: string
@@ -33,12 +33,17 @@ export interface DocumentExtraction {
 export type StartExtractionResult =
   | { ok: true; extraction: DocumentExtraction }
   | { ok: false; reason: 'not_found' | 'invalid_kind' | 'request_failed' }
-  | { ok: false; reason: 'already_running'; extraction: DocumentExtraction }
+  | { ok: false; reason: 'already_running' | 'removed'; extraction: DocumentExtraction }
 
 export type FinishExtractionResult =
   | { ok: true; extraction: DocumentExtraction }
   | { ok: false; reason: 'not_found' | 'invalid_status' | 'request_failed' }
   | { ok: false; reason: 'not_running'; extraction: DocumentExtraction }
+
+/** `no_row`: für das Dokument wurde nie ein Auslesen gestartet (z. B. Rechnungen von vor #516). */
+export type DiscardExtractionResult =
+  | { ok: true; extraction: DocumentExtraction }
+  | { ok: false; reason: 'no_row' | 'not_found' | 'request_failed' }
 
 export type ListExtractionsResult =
   | { ok: true; extractions: DocumentExtraction[] }
@@ -69,8 +74,11 @@ export async function startDocumentExtraction(input: {
 
   if (payload.status === 'ok' && payload.extraction)
     return { ok: true, extraction: payload.extraction }
-  if (payload.status === 'already_running' && payload.extraction) {
-    return { ok: false, reason: 'already_running', extraction: payload.extraction }
+  if (
+    (payload.status === 'already_running' || payload.status === 'removed') &&
+    payload.extraction
+  ) {
+    return { ok: false, reason: payload.status, extraction: payload.extraction }
   }
   if (payload.status === 'not_found' || payload.status === 'invalid_kind') {
     return { ok: false, reason: payload.status }
@@ -100,6 +108,26 @@ export async function finishDocumentExtraction(input: {
     return { ok: false, reason: 'not_running', extraction: payload.extraction }
   }
   if (payload.status === 'not_found' || payload.status === 'invalid_status') {
+    return { ok: false, reason: payload.status }
+  }
+  return { ok: false, reason: 'request_failed' }
+}
+
+export async function discardDocumentExtraction(input: {
+  documentId: string
+  kind: DocumentExtractionKind
+}): Promise<DiscardExtractionResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('discard_document_extraction', {
+    p_document_id: input.documentId,
+    p_kind: input.kind,
+  })
+  const payload = data as Payload | null
+  if (error || !payload) return { ok: false, reason: 'request_failed' }
+
+  if (payload.status === 'ok' && payload.extraction)
+    return { ok: true, extraction: payload.extraction }
+  if (payload.status === 'no_row' || payload.status === 'not_found') {
     return { ok: false, reason: payload.status }
   }
   return { ok: false, reason: 'request_failed' }

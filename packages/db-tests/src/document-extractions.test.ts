@@ -18,6 +18,7 @@ const WRAPPERS = [
   'public.start_document_extraction(uuid, uuid, text, text)',
   'public.finish_document_extraction(uuid, text, jsonb, text)',
   'public.list_document_extractions(uuid, uuid, text)',
+  'public.discard_document_extraction(uuid, text)',
 ]
 
 const createdUsers: string[] = []
@@ -84,6 +85,7 @@ async function newProject(
 const start = 'public.start_document_extraction($1, $2, $3, $4)'
 const finish = 'public.finish_document_extraction($1, $2, $3::jsonb, $4)'
 const list = 'public.list_document_extractions($1, $2, $3)'
+const discard = 'public.discard_document_extraction($1, $2)'
 
 beforeAll(assertStackReachable)
 
@@ -223,5 +225,31 @@ describe('document_extractions — Wrapper', () => {
     )
     const restarted = await callAs(admin, start, [documentId, null, 'invoice', null])
     expect(restarted.extraction).toMatchObject({ status: 'running', attempts: 3 })
+  })
+
+  it('discard: fremdes Projekt → not_found, keine Zeile → no_row, sonst removed; danach finish not_running und start removed', async () => {
+    const admin = await newAdmin()
+    const stranger = await newUser()
+    const { documentId, meteringPointId } = await newProject(admin)
+
+    expect(await callAs(admin, discard, [documentId, 'invoice'])).toEqual({ status: 'no_row' })
+
+    const started = await callAs(admin, start, [documentId, meteringPointId, 'invoice', null])
+    expect((await callAs(stranger, discard, [documentId, 'invoice'])).status).toBe('not_found')
+    expect((await callAs(admin, discard, [randomUUID(), 'invoice'])).status).toBe('not_found')
+
+    // Aus 'running' heraus.
+    const discarded = await callAs(admin, discard, [documentId, 'invoice'])
+    expect(discarded.status).toBe('ok')
+    expect(discarded.extraction).toMatchObject({ id: started.extraction!.id, status: 'removed' })
+    expect(discarded.extraction!.finished_at).not.toBeNull()
+
+    expect((await callAs(admin, finish, [started.extraction!.id, 'done', '{}', null])).status).toBe(
+      'not_running',
+    )
+
+    const restart = await callAs(admin, start, [documentId, meteringPointId, 'invoice', null])
+    expect(restart.status).toBe('removed')
+    expect(restart.extraction).toMatchObject({ status: 'removed', attempts: 1 })
   })
 })
