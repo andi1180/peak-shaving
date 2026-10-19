@@ -8,6 +8,7 @@ import {
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
+  billingModelFromKwTrend,
   invoiceFieldValuesByDocument,
   mergeInvoiceExtractions,
 } from './invoice-merge'
@@ -192,6 +193,72 @@ describe('mergeInvoiceExtractions — abweichende abgerechnete kW (29.09.2026)',
   })
 })
 
+describe('mergeInvoiceExtractions — Abrechnungsmodell aus dem kW-Verlauf (19.10.2026)', () => {
+  // Monatsrechnungen ab Januar 2026; Index = Monat.
+  function monthly(
+    billedKw: number,
+    month: number,
+    billingModel: InvoiceExtraction['billingModel'] = 'monthly_max_sum',
+    billingModelBasis: InvoiceExtraction['billingModelBasis'] = 'inferred',
+  ): InvoiceExtraction {
+    const mm = String(month + 1).padStart(2, '0')
+    return {
+      ...emptyInvoiceExtraction(),
+      billingModel,
+      billingModelBasis,
+      billedKw,
+      billingPeriodFrom: `2026-${mm}-01`,
+      billingPeriodTo: `2026-${mm}-28`,
+    }
+  }
+
+  it('erkennt den laufenden Jahreshöchstwert als annual_max, ohne Widerspruch', () => {
+    const invoices = [45.6, 45.6, 46.05, 46.05, 49.1, 49.1].map((kw, i) => monthly(kw, i))
+    expect(billingModelFromKwTrend(invoices)).toBe('annual_max')
+    const { merged, conflicts } = mergeInvoiceExtractions([...invoices].reverse())
+    expect(merged.billingModel).toBe('annual_max')
+    expect(conflicts).not.toContain('billingModel')
+  })
+
+  it('liest einen schwankenden Verlauf als monthly_max_sum', () => {
+    const invoices = [44, 44, 43, 44, 42].map((kw, i) => monthly(kw, i, 'annual_max'))
+    expect(billingModelFromKwTrend(invoices)).toBe('monthly_max_sum')
+    expect(mergeInvoiceExtractions(invoices).merged.billingModel).toBe('monthly_max_sum')
+  })
+
+  it('entscheidet bei gleichen kW nicht — die gelesenen Modelle gelten', () => {
+    const invoices = [44, 44, 44].map((kw, i) => monthly(kw, i, 'annual_max'))
+    expect(billingModelFromKwTrend(invoices)).toBeNull()
+    expect(mergeInvoiceExtractions(invoices).merged.billingModel).toBe('annual_max')
+  })
+
+  it('übersteuert ein genanntes annual_max nicht — bei sinkendem Verlauf bleibt der Widerspruch', () => {
+    const invoices = [monthly(44, 0), monthly(43, 1, 'annual_max', 'stated'), monthly(42, 2)]
+    const { merged, conflicts } = mergeInvoiceExtractions(invoices)
+    expect(conflicts).toContain('billingModel')
+    expect(merged.billingModel).toBeNull()
+  })
+
+  it('fällt ohne vollständigen Zeitraum oder bei Überlappung auf den bisherigen Weg zurück', () => {
+    const rising = [45.6, 46.05, 49.1].map((kw, i) => monthly(kw, i, 'annual_max'))
+    const missing = rising.map((invoice, i) =>
+      i === 1 ? { ...invoice, billingPeriodTo: null } : invoice,
+    )
+    const overlapping = rising.map((invoice, i) =>
+      i === 1 ? { ...invoice, billingPeriodFrom: '2026-01-15' } : invoice,
+    )
+    for (const invoices of [missing, overlapping]) {
+      expect(billingModelFromKwTrend(invoices)).toBeNull()
+      expect(mergeInvoiceExtractions(invoices).merged.billingModel).toBe('monthly_max_sum')
+    }
+  })
+
+  it('wertet ein Absinken innerhalb von 0,5 % nicht als Sinken', () => {
+    const invoices = [45.6, 45.5, 49.1].map((kw, i) => monthly(kw, i))
+    expect(billingModelFromKwTrend(invoices)).toBe('annual_max')
+  })
+})
+
 describe('mergeInvoiceExtractions — Mindestleistung gegen abgerechnete kW (29.09.2026)', () => {
   it('verwirft minBillableKw, wenn eine Rechnung darunter abrechnet', () => {
     const billed = (billedKw: number): InvoiceExtraction => ({
@@ -291,7 +358,12 @@ describe('mergeInvoiceExtractions — Netzbetreiber mit „unbekannt" (30.09.202
 describe('invoiceFieldValuesByDocument', () => {
   it('liefert je Rechnung die Werte, an denen die Zusammenführung den Widerspruch feststellt', () => {
     const input = [
-      { ...invoice({ meteringVariant: 'ohne_leistungsmessung', rates: { energyPriceCtPerKwh: 12.5 } }) },
+      {
+        ...invoice({
+          meteringVariant: 'ohne_leistungsmessung',
+          rates: { energyPriceCtPerKwh: 12.5 },
+        }),
+      },
       { ...invoice({ rates: { energyPriceCtPerKwh: 13.1 } }), billedKw: 40 },
     ]
     const values = invoiceFieldValuesByDocument(input)
