@@ -1,4 +1,8 @@
-import { minBillableKwFallsBackToZero, tariffParamsSchema } from 'shared'
+import {
+  demandPriceFallsBackToZero,
+  minBillableKwFallsBackToZero,
+  tariffParamsSchema,
+} from 'shared'
 
 import { billingModelApplies } from './billing-model'
 
@@ -222,6 +226,7 @@ export function checkDraftCompleteness(
   draft: Record<string, unknown>,
   catalog: readonly DraftCatalogQuestion[] = [],
   answeredOnProject: readonly string[] = [],
+  options: { hasDemandTiers?: boolean } = {},
 ): DraftCompleteness {
   const provenance = readDraftProvenance(draft)
   const present = Object.keys(draft).filter((key) => key !== DRAFT_PROVENANCE_KEY)
@@ -233,8 +238,13 @@ export function checkDraftCompleteness(
   const minBillableKwDefaulted =
     (draft.minBillableKw === undefined || draft.minBillableKw === null) &&
     minBillableKwFallsBackToZero(draft)
+  // Ebenso der Leistungspreis bei Benutzungsdauer-Stufen.
+  const demandPriceDefaulted = demandPriceFallsBackToZero(draft, options)
+  const defaulted = (key: string): boolean =>
+    (minBillableKwDefaulted && key === 'minBillableKw') ||
+    (demandPriceDefaulted && key === 'leistungspreisEurPerKwYear')
   const missing: DraftMissingEntry[] = DRAFT_REQUIRED_FIELDS.filter(
-    (key) => !(key in draft) && !(minBillableKwDefaulted && key === 'minBillableKw'),
+    (key) => !(key in draft) && !defaulted(key),
   ).map((field) => ({ field }))
   for (const entry of catalog) {
     if (!entry.required) continue
@@ -258,7 +268,7 @@ export function checkDraftCompleteness(
           (issue) =>
             issue.field !== '' &&
             !missing.some((gap) => gap.field === issue.field) &&
-            !(minBillableKwDefaulted && issue.field === 'minBillableKw'),
+            !defaulted(issue.field),
         )
 
   const unknown = present.filter((key) => !contractFields.has(key) && !catalogKeys.has(key))

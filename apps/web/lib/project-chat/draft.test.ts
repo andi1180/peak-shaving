@@ -262,3 +262,26 @@ describe('checkDraftCompleteness — Mindestleistung folgt der 0-Ersetzung der A
     expect(fields(state.invalid)).toContain('minBillableKw')
   })
 })
+
+describe('checkDraftCompleteness — Leistungspreis bei Benutzungsdauer-Stufen', () => {
+  const { leistungspreisEurPerKwYear: _weg, ...ohneLeistungspreis } = completeDraft()
+
+  it('ohne Stufen bleibt ein leerer Leistungspreis eine Lücke', () => {
+    expect(checkDraftCompleteness(ohneLeistungspreis).missing).toEqual([
+      { field: 'leistungspreisEurPerKwYear' },
+    ])
+  })
+
+  it('mit Stufen fehlt er weder noch ist er ungültig — auch als null', () => {
+    const tiers = { hasDemandTiers: true }
+    expect(checkDraftCompleteness(ohneLeistungspreis, [], [], tiers).missing).toEqual([])
+    const leer = checkDraftCompleteness(
+      { ...ohneLeistungspreis, leistungspreisEurPerKwYear: null },
+      [],
+      [],
+      tiers,
+    )
+    expect(leer.missing).toEqual([])
+    expect(leer.invalid).toEqual([])
+  })
+})

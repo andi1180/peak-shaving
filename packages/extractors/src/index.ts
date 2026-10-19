@@ -310,6 +310,7 @@ export {
   type MeteringPointAnalysisSource,
   type ProjectDocumentFile,
   type RunAnalysisFromDraftOptions,
+  tariffPricingSubject,
 } from './analysis/run-from-draft'
 /* D5 — der Befundtyp reist mit dem Lauf; `apps/web` kennt `engine` nicht und käme sonst nicht daran. */
 export type { PvOutageMonth } from 'engine'

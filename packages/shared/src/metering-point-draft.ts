@@ -71,6 +71,23 @@ export function minBillableKwFallsBackToZero(
 }
 
 /**
+ * Ob `mapDraftToTariffParams` für einen FEHLENDEN Leistungspreis 0 einsetzt, weil die Netzentgelt-Zeile
+ * Benutzungsdauer-Stufen trägt: dann rechnet die Engine den Leistungsteil aus den Stufen, der Skalar
+ * ist wirkungslos. Dieselbe Bedingung für Abbildung und Vollständigkeitsprüfung; `hasDemandTiers`
+ * kennt nur der Aufrufer, der die Netzentgelt-Zeilen lädt. Die Mindestleistungs-Regeln oben lesen
+ * den Entwurf und behandeln einen leeren Leistungspreis dabei wie einen gesetzten (nur `0` zählt).
+ */
+export function demandPriceFallsBackToZero(
+  draft: Record<string, unknown>,
+  options: { hasDemandTiers?: boolean },
+): boolean {
+  const leistungspreis = draft.leistungspreisEurPerKwYear
+  return (
+    options.hasDemandTiers === true && (leistungspreis === undefined || leistungspreis === null)
+  )
+}
+
+/**
  * Der Netzbetreiber im Entwurf.
  *
  * ── ⚠ ER WAR BIS ZUM 16.09.2026 AUSDRÜCKLICH NICHT IM ENTWURF ─────────────────────────────────

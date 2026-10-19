@@ -408,6 +408,12 @@ export interface ProjectChatPorts {
    */
   listMeteringPoints(projectId: string): Promise<MeteringPointRow[]>
   /**
+   * Trägt die Netzentgelt-Zeile dieses Zählpunkts Benutzungsdauer-Stufen? Dieselbe Auswahl wie der
+   * Analyse-Lauf, über den Lastgang-Zeitraum. Wirft nicht: nicht bestimmbar heisst `false`. Fehlt der
+   * Port, gilt ebenfalls `false` (der Leistungspreis bleibt Pflicht).
+   */
+  meteringPointHasDemandTiers?(projectId: string, point: MeteringPointRow): Promise<boolean>
+  /**
    * `public.set_metering_point_load_profile` — schreibt die GELESENEN Metadaten an einen Zählpunkt.
    *
    * ⚠ Es gibt hier bewusst KEIN Gegenstück zum Anlegen eines Zählpunkts. Die Zahl der Zählpunkte

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeNetworkTierCost, type NetworkTierResult } from './network-tier'
+import {
+  computeNetworkTierCost,
+  gridTariffRowsHaveTiers,
+  type NetworkTierResult,
+} from './network-tier'
 import type { GridTariffRowInput } from './tariff-pricing'
 
 function tierRow(
@@ -159,5 +163,21 @@ describe('computeNetworkTierCost', () => {
     const r = tiered(computeNetworkTierCost({ rows: [R26], billedKw: 0, dailyKwh: YEAR_2026 }))
     expect(r.usageHours).toBeNull()
     expect(r.tier).toBe(2)
+  })
+})
+
+describe('gridTariffRowsHaveTiers', () => {
+  it('zählt mit Tagen nur Zeilen, die einem Tag zugeordnet sind — wie no_tiers', () => {
+    const {
+      tierThresholdHours: _a,
+      tier2LeistungspreisEurPerKwYear: _b,
+      tier2ArbeitspreisCtPerKwh: _c,
+      ...plain
+    } = tierRow('2026-01-01', null, 22.75, 7.8, 115.43, 4.09)
+    const rows = [R25, plain]
+    expect(gridTariffRowsHaveTiers(rows)).toBe(true)
+    expect(gridTariffRowsHaveTiers(rows, ['2026-01-01', '2026-01-02'])).toBe(false)
+    expect(gridTariffRowsHaveTiers(rows, ['2025-12-31', '2026-01-01'])).toBe(true)
+    expect(gridTariffRowsHaveTiers(null)).toBe(false)
   })
 })

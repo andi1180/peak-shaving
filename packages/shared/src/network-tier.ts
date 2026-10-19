@@ -51,6 +51,22 @@ function hasAnyTierField(row: GridTariffRowInput): boolean {
   )
 }
 
+/**
+ * Trägt der Netzentgelt-Stand Benutzungsdauer-Stufen? Mit `localDates` genau die Prüfung, an der
+ * `computeNetworkTierCost` `no_tiers` entscheidet; ohne zählt jede übergebene Zeile.
+ */
+export function gridTariffRowsHaveTiers(
+  rows: readonly GridTariffRowInput[] | null | undefined,
+  localDates?: readonly string[],
+): boolean {
+  if (!rows || rows.length === 0) return false
+  if (localDates === undefined) return rows.some(hasAnyTierField)
+  return localDates.some((localDate) => {
+    const row = findGridTariffRow(rows, localDate)
+    return row != null && hasAnyTierField(row)
+  })
+}
+
 /** Sätze einer Stufenzeile in €/kW·a und €/kWh — `null`, wenn die Zeile nicht eindeutig lesbar ist. */
 function tierRatesOf(row: GridTariffRowInput): TierRates | null {
   const { tierThresholdHours, tier2LeistungspreisEurPerKwYear, tier2ArbeitspreisCtPerKwh } = row
@@ -76,7 +92,14 @@ export function computeNetworkTierCost(input: NetworkTierInput): NetworkTierResu
     row: findGridTariffRow(input.rows, day.localDate),
   }))
 
-  if (!days.some((day) => day.row != null && hasAnyTierField(day.row))) return { kind: 'no_tiers' }
+  if (
+    !gridTariffRowsHaveTiers(
+      input.rows,
+      input.dailyKwh.map((day) => day.localDate),
+    )
+  ) {
+    return { kind: 'no_tiers' }
+  }
   if (days.some((day) => day.row == null)) return { kind: 'error', reason: 'missing_row' }
   if (days.some((day) => !hasAnyTierField(day.row!)))
     return { kind: 'error', reason: 'mixed_tier_rows' }

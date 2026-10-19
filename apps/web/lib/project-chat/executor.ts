@@ -166,6 +166,20 @@ async function loadCatalog(
  * ⚠ Die Liste nennt die tatsächlich GESETZTEN Spalten, nicht die existierenden: ein noch nicht
  * bestimmtes Segment ist eine offene Frage und soll in `missing` stehen.
  */
+/** Ob die Netzentgelt-Zeile des Zählpunkts Stufen trägt — ohne Port oder bei Fehler `false`. */
+async function hasDemandTiers(
+  ports: ProjectChatPorts,
+  projectId: string,
+  point: MeteringPointRow,
+): Promise<boolean> {
+  if (ports.meteringPointHasDemandTiers === undefined) return false
+  try {
+    return await ports.meteringPointHasDemandTiers(projectId, point)
+  } catch {
+    return false
+  }
+}
+
 function answeredOnProject(project: ProjectSnapshot): string[] {
   const answered: string[] = []
   if (project.segment !== null) answered.push('segment')
@@ -321,7 +335,9 @@ async function setDraft(
    * das Richtige zu tun. Kosten: ein Lesevorgang je Schreibvorgang.
    */
   const catalog = await loadCatalog(ports, project)
-  const state = checkDraftCompleteness(nextDraft, catalog, answeredOnProject(project))
+  const state = checkDraftCompleteness(nextDraft, catalog, answeredOnProject(project), {
+    hasDemandTiers: await hasDemandTiers(ports, projectId, { ...target, draft: nextDraft }),
+  })
 
   /*
    * ⚠ EIN UNBEKANNTER FELDNAME WIRD ANGENOMMEN UND BENANNT, NICHT ABGEWIESEN. Der Entwurf ist
@@ -394,7 +410,9 @@ async function completeness(
     if ('error' in resolved) return resolved.error
     const { target } = resolved
 
-    const state = checkDraftCompleteness(target.draft, catalog, answered)
+    const state = checkDraftCompleteness(target.draft, catalog, answered, {
+      hasDemandTiers: await hasDemandTiers(ports, projectId, target),
+    })
     return ok({
       complete: state.complete,
       segment: project.segment,
@@ -425,16 +443,20 @@ async function completeness(
     })
   }
 
-  const perPoint = meteringPoints.map((row, index) => {
-    const state = checkDraftCompleteness(row.draft, catalog, answered)
-    return {
-      nummer: index + 1,
-      metering_point_id: row.id,
-      lastgang_vorhanden: row.source_document_id !== null,
-      complete: state.complete,
-      ...describeCompleteness(state),
-    }
-  })
+  const perPoint = await Promise.all(
+    meteringPoints.map(async (row, index) => {
+      const state = checkDraftCompleteness(row.draft, catalog, answered, {
+        hasDemandTiers: await hasDemandTiers(ports, projectId, row),
+      })
+      return {
+        nummer: index + 1,
+        metering_point_id: row.id,
+        lastgang_vorhanden: row.source_document_id !== null,
+        complete: state.complete,
+        ...describeCompleteness(state),
+      }
+    }),
+  )
 
   return ok({
     // Alle fertig — nicht „mindestens einer". Ein Betrieb ist erst vollständig erhoben, wenn es

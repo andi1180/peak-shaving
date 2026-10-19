@@ -9,6 +9,7 @@ import {
   parseLoadProfile,
   parsePvProfile,
   pvGeneratorEligibility,
+  utcMsToLocalFields,
   type CalculatorPayload,
   type DataQuality,
   type DraftTariffMappingOptions,
@@ -23,6 +24,7 @@ import {
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
   gridProfileContainsPv,
+  gridTariffRowsHaveTiers,
   hasMeteringVariant,
   NETZBETREIBER_DRAFT_KEY,
   parseErrorMessage,
@@ -480,8 +482,14 @@ export async function runAnalysisFromMeteringPointDraft(
   const loadProfile = estimatedPv?.profile ?? parsed.profile
 
   const financial = readDraftFinancialParams(point.draft, options.category)
+  const pricing = await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)
+  // Dieselben Zeilen und Tage, an denen die Engine Stufen erkennt — ohne Zeilen heisst das „keine Stufen".
+  const hasDemandTiers = gridTariffRowsHaveTiers(
+    pricing.tariffPricing?.gridTariffRows,
+    localDatesOf(loadProfile),
+  )
   const payload: CalculatorPayload = {
-    tariff: mapDraftToTariffParams(point.draft, options),
+    tariff: mapDraftToTariffParams(point.draft, { ...options, hasDemandTiers }),
     load: {
       fileName: document.fileName,
       // ⚠ Die `dataQuality` bleibt die des URSPRUNGSLASTGANGS: die Kopplung legt Werte auf
@@ -492,7 +500,7 @@ export async function runAnalysisFromMeteringPointDraft(
     pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports, options.country)),
     existingBattery: existingBattery.input,
     ...(financial ? { financial } : {}),
-    ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
+    ...pricing,
   }
 
   // „PV erfasst" kennt nur der Entwurf; eine bestehende Anlage ohne Reihe erreicht die Engine nicht.
@@ -735,6 +743,19 @@ async function readTariffPricing(
   }
 }
 
+/** Die lokalen Kalendertage des Lastgangs, wie die Engine sie den Netzentgelt-Zeilen zuordnet. */
+function localDatesOf(loadProfile: LoadProfile): string[] {
+  const dates = new Set<string>()
+  for (const reading of loadProfile.readings) {
+    const { year, month, day } = utcMsToLocalFields(
+      Date.parse(reading.ts),
+      loadProfile.timezoneMeta,
+    )
+    dates.add(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
+  }
+  return [...dates]
+}
+
 function netzebeneOf(draft: Record<string, unknown>): number | null {
   return parseNetzebeneDraftValue(draft.netzebene)
 }
@@ -747,7 +768,7 @@ function netzebeneOf(draft: Record<string, unknown>): number | null {
  * verschiedene Netzebenen treffen — und die Jahreszahl stünde dann auf einer anderen Tarifzeile
  * als die gemessene, ohne dass es irgendwo stünde.
  */
-function tariffPricingSubject(
+export function tariffPricingSubject(
   draft: Record<string, unknown>,
   netzebene: number | null,
 ): Omit<TariffPricingRequest, 'window' | 'intervalMinutes'> {

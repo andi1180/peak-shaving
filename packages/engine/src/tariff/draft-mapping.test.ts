@@ -144,3 +144,24 @@ describe('Mindestleistung mit Leistungsmessung auf Netzebene 7 — für jedes La
     expect(draftMinBillableKwDefaults(draft)).toBe(true)
   })
 })
+
+describe('Leistungspreis bei Benutzungsdauer-Stufen', () => {
+  const { leistungspreisEurPerKwYear: _weg, ...ohneLeistungspreis } = DRAFT
+
+  it('ohne Stufen bricht ein leerer Leistungspreis weiter mit derselben Meldung ab', () => {
+    expect(() => mapDraftToTariffParams(ohneLeistungspreis, { hasDemandTiers: false })).toThrow(
+      /Leistungspreis Netz/,
+    )
+  })
+
+  it('mit Stufen: Leistungspreis 0, Mindestleistung und Vermerk wie mit gesetztem Leistungspreis', () => {
+    const { minBillableKw: _m, ...ohneBeides } = ohneLeistungspreis
+    const mapped = mapDraftToTariffParams(ohneBeides, { hasDemandTiers: true })
+    expect(mapped.leistungspreisEurPerKwYear).toBe(0)
+    const { minBillableKw: _n, ...mitLeistungspreis } = DRAFT
+    expect(mapped.minBillableKw).toBe(mapDraftToTariffParams(mitLeistungspreis).minBillableKw)
+    expect(draftMinBillableKwDefaults(ohneBeides)).toBe(
+      draftMinBillableKwDefaults(mitLeistungspreis),
+    )
+  })
+})

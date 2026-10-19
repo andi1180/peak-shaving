@@ -1,6 +1,7 @@
 import {
   DEFAULT_DRAFT_BILLING_MODEL,
   describeTariffParamsProblems,
+  demandPriceFallsBackToZero,
   minBillableKwFallsBackToZero,
   tariffParamsSchema,
   type BillingModel,
@@ -106,6 +107,8 @@ export type DraftTariffMappingOptions = {
    * nicht gesetzt.
    */
   billingModelOverride?: BillingModel
+  /** Die Netzentgelt-Zeile trägt Benutzungsdauer-Stufen (`demandPriceFallsBackToZero`); Vorgabe `false`. */
+  hasDemandTiers?: boolean
 }
 
 /**
@@ -161,6 +164,10 @@ export function mapDraftToTariffParams(
     candidate.meteringVariant === 'ohne_leistungsmessung' &&
     !('leistungspreisEurPerKwYear' in candidate)
   ) {
+    candidate.leistungspreisEurPerKwYear = 0
+  }
+  // Bei Benutzungsdauer-Stufen rechnet die Engine den Leistungsteil aus den Stufen; der Skalar ist wirkungslos.
+  if (!('leistungspreisEurPerKwYear' in candidate) && demandPriceFallsBackToZero(draft, options)) {
     candidate.leistungspreisEurPerKwYear = 0
   }
   // Ohne Leistungspreis gibt es keinen Sockel; mit Leistungsmessung, aber ohne genannte
