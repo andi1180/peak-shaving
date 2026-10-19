@@ -63,6 +63,7 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 --color-ink:             #171717;  /* Neutral 900 — Überschriften */
 --color-text:            #262626;  /* Neutral 800 — Fließtext */
 --color-text-muted:      #525252;  /* Neutral 600 — Sekundärtext */
+--color-text-faint:      #737373;  /* Neutral 500 — Kleinbeschriftung (Hero-Animation) */
 
 /* — Flächen / Struktur — ebenfalls neutral — */
 --color-surface:         #ffffff;
@@ -110,6 +111,7 @@ WCAG 2.1 AA verlangt **4,5:1** für Fließtext, **3:1** für große Schrift/UI-E
 | Text `#262626` auf Off-White | 14,50:1 | AAA |
 | Navy `#18336f` auf Weiß (Wortmarke im Header) | 12,06:1 | AAA |
 | Text muted `#525252` auf Weiß (Nav-/Login-Links) | 7,81:1 | AAA |
+| Text faint `#737373` auf Weiß (Hero-Animation) | 4,74:1 | AA |
 | Weiß auf Navy `#18336f` | 12,06:1 | AAA |
 | Navy `#18336f` auf Off-White | 11,55:1 | AAA |
 | Text muted `#525252` auf Off-White (Footer-Links) | 7,49:1 | AAA |
@@ -360,6 +362,12 @@ Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
   stark gerundete Form ist das Emblem — dort ist die Rundung Teil der Marke.
 - **Karten:** dünner Rand (`--color-border`), **kein Schlagschatten** (§7.5). Tiefe entsteht über
   die Fläche (`surface` vs. `surface-alt` vs. `surface-sunken`).
+- **Ausnahme Hero-Animation (Leadgen-Umbau Schritt 2):** die Karte der Startseiten-Animation trägt
+  Radius 16px und einen weichen Schatten, wie im freigegebenen Prototyp
+  (`docs/prototypes/hero-animation-prototyp.html`). Gilt nur für diese eine Karte. Die Slate-Töne des
+  Prototyps sind auf die neutralen Tokens abgebildet; sein „faint" (`#94a3b8`, 2,56:1) wurde als
+  `--color-text-faint` mit `#737373` übernommen, weil die Fußzeile „Prinzipdarstellung, keine
+  Messwerte" lesbar (AA) bleiben muss.
 - **Responsive:** Mobile/Tablet/Desktop gleichwertig (§7.5). `html`/`body` haben eine globale
   `overflow-x`-Bremse — als **`clip`**, nicht `hidden`, s. nächste Regel.
 - **Header-Höhe ist ein Token:** `--header-h: 4rem`. Sie steuert drei Dinge, die sonst

@@ -29,6 +29,7 @@ export default {
         text: {
           DEFAULT: 'var(--color-text)',
           muted: 'var(--color-text-muted)',
+          faint: 'var(--color-text-faint)',
         },
         surface: {
           DEFAULT: 'var(--color-surface)',

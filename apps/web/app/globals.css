@@ -47,6 +47,7 @@
   --color-ink: #171717; /* Neutral 900 – Überschriften */
   --color-text: #262626; /* Neutral 800 – Fließtext */
   --color-text-muted: #525252; /* Neutral 600 – Sekundärtext */
+  --color-text-faint: #737373; /* Neutral 500 – Kleinbeschriftung der Hero-Animation, 4,74:1 */
 
   /* — Flächen / Struktur — ebenfalls neutral (Hue-Cast 0) — */
   --color-surface: #ffffff;

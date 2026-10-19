@@ -1,0 +1,493 @@
+<title>COOLiN Hero-Animation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: heller Hero wie coolin.at. Rechts eine ruhige Karte: Uhrzeit und Speicher oben, ein Tagesdiagramm in der Mitte, Erklärzeile und Kosten unten. Zeit läuft immer von links nach rechts. */
+:root {
+  --navy: #18336f;
+  --ink: #0f172a;
+  --text: #1e293b;
+  --muted: #475569;
+  --faint: #94a3b8;
+  --accent: #0f766e;
+  --accent-hover: #0e6b64;
+  --accent-subtle: #f0fdfa;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --bar: #cbd5e1;
+  --negative: #b91c1c;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--surface-alt);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.bar { background: var(--surface); border-bottom: 1px solid var(--border); }
+.bar-inner, .hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+.bar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }
+.brand { font-weight: 700; letter-spacing: 0.04em; color: var(--navy); font-size: 15px; }
+.brand span { color: var(--accent); }
+.nav { display: flex; align-items: center; gap: 28px; }
+.nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+  font: 600 15px/1 var(--font); padding: 14px 20px; text-decoration: none; cursor: pointer;
+  transition: background .2s ease;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn:focus-visible, .ctl:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+.btn.sm { padding: 10px 14px; font-size: 14px; }
+.btn svg { width: 16px; height: 16px; }
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.18fr);
+  gap: 56px;
+  align-items: center;
+  padding-block: 60px 72px;
+}
+.copy { min-width: 0; }
+h1 {
+  margin: 0 0 22px; color: var(--navy);
+  font-size: clamp(36px, 4.4vw, 54px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 700;
+  text-wrap: balance;
+}
+.lead { margin: 0 0 22px; color: var(--muted); font-size: 18px; line-height: 1.6; max-width: 34em; }
+.who { display: flex; align-items: center; gap: 10px; margin: 0 0 30px; font-size: 14px; font-weight: 500; }
+.who::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+
+/* Karte */
+.card {
+  min-width: 0; margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px -24px rgba(15, 23, 42, 0.22);
+  padding: 20px 22px 16px;
+  display: grid;
+  gap: 14px;
+}
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.time { display: grid; gap: 2px; }
+.time-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.time-value { font-size: 26px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.1; }
+
+.batt { display: flex; align-items: center; gap: 12px; }
+.batt-text { display: grid; gap: 2px; text-align: right; }
+.batt-name { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.batt-state { font-size: 14px; font-weight: 600; color: var(--muted); transition: color .3s ease; }
+.batt-state.active { color: var(--accent); }
+.batt-icon { position: relative; width: 74px; height: 36px; flex: none; }
+.batt-body {
+  position: absolute; left: 0; top: 0; width: 68px; height: 36px;
+  border: 2.5px solid var(--ink); border-radius: 9px; padding: 3px;
+}
+.batt-nub { position: absolute; right: 0; top: 11px; width: 5px; height: 14px; border-radius: 0 3px 3px 0; background: var(--ink); }
+.batt-fill { height: 100%; width: 40%; background: var(--accent); border-radius: 5px; }
+.batt-arrow { position: absolute; inset: 0; display: grid; place-items: center; width: 68px; opacity: 0; transition: opacity .3s ease; }
+.batt-arrow.on { opacity: 1; }
+.batt-arrow svg { width: 18px; height: 18px; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart text { font-family: var(--font); }
+
+.cap-wrap { position: relative; min-height: 3em; }
+.cap {
+  position: absolute; inset: 0 0 auto 0; margin: 0;
+  font-size: 17px; line-height: 1.45; font-weight: 600; color: var(--ink);
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .5s ease, transform .6s cubic-bezier(.2,.7,.2,1);
+  text-wrap: balance;
+}
+.cap.on { opacity: 1; transform: none; }
+.cap.final { color: var(--navy); font-size: 19px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.sw.grid { background: var(--bar); }
+.sw.red { background: var(--negative); }
+.sw.teal { background: var(--accent); }
+.sw.band { background: var(--accent-subtle); border: 1px solid #99f6e4; }
+
+.costs { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.costs-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.costs-head h3 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.crow .val { font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.pct { display: grid; justify-items: end; line-height: 1.05; }
+.pct-num { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.pct-pre { font-size: 11px; font-weight: 600; color: var(--muted); height: 0; overflow: visible; transform: translateY(-14px); opacity: 0; transition: opacity .4s ease; }
+.pct-pre.on { opacity: 1; }
+.crow { display: grid; grid-template-columns: 6.8em minmax(0, 1fr) 4.6em; gap: 12px; align-items: center; font-size: 13px; color: var(--muted); }
+.track { height: 10px; border-radius: 5px; background: var(--surface-alt); overflow: hidden; }
+.fill { height: 100%; width: 0; border-radius: 5px; }
+.fill.a { background: var(--faint); }
+.fill.b { background: var(--accent); }
+
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 11.5px; color: var(--faint); }
+.ctl {
+  appearance: none; border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); border-radius: 999px; font: 500 12px/1 var(--font);
+  padding: 6px 11px; cursor: pointer;
+}
+.ctl:hover { color: var(--ink); }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; gap: 36px; padding-block: 40px 48px; }
+  .nav a:not(.btn) { display: none; }
+}
+@media (max-width: 560px) {
+  .bar-inner, .hero {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .lead { font-size: 16.5px; }
+  .card { padding: 16px 14px 14px; }
+  .time-value { font-size: 22px; }
+  .cap { font-size: 15.5px; }
+  .cap.final { font-size: 17px; }
+  .crow { grid-template-columns: 6.2em minmax(0, 1fr) 4.4em; font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cap, .pct-pre, .batt-state, .batt-arrow { transition: none; }
+}
+</style>
+
+<header class="bar">
+  <div class="bar-inner">
+    <div class="brand">COOL<span>i</span>N ENERGY</div>
+    <nav class="nav">
+      <a href="#">Leistungen</a>
+      <a href="#">Branchen</a>
+      <a href="#">Wissen</a>
+      <a class="btn sm" href="#">Ersparnis berechnen</a>
+    </nav>
+  </div>
+</header>
+
+<main class="hero">
+  <div class="copy">
+    <h1>Gleich viel Strom. Weniger Kosten.</h1>
+    <p class="lead">Sie zahlen nicht nur für die Menge an Strom, sondern auch dafür, wie viel Sie auf einmal brauchen. Ein intelligent gesteuerter Batteriespeicher übernimmt diese teuren Momente. Er beobachtet laufend die Strompreise und lädt, wenn Strom günstig ist oder Ihre Solaranlage Überschuss liefert. Was das bei Ihnen bringt, rechnen wir vorher aus.</p>
+    <p class="who">Für Betriebe ab ca. 100.000 kWh Jahresverbrauch in Österreich und Deutschland.</p>
+    <a class="btn" href="#">Ersparnis berechnen
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </div>
+
+  <figure class="card" role="img" aria-label="Prinzipdarstellung eines Arbeitstags: Nachts lädt der Batteriespeicher günstig. Tagsüber entstehen Spitzen über einer Obergrenze. Den Teil über der Linie liefert der Speicher, aus dem Netz kommt nur Strom bis zur Linie. Der Verbrauch bleibt gleich, die Stromkosten sinken.">
+    <div class="top" aria-hidden="true">
+      <div class="time">
+        <span class="time-label">Uhrzeit</span>
+        <span class="time-value" id="clock">00:00</span>
+      </div>
+      <div class="batt">
+        <div class="batt-text">
+          <span class="batt-name">Speicher</span>
+          <span class="batt-state" id="battState">wartet</span>
+        </div>
+        <div class="batt-icon">
+          <div class="batt-body"><div class="batt-fill" id="battFill"></div></div>
+          <div class="batt-nub"></div>
+          <div class="batt-arrow" id="battIn">
+            <svg viewBox="0 0 18 18" fill="none"><path d="M9 3v10M5 9l4 4 4-4" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="batt-arrow" id="battOut">
+            <svg viewBox="0 0 18 18" fill="none"><path d="M9 15V5M5 9l4-4 4 4" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <svg class="chart" id="chart" viewBox="0 0 600 270" aria-hidden="true">
+      <g id="bands"></g>
+      <g id="gridlines"></g>
+      <g id="bars"></g>
+      <line id="capLine" x1="28" x2="588" stroke="var(--navy)" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <text id="capText" x="588" text-anchor="end" font-size="12" font-weight="600" fill="var(--navy)">Obergrenze</text>
+      <g id="peakTag" opacity="0">
+        <rect id="peakTagBg" rx="6" height="24" fill="var(--surface)" stroke="var(--border)"/>
+        <text id="peakTagText" font-size="12" font-weight="600" text-anchor="middle"></text>
+      </g>
+      <line id="playhead" y1="14" y2="236" stroke="var(--ink)" stroke-opacity="0.25" stroke-width="1"/>
+      <g id="axis" font-size="11" fill="var(--faint)" text-anchor="middle"></g>
+    </svg>
+
+    <div class="legend" aria-hidden="true">
+      <span><i class="sw grid"></i>Strom aus dem Netz</span>
+      <span><i class="sw red"></i>teure Spitze</span>
+      <span><i class="sw teal"></i>Strom aus dem Speicher</span>
+      <span><i class="sw band"></i>günstiger Strom: Speicher lädt</span>
+    </div>
+
+    <div class="cap-wrap" aria-hidden="true">
+      <p class="cap on">Nachts ist wenig los. Der Speicher lädt günstig auf.</p>
+      <p class="cap">Morgens fährt der Betrieb hoch.</p>
+      <p class="cap">Viele Maschinen laufen gleichzeitig. Die Spitze über der Linie kostet extra.</p>
+      <p class="cap">Diesen Teil liefert jetzt der Speicher. Aus dem Netz kommt nur Strom bis zur Linie.</p>
+      <p class="cap">Danach bleibt der Betrieb unter der Linie.</p>
+      <p class="cap">Am Abend lädt er wieder für den nächsten Tag.</p>
+      <p class="cap final">Gleich viel Strom. Weniger Kosten.</p>
+    </div>
+
+    <div class="costs" aria-hidden="true">
+      <div class="costs-head"><h3>Ihre Stromkosten</h3></div>
+      <div class="crow"><span>heute</span><div class="track"><div class="fill a" id="costA" style="width:100%"></div></div><span class="val">100&nbsp;%</span></div>
+      <div class="crow"><span>mit Speicher</span><div class="track"><div class="fill b" id="costB" style="width:100%"></div></div>
+        <span class="val pct"><span class="pct-pre" id="pctPre">bis zu</span><span class="pct-num" id="pct">0&nbsp;%</span></span></div>
+    </div>
+
+    <figcaption class="foot">
+      <span>Prinzipdarstellung, keine Messwerte</span>
+      <button class="ctl" id="toggle" type="button" aria-pressed="false">Pause</button>
+    </figcaption>
+  </figure>
+</main>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (id) => document.getElementById(id);
+
+  // Schematischer Arbeitstag: Last je Stunde (relativ) und die Obergrenze.
+  const LOAD = [0.18,0.17,0.17,0.17,0.18,0.22,0.33,0.48,0.56,0.70,0.92,0.74,0.52,0.55,0.71,0.60,0.56,0.50,0.40,0.31,0.25,0.21,0.19,0.18];
+  const CAP = 0.62;
+  const PEAKS = [9, 10, 11, 14];
+
+  // Diagramm
+  const X0 = 28, X1 = 588, YT = 14, YB = 236;
+  const slot = (X1 - X0) / 24, BW = slot * 0.66;
+  const Y = (v) => YB - v * (YB - YT);
+  const capY = Y(CAP);
+  $("capLine").setAttribute("y1", capY); $("capLine").setAttribute("y2", capY);
+  $("capText").setAttribute("y", capY - 7);
+
+  [0.25, 0.5, 0.75, 1].forEach((f) => {
+    const l = document.createElementNS(NS, "line");
+    const y = YB - f * (YB - YT);
+    l.setAttribute("x1", X0); l.setAttribute("x2", X1); l.setAttribute("y1", y); l.setAttribute("y2", y);
+    l.setAttribute("stroke", "var(--border)"); l.setAttribute("stroke-width", "1");
+    $("gridlines").appendChild(l);
+  });
+  const base = document.createElementNS(NS, "line");
+  base.setAttribute("x1", X0); base.setAttribute("x2", X1); base.setAttribute("y1", YB); base.setAttribute("y2", YB);
+  base.setAttribute("stroke", "var(--faint)"); base.setAttribute("stroke-width", "1");
+  $("gridlines").appendChild(base);
+  [0, 6, 12, 18, 24].forEach((h) => {
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", X0 + h * slot); t.setAttribute("y", YB + 22);
+    t.textContent = String(h).padStart(2, "0") + ":00";
+    $("axis").appendChild(t);
+  });
+
+  const bars = LOAD.map((v, h) => {
+    const x = X0 + h * slot + (slot - BW) / 2;
+    const mk = (fill) => {
+      const r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", x.toFixed(1)); r.setAttribute("width", BW.toFixed(1));
+      r.setAttribute("rx", 2.5); r.setAttribute("fill", fill);
+      r.setAttribute("y", YB); r.setAttribute("height", 0);
+      $("bars").appendChild(r);
+      return r;
+    };
+    const grid = mk("var(--bar)"), top = mk("var(--negative)"), teal = mk("var(--accent)");
+    return { v, x, grid, top, teal };
+  });
+
+  // Zeitplan: an den Spitzen läuft die Uhr langsamer, damit man es sieht
+  // Günstige Zeiten, in denen der Speicher lädt (Hintergrundband), und Dauer je Stunde
+  const BANDS = [[0, 5], [18, 22]];
+  const inBand = (h) => BANDS.some(([a, b]) => h >= a && h < b);
+  const DUR = LOAD.map((_, h) => (h >= 9 && h <= 11 ? 2.7 : h === 14 ? 2.5 : inBand(h) ? 0.8 : 0.55));
+  BANDS.forEach(([a, b]) => {
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", X0 + a * slot); r.setAttribute("width", (b - a) * slot);
+    r.setAttribute("y", YT - 4); r.setAttribute("height", YB - YT + 4);
+    r.setAttribute("fill", "var(--accent-subtle)");
+    $("bands").appendChild(r);
+    const tx = document.createElementNS(NS, "text");
+    tx.setAttribute("x", X0 + (a + b) / 2 * slot); tx.setAttribute("y", YT + 12);
+    tx.setAttribute("text-anchor", "middle"); tx.setAttribute("font-size", "11"); tx.setAttribute("font-weight", "600");
+    tx.setAttribute("fill", "var(--accent)"); tx.textContent = "günstiger Strom";
+    $("bands").appendChild(tx);
+  });
+  const START = 0.8;
+  const hs = [START];
+  DUR.forEach((d, h) => hs.push(hs[h] + d));
+  const DAY_END = hs[24];
+  const F0 = DAY_END + 0.3, F1 = F0 + 5.0, T = F1 + 1.0;
+
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+
+  function hourAt(t) {
+    if (t <= START) return 0;
+    for (let h = 0; h < 24; h++) if (t < hs[h + 1]) return h + (t - hs[h]) / DUR[h];
+    return 24;
+  }
+  // Rot, bis der Speicher übernimmt: in der ersten Hälfte der Spitzenstunde
+  // Spitze bleibt erst gut sichtbar rot, dann füllt der Speicher sie von unten türkis
+  const takeover = (h, t) => ease(seg(t, hs[h] + 1.15, hs[h] + 2.05));
+  const charging = (h, t) => easeOut(seg(t, hs[h] + 0.15, hs[h] + 0.15 + DUR[h] * 0.75));
+
+  // Speicherstand: lädt nachts, gibt bei Spitzen ab, lädt mittags und abends nach
+  const CHARGE = { 0: 0.13, 1: 0.13, 2: 0.13, 3: 0.13, 4: 0.13, 18: 0.15, 19: 0.15, 20: 0.15, 21: 0.15 };
+  const DISCHARGE = { 9: 0.16, 10: 0.24, 11: 0.2, 14: 0.18 };
+  function battery(t) {
+    let lvl = 0.3, mode = "wait";
+    for (let h = 0; h < 24; h++) {
+      if (CHARGE[h]) { const p = charging(h, t); lvl += CHARGE[h] * p; if (p > 0 && t < hs[h + 1]) mode = "in"; }
+      if (DISCHARGE[h]) {
+        const q = takeover(h, t);
+        lvl -= DISCHARGE[h] * q;
+        if (q > 0 && t < hs[h + 1]) mode = "out";
+      }
+    }
+    return { lvl: clamp(lvl, 0.04, 1), mode };
+  }
+
+  // Kosten (schematisch): Verbrauch plus Aufschlag für die höchste Spitze
+  const ETOT = LOAD.reduce((s, v) => s + v, 0);
+  const LMAX = Math.max(...LOAD);
+  function costs(hp, t) {
+    let e = 0, maxA = 0, maxB = 0;
+    for (let h = 0; h < 24; h++) {
+      const f = clamp(hp - h, 0, 1);
+      e += LOAD[h] * f;
+      if (f > 0.3) { maxA = Math.max(maxA, LOAD[h]); maxB = Math.max(maxB, Math.min(LOAD[h], CAP)); }
+    }
+    const a = 0.55 * e / ETOT + 0.45 * maxA / LMAX;
+    const b = 0.55 * 0.9 * e / ETOT + 0.45 * maxB / LMAX;
+    return { a, b };
+  }
+
+  const caps = Array.from(document.querySelectorAll(".cap"));
+  let capIdx = 0;
+  function setCaption(i) { if (i === capIdx) return; caps[capIdx].classList.remove("on"); caps[i].classList.add("on"); capIdx = i; }
+
+  const peakTag = $("peakTag"), peakTagBg = $("peakTagBg"), peakTagText = $("peakTagText");
+  function showTag(h, text, color, op) {
+    const cx = X0 + h * slot + slot / 2;
+    const w = text.length * 6.6 + 18;
+    const y = Y(LOAD[h]) - 34;
+    peakTagBg.setAttribute("x", (cx - w / 2).toFixed(1)); peakTagBg.setAttribute("y", y.toFixed(1)); peakTagBg.setAttribute("width", w.toFixed(1));
+    peakTagText.setAttribute("x", cx.toFixed(1)); peakTagText.setAttribute("y", (y + 16).toFixed(1));
+    peakTagText.textContent = text; peakTagText.setAttribute("fill", color);
+    peakTag.setAttribute("opacity", op.toFixed(3));
+  }
+
+  function render(t) {
+    const fadeOut = 1 - ease(seg(t, F1, T));
+    const hp = hourAt(t);
+
+    // Balken
+    bars.forEach((b, h) => {
+      const g = easeOut(seg(t, hs[h], hs[h] + 0.4)) * fadeOut;
+      const total = b.v * g;
+      const gridV = Math.min(total, CAP);
+      const topV = Math.max(0, total - CAP);
+      b.grid.setAttribute("y", Y(gridV).toFixed(1));
+      b.grid.setAttribute("height", (YB - Y(gridV)).toFixed(1));
+      b.top.setAttribute("y", Y(gridV + topV).toFixed(1));
+      b.top.setAttribute("height", ((topV) * (YB - YT)).toFixed(1));
+      const k = PEAKS.includes(h) ? takeover(h, t) : 0;
+      const tealV = topV * k;
+      b.teal.setAttribute("y", Y(gridV + tealV).toFixed(1));
+      b.teal.setAttribute("height", (tealV * (YB - YT)).toFixed(1));
+
+    });
+
+    // Zeitlinie
+    const px = X0 + clamp(hp, 0, 24) * slot;
+    $("playhead").setAttribute("x1", px.toFixed(1)); $("playhead").setAttribute("x2", px.toFixed(1));
+    $("playhead").setAttribute("opacity", t < DAY_END ? 1 : 0);
+    const mins = Math.floor(clamp(hp, 0, 23.99) * 60 / 15) * 15;
+    $("clock").textContent = t >= DAY_END ? "24:00" : String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0");
+
+    // Hinweis an der aktuellen Spitze
+    let tag = null;
+    PEAKS.forEach((h) => {
+      if (t >= hs[h] + 0.25 && t < hs[h + 1] + 0.1) {
+        const k = takeover(h, t);
+        const op = seg(t, hs[h] + 0.25, hs[h] + 0.45) * (1 - seg(t, hs[h + 1] - 0.15, hs[h + 1] + 0.1));
+        tag = k <= 0.02 ? [h, "teure Spitze", "var(--negative)", op] : k < 1 ? [h, "Speicher übernimmt", "var(--accent)", op] : [h, "Strom aus dem Speicher", "var(--accent)", op];
+      }
+    });
+    if (tag) showTag(...tag); else peakTag.setAttribute("opacity", 0);
+
+    // Speicher
+    const bat = battery(t);
+    const lvl = t >= F1 ? bat.lvl + (0.3 - bat.lvl) * ease(seg(t, F1, T)) : bat.lvl;
+    $("battFill").style.width = (lvl * 100).toFixed(1) + "%";
+    const st = $("battState");
+    const label = bat.mode === "in" ? "lädt" : bat.mode === "out" ? "liefert Strom" : t >= DAY_END ? "bereit für morgen" : "wartet";
+    if (st.textContent !== label) st.textContent = label;
+    st.classList.toggle("active", bat.mode !== "wait");
+    $("battIn").classList.toggle("on", bat.mode === "in");
+    $("battOut").classList.toggle("on", bat.mode === "out");
+
+    // Kosten
+    // Ersparnis: ein kleiner Teil über den ganzen Tag (günstig laden), der Großteil an den Spitzen
+    let saving = 8 * clamp(hp / 24, 0, 1);
+    PEAKS.forEach((h) => { saving += 5.5 * takeover(h, t); });
+    saving *= 1 - ease(seg(t, F1, T));
+    $("costB").style.width = (100 - saving).toFixed(2) + "%";
+    $("pct").textContent = (Math.round(saving) > 0 ? "−" : "") + Math.round(saving) + "\u00a0%";
+    $("pctPre").classList.toggle("on", t >= DAY_END && t < F1);
+
+    // Erklärzeile
+    let ci = 0;
+    if (hp >= 5.5) ci = 1;
+    if (hp >= 9) ci = 2;
+    if (hp >= 9 && takeover(9, t) > 0.5) ci = 3;
+    if (hp >= 12) ci = 4;
+    if (hp >= 14 && hp < 15) ci = takeover(14, t) > 0.5 ? 3 : 2;
+    if (hp >= 15) ci = 3;
+    if (hp >= 17.5) ci = 5;
+    if (t >= F0) ci = 6;
+    setCaption(ci);
+  }
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const toggle = $("toggle");
+  let playing = !reduce, visible = true, last = null, t = 0;
+
+  render(F0 + 1.5);
+  if (reduce) { toggle.hidden = true; return; }
+
+  function frame(now) {
+    if (last === null) last = now;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (playing && visible && !document.hidden) {
+      t = (t + dt) % T;
+      render(t);
+    }
+    requestAnimationFrame(frame);
+  }
+  new IntersectionObserver((es) => es.forEach((e) => { visible = e.isIntersecting; }), { threshold: 0.2 }).observe($("chart"));
+  toggle.addEventListener("click", () => {
+    playing = !playing;
+    toggle.textContent = playing ? "Pause" : "Abspielen";
+    toggle.setAttribute("aria-pressed", String(!playing));
+  });
+  setTimeout(() => { t = 0; requestAnimationFrame(frame); }, 600);
+})();
+</script>
