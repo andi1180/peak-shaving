@@ -209,9 +209,69 @@ function withoutAnnualMaxOnDifferingKw(
   )
 }
 
+/** Ab dieser relativen Abweichung gilt ein kW-Wert als gesunken bzw. verschieden (Rundung darunter). */
+const KW_TREND_TOLERANCE = 0.005
+
+/**
+ * Das Abrechnungsmodell aus dem Verlauf der abgerechneten kW zeitlich aufeinanderfolgender
+ * Rechnungen: sinkt der Wert irgendwo, ist es eine Monatsspitze (`monthly_max_sum`); steigt er nur
+ * oder bleibt gleich, ein laufender Jahreshöchstwert (`annual_max`). `null`, wenn der Verlauf das
+ * nicht entscheidet — alle Werte gleich, weniger als zwei Rechnungen mit kW, ein unvollständiger
+ * Zeitraum bei einer Rechnung mit kW oder überlappende Zeiträume.
+ */
+export function billingModelFromKwTrend(
+  invoices: readonly InvoiceExtraction[],
+): 'annual_max' | 'monthly_max_sum' | null {
+  const withKw = invoices.filter((invoice) => typeof invoice.billedKw === 'number')
+  if (withKw.length < 2) return null
+  if (
+    withKw.some((invoice) => invoice.billingPeriodFrom === null || invoice.billingPeriodTo === null)
+  ) {
+    return null
+  }
+
+  // ISO-Daten sortieren lexikographisch richtig; das Ende gehört zum Zeitraum.
+  const ordered = [...withKw].sort((a, b) =>
+    (a.billingPeriodFrom as string).localeCompare(b.billingPeriodFrom as string),
+  )
+  const pairs = ordered.slice(1).map((next, i) => [ordered[i] as InvoiceExtraction, next] as const)
+  if (
+    pairs.some(
+      ([prev, next]) => (next.billingPeriodFrom as string) <= (prev.billingPeriodTo as string),
+    )
+  ) {
+    return null
+  }
+  if (
+    pairs.some(
+      ([prev, next]) =>
+        (next.billedKw as number) < (prev.billedKw as number) * (1 - KW_TREND_TOLERANCE),
+    )
+  ) {
+    return 'monthly_max_sum'
+  }
+
+  const kw = ordered.map((invoice) => invoice.billedKw as number)
+  const low = Math.min(...kw)
+  return Math.max(...kw) - low > KW_TREND_TOLERANCE * low ? 'annual_max' : null
+}
+
+/** Setzt das Verlaufsmodell auf jede Rechnung mit erschlossenem Modell; genannte bleiben, wie sie sind. */
+function withKwTrendModel(
+  extractions: readonly InvoiceExtraction[],
+  billingModel: 'annual_max' | 'monthly_max_sum',
+): readonly InvoiceExtraction[] {
+  return extractions.map((extraction): InvoiceExtraction =>
+    extraction.billingModelBasis === 'inferred' ? { ...extraction, billingModel } : extraction,
+  )
+}
+
 /** Die Vorverarbeitung vor dem Feldvergleich — eine Stelle für Zusammenführung und Einzelwerte. */
 function prepareForMerge(input: readonly InvoiceExtraction[]): readonly InvoiceExtraction[] {
-  return measuredWhenAnyBilledKw(withoutAnnualMaxOnDifferingKw(input))
+  const trend = billingModelFromKwTrend(input)
+  return measuredWhenAnyBilledKw(
+    trend === null ? withoutAnnualMaxOnDifferingKw(input) : withKwTrendModel(input, trend),
+  )
 }
 
 /**
