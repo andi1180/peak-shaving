@@ -14,6 +14,7 @@ import {
   type BillingModel,
 } from 'shared'
 import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
+import { discardDocumentExtraction } from '@/lib/project-documents/document-extractions'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import { setInvoiceDraftField } from './invoice-draft-fields'
@@ -178,6 +179,19 @@ export async function removeMeteringPointInvoiceAction(
   const now = new Date()
   for (const { field, value } of fold.values) {
     nextDraft = setInvoiceDraftField(nextDraft, field, value, now)
+  }
+
+  /*
+   * Erst die Auslese-Zeile auf 'removed', dann der Entwurf: sonst käme die Rechnung beim nächsten
+   * Abschluss über ihre 'done'-Zeile zurück. Eine Kennung, die keine UUID ist, kann keine Zeile
+   * haben; `no_row` (Rechnungen von vor #516) ist der Normalfall.
+   */
+  if (UUID.test(documentId)) {
+    const discarded = await discardDocumentExtraction({ documentId, kind: 'invoice' })
+    if (!discarded.ok && discarded.reason !== 'no_row') {
+      console.error('[admin/dateneingabe] discard_document_extraction:', discarded.reason)
+      return { formError: GENERIC }
+    }
   }
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
