@@ -5,6 +5,7 @@ import {
   NETZBETREIBER_IDS,
   invoiceFieldValuesByDocument,
   minBillableKwContradicted,
+  type InvoiceExtraction,
   type InvoiceMergeFieldKey,
 } from 'shared'
 
@@ -137,13 +138,15 @@ export function invoiceChoicesNeedConsumption(draft: Record<string, unknown>): b
 
 type Candidate = { entry: StoredInvoiceExtraction; option: InvoiceFieldDocumentOption }
 
+/** `extractions` sind die gefalteten Extraktionen (`nettedInvoiceExtractions`) — samt Zeitraum-Korrektur. */
 function documentCandidates(
   field: InvoiceMergeFieldKey,
   entries: readonly StoredInvoiceExtraction[],
-  values: ReturnType<typeof invoiceFieldValuesByDocument>,
+  extractions: readonly InvoiceExtraction[],
   knownOperatorIds: KnownOperatorIds,
 ): Candidate[] {
-  const billedKw = entries.map((entry) => entry.extraction.billedKw)
+  const values = invoiceFieldValuesByDocument(extractions)
+  const billedKw = extractions.map((extraction) => extraction.billedKw)
   const result: Candidate[] = []
   entries.forEach((entry, index) => {
     const raw = values[index]![field]
@@ -151,7 +154,7 @@ function documentCandidates(
     if (write === null) return
     // Eine Mindestleistung, unter der eine andere Rechnung abrechnet, ist keine (wie im Merge).
     if (field === 'minBillableKw' && minBillableKwContradicted(raw as number, billedKw)) return
-    const { billingPeriodFrom, billingPeriodTo, billingPeriodAssumed } = entry.extraction
+    const { billingPeriodFrom, billingPeriodTo, billingPeriodAssumed } = extractions[index]!
     result.push({
       entry,
       option: {
@@ -254,10 +257,10 @@ function conflictsOf(
   consumption: ConsumptionByDay | null,
   knownOperatorIds: KnownOperatorIds,
 ): InvoiceFieldConflict[] {
-  const values = invoiceFieldValuesByDocument(nettedInvoiceExtractions(entries))
+  const extractions = nettedInvoiceExtractions(entries)
   const result: InvoiceFieldConflict[] = []
   for (const field of conflicts) {
-    const candidates = documentCandidates(field, entries, values, knownOperatorIds)
+    const candidates = documentCandidates(field, entries, extractions, knownOperatorIds)
     if (candidates.length === 0) continue
     const options: InvoiceFieldConflict['options'] = candidates.map((c) => c.option)
     let weightedUnavailableReason: string | undefined
@@ -301,8 +304,9 @@ export function invoiceFieldDocumentValues(
   knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
 ): InvoiceFieldDocumentOption[] {
   const entries = readStoredInvoiceExtractions(draft)
-  const values = invoiceFieldValuesByDocument(nettedInvoiceExtractions(entries))
-  return documentCandidates(field, entries, values, knownOperatorIds).map((c) => c.option)
+  return documentCandidates(field, entries, nettedInvoiceExtractions(entries), knownOperatorIds).map(
+    (c) => c.option,
+  )
 }
 
 /** Die widersprüchlichen Felder eines Entwurfs mit ihren Wahlmöglichkeiten. */
