@@ -1,11 +1,13 @@
 import 'server-only'
 
 import type Anthropic from '@anthropic-ai/sdk'
-import { tariffPricingSubject } from 'extractors'
-import { DEFAULT_COUNTRY, gridTariffRowsHaveTiers, isCountry, parseNetzebeneDraftValue } from 'shared'
+import { DEFAULT_COUNTRY, gridTariffRowsHaveTiers, isCountry } from 'shared'
 
 import type { Json } from '@/db-types'
-import { readGridTariffRowsForAnalysis } from '@/lib/admin/analysis-tariff-inputs'
+import {
+  gridTariffReadOfPoint,
+  readGridTariffRowsForAnalysis,
+} from '@/lib/admin/analysis-tariff-inputs'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { createClient } from '@/lib/supabase/server'
 import { dropInapplicableBillingModel } from './draft'
@@ -321,12 +323,12 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
     },
 
     async meteringPointHasDemandTiers(projectId, point) {
-      const { operatorId, netzebene, meteringVariant } = tariffPricingSubject(
-        point.draft,
-        parseNetzebeneDraftValue(point.draft.netzebene),
-      )
-      if (operatorId === null || netzebene === null) return false
-      if (point.covered_from === null || point.covered_to === null) return false
+      const read = gridTariffReadOfPoint({
+        draft: point.draft,
+        coveredFrom: point.covered_from,
+        coveredTo: point.covered_to,
+      })
+      if (read === null) return false
       try {
         const supabase = await createClient()
         const { data, error } = await supabase.rpc('get_project', { p_id: projectId })
@@ -334,11 +336,8 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
         if (result.status !== 'ok') return false
         const country = (result.project as Record<string, unknown> | undefined)?.country
         const rows = await readGridTariffRowsForAnalysis(supabase, {
-          operatorId,
-          netzebene,
-          meteringVariant,
+          ...read,
           country: isCountry(country) ? country : DEFAULT_COUNTRY,
-          window: { startIso: point.covered_from, endIso: point.covered_to },
         })
         return gridTariffRowsHaveTiers(rows)
       } catch (error) {

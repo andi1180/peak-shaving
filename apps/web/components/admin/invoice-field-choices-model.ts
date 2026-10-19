@@ -15,6 +15,7 @@ import type {
   InvoiceFieldDocumentOption,
   InvoiceFieldWeightedOption,
 } from '@/lib/admin/invoice-field-choices'
+import type { TieredDemandInvoiceValue, TieredDemandStand } from '@/lib/admin/invoice-tiered-demand'
 
 export type InvoiceFieldOption = InvoiceFieldDocumentOption | InvoiceFieldWeightedOption
 
@@ -99,6 +100,17 @@ export function formatIsoDate(iso: string): string {
 export function periodText(from: string | null, to: string | null): string {
   if (from === null && to === null) return 'Zeitraum unbekannt'
   return `${from === null ? '?' : formatIsoDate(from)}–${to === null ? '?' : formatIsoDate(to)}`
+}
+
+const HOURS = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 0 })
+
+/** Ein Netzentgelt-Stand mit Benutzungsdauer-Stufen, wie im Hinweisblock gezeigt. */
+export function tieredStandText(stand: TieredDemandStand): string {
+  return `gültig ab ${formatIsoDate(stand.validFrom)}: bis ${HOURS.format(stand.thresholdHours)} h ${CT.format(stand.belowEurPerKwYear)} €/kW·a, darüber ${CT.format(stand.aboveEurPerKwYear)} €/kW·a`
+}
+
+export function tieredInvoiceValueText(value: TieredDemandInvoiceValue): string {
+  return `${CT.format(value.value)} €/kW·a – ${periodText(value.periodFrom, value.periodTo)} – ${value.filename}`
 }
 
 function basisText(basis: InvoiceFieldWeightedOption['basis']): string {

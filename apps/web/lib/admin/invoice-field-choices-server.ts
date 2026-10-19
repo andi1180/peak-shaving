@@ -1,9 +1,10 @@
 import 'server-only'
 
 import { readDailyConsumption } from 'extractors'
-import { COUNTRY_DISPLAY } from 'shared'
+import { COUNTRY_DISPLAY, type GridTariffRowInput } from 'shared'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import type { createClient } from '@/lib/supabase/server'
+import { gridTariffReadOfPoint, readGridTariffRowsForAnalysis } from './analysis-tariff-inputs'
 import { invoiceChoicesNeedConsumption, type ConsumptionByDay } from './invoice-field-choices'
 import { readAdminProject } from './projects'
 
@@ -52,4 +53,26 @@ export async function consumptionForInvoiceMerge(
   return invoiceChoicesNeedConsumption(point.draft)
     ? readConsumptionByDay(supabase, projectId, point.sourceDocumentId)
     : null
+}
+
+/**
+ * Die Netzentgelt-Zeilen des Zählpunkts über seinen Lastgang-Zeitraum — dieselbe Auswahl wie der
+ * Analyse-Lauf. `null`, wenn nicht bestimmbar oder nicht lesbar (dann gilt „keine Stufen").
+ */
+export async function readGridTariffRowsOfPoint(
+  supabase: AdminClient,
+  projectId: string,
+  point: { draft: Record<string, unknown>; coveredFrom: string | null; coveredTo: string | null },
+): Promise<GridTariffRowInput[] | null> {
+  const read = gridTariffReadOfPoint(point)
+  if (read === null) return null
+  try {
+    const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+    const project = readAdminProject(projectRes.data)
+    if (project === null || project === 'not_found') return null
+    return await readGridTariffRowsForAnalysis(supabase, { ...read, country: project.country })
+  } catch (cause) {
+    console.warn('[admin/rechnungswahl] Netzentgelt-Zeilen nicht lesbar:', cause)
+    return null
+  }
 }

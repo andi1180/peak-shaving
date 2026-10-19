@@ -24,6 +24,7 @@ import {
   type KnownOperatorIds,
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
+import type { TieredDemandInfo } from './invoice-tiered-demand'
 
 /**
  * Auswahl je widersprüchlichem Rechnungsfeld. Ein widersprüchliches Feld bleibt leer, bis eine Wahl
@@ -293,6 +294,17 @@ function conflictsOf(
   return result
 }
 
+/** Die Werte eines Feldes je Rechnung — dieselbe Normierung wie in den Konfliktoptionen. */
+export function invoiceFieldDocumentValues(
+  draft: Record<string, unknown>,
+  field: InvoiceMergeFieldKey,
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
+): InvoiceFieldDocumentOption[] {
+  const entries = readStoredInvoiceExtractions(draft)
+  const values = invoiceFieldValuesByDocument(nettedInvoiceExtractions(entries))
+  return documentCandidates(field, entries, values, knownOperatorIds).map((c) => c.option)
+}
+
 /** Die widersprüchlichen Felder eines Entwurfs mit ihren Wahlmöglichkeiten. */
 export function invoiceFieldConflictOptions(
   draft: Record<string, unknown>,
@@ -383,4 +395,5 @@ export function mergeInvoiceDraft(input: {
 /** Antwort der Wahl-Actions; ein Fehler trägt einen Satz für die Oberfläche. */
 export type InvoiceFieldChoiceResult = { ok: true } | { ok: false; error: string }
 export type InvoiceFieldConflictsResult =
-  { ok: true; conflicts: InvoiceFieldConflict[] } | { ok: false; error: string }
+  | { ok: true; conflicts: InvoiceFieldConflict[]; tieredDemandInfo?: TieredDemandInfo }
+  | { ok: false; error: string }

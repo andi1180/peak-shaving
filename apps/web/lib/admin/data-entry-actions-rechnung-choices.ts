@@ -12,6 +12,7 @@ import {
   invoiceChoicesNeedConsumption,
   invoiceFieldChoiceOffered,
   invoiceFieldConflictOptions,
+  invoiceFieldDocumentValues,
   mergeInvoiceDraft,
   readInvoiceFieldChoices,
   withInvoiceFieldChoices,
@@ -19,7 +20,8 @@ import {
   type InvoiceFieldChoiceResult,
   type InvoiceFieldConflictsResult,
 } from './invoice-field-choices'
-import { readConsumptionByDay } from './invoice-field-choices-server'
+import { readConsumptionByDay, readGridTariffRowsOfPoint } from './invoice-field-choices-server'
+import { withTieredDemand } from './invoice-tiered-demand'
 import { readMeteringPointList, type MeteringPointSummary } from './metering-points'
 import { projectDataEntryHref } from './projects'
 import { FORBIDDEN, GENERIC, UUID, isForbidden, statusOf } from './data-entry-actions-shared'
@@ -109,7 +111,15 @@ export async function getInvoiceFieldConflictsAction(
     if (consumption !== null)
       conflicts = invoiceFieldConflictOptions(point.draft, consumption, known)
   }
-  return { ok: true, conflicts }
+  // Die Netzentgelt-Zeilen nur lesen, wenn eine Rechnung überhaupt einen Leistungspreis nennt.
+  if (invoiceFieldDocumentValues(point.draft, 'leistungspreisEurPerKwYear', known).length === 0) {
+    return { ok: true, conflicts }
+  }
+  const rows = await readGridTariffRowsOfPoint(supabase, projectId, point)
+  const tiered = withTieredDemand(conflicts, point.draft, rows, known)
+  return tiered.tieredDemandInfo === undefined
+    ? { ok: true, conflicts: tiered.conflicts }
+    : { ok: true, conflicts: tiered.conflicts, tieredDemandInfo: tiered.tieredDemandInfo }
 }
 
 /** Speichert die Wahl für ein widersprüchliches Feld und wendet sie sofort an. */
