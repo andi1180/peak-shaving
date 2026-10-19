@@ -40,6 +40,17 @@ export default defineConfig({
      * Datenbank dabei nicht einmal befragt. Die Admin-SEITEN (`page.tsx`) bleiben ausgeschlossen —
      * für sie gibt es weiterhin kein Renderer-Setup, und es soll auch keins beiläufig entstehen.
      */
-    include: ['lib/**/*.test.ts', 'app/api/**/*.test.ts', 'app/admin/**/*.test.ts'],
+    /*
+     * `components/admin/**` mit `.test.tsx`: reine Server-Render-Prüfungen (react-dom/server) in
+     * der Node-Umgebung — weiterhin ohne jsdom.
+     */
+    include: [
+      'lib/**/*.test.ts',
+      'app/api/**/*.test.ts',
+      'app/admin/**/*.test.ts',
+      'components/admin/**/*.test.{ts,tsx}',
+    ],
   },
+  // tsconfig steht für Next auf `jsx: preserve`; die Tests brauchen fertig übersetztes JSX.
+  esbuild: { jsx: 'automatic' },
 })

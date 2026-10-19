@@ -430,7 +430,7 @@ export function invoiceMergeDisplayRows(merged: InvoiceExtraction): InvoiceMerge
     rows.push({
       key,
       label: INVOICE_MERGE_FIELD_LABELS[key],
-      text: `${displayValue(key, raw)}${note}`,
+      text: `${invoiceFieldDisplayValue(key, raw)}${note}`,
     })
   }
   return rows
@@ -452,7 +452,8 @@ function energyPriceNote(basis: InvoiceExtraction['energyPriceBasis']): string {
   return ''
 }
 
-function displayValue(key: InvoiceMergeFieldKey, raw: string | number): string {
+/** Ein Rechnungsfeld mit Einheit, wie die Station es zeigt — auch für die Auswahl bei Widersprüchen. */
+export function invoiceFieldDisplayValue(key: InvoiceMergeFieldKey, raw: string | number): string {
   if (key === 'netzbetreiber') {
     return NETZBETREIBER_LABELS[raw as keyof typeof NETZBETREIBER_LABELS] ?? String(raw)
   }
