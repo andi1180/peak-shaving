@@ -6,7 +6,6 @@ import { Link } from '@/i18n/navigation'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { cn } from '@/lib/utils'
 import {
-  AVG_DEMAND_PRICE_EUR_PER_KW_YEAR,
   KW_SLIDER,
   computeSchnellcheck,
   formatGrouped,
@@ -20,8 +19,9 @@ import {
  * `docs/prototypes/schnellcheck-prototyp.html`. Die Rechnung ist rein (`lib/schnellcheck.ts`).
  *
  * Abweichungen vom Prototyp: keine vorbelegten Beispielwerte in den Feldern (sie sähen aus wie
- * Angaben des Besuchers), länderabhängige Blöcke werden gar nicht gerendert statt `hidden` (in
- * Deutschland steht so keine Euro-Zahl im Markup), und der Feldrand ist `line-input` (AA 3:1).
+ * Angaben des Besuchers), und der Feldrand ist `line-input` (AA 3:1). Österreich und Deutschland
+ * teilen sich seit Schritt 3a-2 dieselbe Ergebnisansicht; nur Leistungspreis und Quellenzeile
+ * unterscheiden sich.
  * Karte mit Radius/Schatten: Ausnahme in DESIGN.md. Bis Schritt 3b führen alle drei Wege ins
  * Kontaktformular mit vorbelegtem Thema.
  */
@@ -52,7 +52,6 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
   const kw = parseGroupedNumber(raw.kw)
   const bill = parseGroupedNumber(raw.bill)
   const result = computeSchnellcheck({ country, kwh, kw, bill, sliderKw })
-  const at = result?.country === 'AT' ? result : null
 
   // Die eingegebenen Werte reisen als vorbelegte Nachricht ins Kontaktformular.
   const prefill = [
@@ -155,20 +154,20 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
               </div>
             )}
 
-            {at && (
+            {result && (
               <div>
                 <div className="grid gap-1">
                   <span className="text-[clamp(34px,5vw,46px)] font-bold leading-[1.05] tracking-[-0.02em] tabular-nums text-negative">
-                    {t('big', { amount: formatGrouped(at.peakCostEur) })}
+                    {t('big', { amount: formatGrouped(result.peakCostEur) })}
                   </span>
                   <span className="text-[16px] font-semibold text-ink">
-                    {at.kwFromInput
+                    {result.kwFromInput
                       ? t('bigSubKnown')
-                      : t('bigSubExample', { kw: formatGrouped(at.kw) })}
+                      : t('bigSubExample', { kw: formatGrouped(result.kw) })}
                   </span>
                 </div>
 
-                {!at.kwFromInput && (
+                {!result.kwFromInput && (
                   <div className="mt-[18px] grid gap-2">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className={LABEL}>{t('sliderLabel')}</span>
@@ -194,7 +193,7 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
                   </div>
                 )}
 
-                {at.bill && (
+                {result.bill && (
                   <div className="mt-5 grid gap-[10px]">
                     <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-text-faint">
                       {t('vizTitle')}
@@ -202,18 +201,18 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
                     <div
                       role="img"
                       aria-label={t('billAria', {
-                        bill: formatGrouped(at.bill.billEur),
-                        peak: formatGrouped(at.bill.peakEur),
+                        bill: formatGrouped(result.bill.billEur),
+                        peak: formatGrouped(result.bill.peakEur),
                       })}
                       className="flex h-11 overflow-hidden rounded-[10px] border border-line bg-surface"
                     >
                       <div
                         className={cn('h-full bg-line-strong', BAR_TRANSITION)}
-                        style={{ width: `${(100 - at.bill.share).toFixed(1)}%` }}
+                        style={{ width: `${(100 - result.bill.share).toFixed(1)}%` }}
                       />
                       <div
                         className={cn('h-full bg-negative', BAR_TRANSITION)}
-                        style={{ width: `${at.bill.share.toFixed(1)}%` }}
+                        style={{ width: `${result.bill.share.toFixed(1)}%` }}
                       />
                     </div>
                     <div className="flex flex-wrap justify-between gap-3 text-[13px] text-text-muted">
@@ -221,18 +220,18 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
                         <Swatch className="bg-line-strong" />
                         {t('legendRest')}{' '}
                         <b className="tabular-nums text-ink">
-                          {t('eur', { amount: formatGrouped(at.bill.restEur) })}
+                          {t('eur', { amount: formatGrouped(result.bill.restEur) })}
                         </b>
                       </span>
                       <span>
                         <Swatch className="bg-negative" />
                         {t('legendPeak')}{' '}
                         <b className="tabular-nums text-negative">
-                          {t('eur', { amount: formatGrouped(at.bill.peakEur) })}
+                          {t('eur', { amount: formatGrouped(result.bill.peakEur) })}
                         </b>{' '}
                         ·{' '}
                         <b className="tabular-nums text-negative">
-                          {t('percent', { pct: at.bill.percent })}
+                          {t('percent', { pct: result.bill.percent })}
                         </b>
                       </span>
                     </div>
@@ -241,51 +240,46 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
 
                 <div className="mt-5 flex items-center gap-[14px] rounded-[12px] border border-line bg-surface px-4 py-[14px]">
                   <span className="whitespace-nowrap text-[22px] font-bold tabular-nums text-accent">
-                    {t('perKwValue', { price: AVG_DEMAND_PRICE_EUR_PER_KW_YEAR })}
+                    {t('savingValue', { amount: formatGrouped(result.savingEur) })}
                   </span>
-                  <p className="m-0 text-[14px] text-text">{t('perKwText')}</p>
+                  <p className="m-0 text-[14px] text-text">{t('savingText')}</p>
                 </div>
                 <p className={cn(SMALL, 'mt-[10px]')}>
-                  {t('note', { price: AVG_DEMAND_PRICE_EUR_PER_KW_YEAR })}
+                  {result.usageHours === null
+                    ? t('noteAT', { price: result.demandPrice })
+                    : t('noteDE', {
+                        price: result.demandPrice,
+                        hours: formatGrouped(result.usageHours),
+                      })}
                 </p>
-              </div>
-            )}
-
-            {result?.country === 'DE' && (
-              <div>
-                <span className="text-[16px] font-semibold text-ink">{t('deText')}</span>
-                <p className={cn(SMALL, 'mt-2')}>{t('deNote')}</p>
               </div>
             )}
 
             <div className="mt-6 grid grid-cols-[170px_minmax(0,1fr)] items-center gap-[26px] rounded-[14px] border border-line bg-surface p-[22px] max-[620px]:grid-cols-1 max-[620px]:justify-items-center">
               <PdfPreview
-                peakCostEur={at?.peakCostEur ?? null}
-                share={at?.bill?.share ?? 0}
+                peakCostEur={result?.peakCostEur ?? null}
+                share={result?.bill?.share ?? 0}
                 title={t('pdfTitle')}
                 forLabel={t('pdfFor')}
                 caption={t('pdfCaption')}
-                amount={at ? t('eur', { amount: formatGrouped(at.peakCostEur) }) : ''}
+                amount={result ? t('eur', { amount: formatGrouped(result.peakCostEur) }) : ''}
               />
               <div className="grid min-w-0 justify-items-start gap-[14px] max-[620px]:justify-items-stretch">
                 <h3 className="m-0 text-[18px] font-semibold tracking-[-0.01em] text-navy">
                   {t('offerTitle')}
                 </h3>
                 <ul className="m-0 grid list-none gap-2 p-0">
-                  {(['check1', 'check2', 'check3', 'check4', 'check5'] as const)
-                    // Die Netztarife 2027 betreffen Österreich.
-                    .filter((key) => !(key === 'check3' && country === 'DE'))
-                    .map((key) => (
-                      <li
-                        key={key}
-                        className="relative pl-[26px] text-[14.5px] leading-[1.45] text-text"
-                      >
-                        <CheckIcon />
-                        {t.rich(key, {
-                          b: (chunks) => <b className="font-semibold text-ink">{chunks}</b>,
-                        })}
-                      </li>
-                    ))}
+                  {(['check1', 'check2', 'check3', 'check4', 'check5'] as const).map((key) => (
+                    <li
+                      key={key}
+                      className="relative pl-[26px] text-[14.5px] leading-[1.45] text-text"
+                    >
+                      <CheckIcon />
+                      {t.rich(key, {
+                        b: (chunks) => <b className="font-semibold text-ink">{chunks}</b>,
+                      })}
+                    </li>
+                  ))}
                 </ul>
                 <Link
                   href={hrefFor('schnellreport')}

@@ -7,8 +7,8 @@
  * Loop), die Komponente zeichnet es nur. Prinzipdarstellung — keine Messwerte.
  */
 
-/** Ersparnis-Zahl („bis zu −30 %") anzeigen? Standard AUS: der Beleg für die Zahl steht aus. */
-export const HERO_SHOW_SAVING_FIGURE = false
+/** Ersparnis-Zahl („bis zu −30 %") anzeigen: Erfahrungswert COOLiN, freigegeben von Martin (CEO) am 19.10.2026. */
+export const HERO_SHOW_SAVING_FIGURE = true
 
 /** Schematischer Arbeitstag: Last je Stunde (relativ) und die Obergrenze. */
 export const LOAD = [
