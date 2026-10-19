@@ -3,14 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { dropInapplicableBillingModel } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
-import {
-  foldStoredInvoices,
-  readPriceBasisField,
-  readStoredInvoiceExtractions,
-  withInvoicePriceBasis,
-  withStoredInvoiceExtractions,
-} from './invoice-extractions'
-import { replaceInvoiceDraftFields } from './invoice-draft-fields'
+import { readPriceBasisField, readStoredInvoiceExtractions } from './invoice-extractions'
+import { mergeInvoiceDraft } from './invoice-field-choices'
+import { consumptionForInvoiceMerge } from './invoice-field-choices-server'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -66,13 +61,14 @@ export async function setInvoicePriceBasisAction(
     entry.documentId === documentId ? { ...entry, supplierPriceBasisChosen: basis } : entry,
   )
 
-  const fold = foldStoredInvoices(next, await readKnownOperatorIdsForProject(supabase, projectId))
-  const nextDraft = replaceInvoiceDraftFields(
-    withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, next), fold),
-    fold.values,
-    new Date(),
-    true,
-  )
+  const { draft: nextDraft } = mergeInvoiceDraft({
+    draft: point.draft,
+    entries: next,
+    knownOperatorIds: await readKnownOperatorIdsForProject(supabase, projectId),
+    now: new Date(),
+    legacyInvoiceDraft: true,
+    consumption: await consumptionForInvoiceMerge(supabase, projectId, point),
+  })
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,

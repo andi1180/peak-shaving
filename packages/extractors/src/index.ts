@@ -159,6 +159,12 @@ export { lookupBatterySpec, type BatteryLookupOutcome } from './battery-lookup/e
  */
 export { MAX_LOAD_PROFILE_FILE_BYTES } from './load-profile/limits'
 export { readLoadProfile, type LoadProfileOutcome } from './load-profile/extract'
+// Netzbezug je Ortstag (Gewichtung widersprüchlicher Rechnungswerte) — Tagessummen, keine Messwerte.
+export {
+  readDailyConsumption,
+  type DailyConsumption,
+  type DailyConsumptionOutcome,
+} from './load-profile/daily-consumption'
 
 // Stündliche Anlagenberichte (Wechselrichter-Portal) — derselbe Ausgang wie der Lastgang-Leser.
 export {

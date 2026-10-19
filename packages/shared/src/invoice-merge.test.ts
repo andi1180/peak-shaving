@@ -8,6 +8,7 @@ import {
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
+  invoiceFieldValuesByDocument,
   mergeInvoiceExtractions,
 } from './invoice-merge'
 
@@ -284,5 +285,25 @@ describe('mergeInvoiceExtractions — Netzbetreiber mit „unbekannt" (30.09.202
     const { merged, conflicts } = mergeInvoiceExtractions([read('wiener_netze'), read('netz_noe')])
     expect(merged.netzbetreiber).toBeNull()
     expect(conflicts).toContain('netzbetreiber')
+  })
+})
+
+describe('invoiceFieldValuesByDocument', () => {
+  it('liefert je Rechnung die Werte, an denen die Zusammenführung den Widerspruch feststellt', () => {
+    const input = [
+      { ...invoice({ meteringVariant: 'ohne_leistungsmessung', rates: { energyPriceCtPerKwh: 12.5 } }) },
+      { ...invoice({ rates: { energyPriceCtPerKwh: 13.1 } }), billedKw: 40 },
+    ]
+    const values = invoiceFieldValuesByDocument(input)
+    const { conflicts } = mergeInvoiceExtractions(input)
+
+    expect(values.map((v) => v.energyPriceCtPerKwh)).toEqual([12.5, 13.1])
+    // Dieselbe Vorverarbeitung: die kW-Rechnung macht aus „ohne" ein „mit".
+    expect(values[0]!.meteringVariant).toBe('mit_leistungsmessung')
+    for (const key of INVOICE_MERGE_FIELD_KEYS) {
+      if (key === 'leistungspreisEurPerKwYear') continue
+      const stated = new Set(values.map((v) => v[key]).filter((v) => v !== null))
+      expect(conflicts.includes(key), key).toBe(stated.size > 1)
+    }
   })
 })

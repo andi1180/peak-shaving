@@ -12,15 +12,12 @@ import { INVOICE_SCAN_MIN_ATTEMPT_MS, MAX_INVOICE_FILE_BYTES, extractInvoiceData
 import { getProjectDocumentBytes } from '@/lib/project-documents/storage'
 import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import type { createClient } from '@/lib/supabase/server'
-import { replaceInvoiceDraftFields } from './invoice-draft-fields'
 import {
   INVOICE_SKIPPED_KEY,
-  foldStoredInvoices,
-  withInvoicePriceBasis,
-  withStoredInvoiceExtractions,
   type KnownOperatorIds,
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
+import { mergeInvoiceDraft, type ConsumptionByDay } from './invoice-field-choices'
 import { PDF_MEDIA_TYPE, isForbidden, statusOf } from './data-entry-actions-shared'
 
 /** Zeit für die Scans eines Requests; der Rest von `maxDuration` 300 s bleibt fürs Lesen der Ablage und den Entwurf. */
@@ -182,16 +179,24 @@ export function buildInvoiceDraft(input: {
   all: readonly StoredInvoiceExtraction[]
   knownOperatorIds: KnownOperatorIds
   now: Date
+  consumption?: ConsumptionByDay | null
 }) {
   const { draft, stored, all, knownOperatorIds, now } = input
-  const fold = foldStoredInvoices(all, knownOperatorIds)
-  let next = withInvoicePriceBasis(withStoredInvoiceExtractions(draft, all), fold)
   /*
    * `measured`: jeder dieser Werte steht übereinstimmend auf allen Rechnungen, die etwas dazu sagen.
    * Ein früher übernommener Wert, zu dem keine gelesene Rechnung mehr etwas sagt, wird entfernt;
-   * widersprüchliche Felder werden geleert, Handeingaben bleiben (s. `replaceInvoiceDraftFields`).
+   * widersprüchliche Felder werden geleert, sofern keine gültige Wahl besteht; Handeingaben bleiben.
    */
-  next = replaceInvoiceDraftFields(next, fold.values, now, stored.length > 0)
+  const merged = mergeInvoiceDraft({
+    draft,
+    entries: all,
+    knownOperatorIds,
+    now,
+    legacyInvoiceDraft: stored.length > 0,
+    consumption: input.consumption ?? null,
+  })
+  const fold = merged.fold
+  let next = merged.draft
   /*
    * ⚠ EIN ECHTER UPLOAD WIDERLEGT EIN FRÜHERES „ohne Rechnungsdaten fortgefahren" — ohne diese
    * Zeile stünden „bewusst keine Tarifangabe" und eine gelesene Rechnung gleichzeitig im Entwurf.
