@@ -24,7 +24,7 @@ import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { batteryCategoryForSegment, fetchBatteryCatalogForAnalysis } from './battery-catalog-source'
 import { readOperatorDisplayName } from './grid-operators'
 import { draftValueFromInvoice } from './invoice-draft-fields'
-import { readStoredInvoiceExtractions } from './invoice-extractions'
+import { effectiveInvoiceExtraction, readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import { readPvArraysDraft } from './pv-array-draft'
 import { readPvDraft } from './pv-draft'
@@ -431,7 +431,8 @@ function readInvoicePeriods(
   draft: Record<string, unknown>,
 ): { from: string | null; to: string | null; assumed: boolean | null }[] {
   return readStoredInvoiceExtractions(draft)
-    .map(({ extraction }) => ({
+    .map(effectiveInvoiceExtraction)
+    .map((extraction) => ({
       from: extraction.billingPeriodFrom,
       to: extraction.billingPeriodTo,
       assumed: extraction.billingPeriodAssumed,

@@ -82,6 +82,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
 import {
+  COUNTRY_DISPLAY,
   hasSupplierPrices,
   priceBasisLabel,
   type Country,
@@ -114,6 +115,7 @@ import {
 import {
   INVOICE_SKIPPED_KEY,
   MAX_INVOICES_PER_SELECTION,
+  effectiveInvoiceExtraction,
   foldStoredInvoices,
   invoiceMergeDisplayRows,
   manualTariffDraftIsEmpty,
@@ -125,6 +127,8 @@ import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import { meteringPointStationId, stationHref } from '@/lib/admin/data-entry-stations'
 import { MultiDirectUpload, type UploadedDocument } from './multi-direct-upload'
 import { InvoiceFieldChoices } from './invoice-field-choices'
+import { InvoicePeriod, type InvoicePeriodRowData } from './invoice-period-row'
+import { invoicePeriodFlags, localDateIso } from '@/lib/admin/invoice-period-flags'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
@@ -350,6 +354,10 @@ export function DataEntryInvoice({
   // H3: gefaltet auf netto — genau das, was auch im Entwurf steht.
   const { merged } = foldStoredInvoices(stored)
   const rows = invoiceMergeDisplayRows(merged)
+  const periodFlags = invoicePeriodFlags(
+    stored,
+    localDateIso(new Date(), COUNTRY_DISPLAY[country].timeZone),
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -382,7 +390,9 @@ export function DataEntryInvoice({
             filename: entry.filename,
             hasPrices: hasSupplierPrices(entry.extraction),
             basis: supplierPriceBasisOf(entry),
+            period: periodRowData(entry, periodFlags.get(entry.documentId) ?? []),
           }))}
+          onPeriodChanged={reloadConflicts}
           basisAction={basisAction}
           isSettingBasis={isSettingBasis}
           rows={rows}
@@ -652,6 +662,21 @@ function invoiceStatusList(
   return items
 }
 
+function periodRowData(
+  entry: ReturnType<typeof readStoredInvoiceExtractions>[number],
+  flags: InvoicePeriodRowData['flags'],
+): InvoicePeriodRowData {
+  const effective = effectiveInvoiceExtraction(entry)
+  return {
+    documentId: entry.documentId,
+    filename: entry.filename,
+    read: { from: entry.extraction.billingPeriodFrom, to: entry.extraction.billingPeriodTo },
+    effective: { from: effective.billingPeriodFrom, to: effective.billingPeriodTo },
+    overridden: entry.billingPeriodOverride !== undefined,
+    flags,
+  }
+}
+
 /**
  * Was aus den gelesenen Rechnungen hervorgeht.
  *
@@ -671,6 +696,7 @@ function InvoiceSummary({
   isRemoving,
   basisAction,
   isSettingBasis,
+  onPeriodChanged,
 }: {
   number: number
   projectId: string
@@ -680,7 +706,10 @@ function InvoiceSummary({
     filename: string
     hasPrices: boolean
     basis: PriceBasis | null
+    period: InvoicePeriodRowData
   }[]
+  /** Nach einer Zeitraum-Korrektur: Konfliktliste neu laden. */
+  onPeriodChanged: () => void
   basisAction: (formData: FormData) => void
   isSettingBasis: boolean
   rows: readonly { key: string; label: string; text: string }[]
@@ -775,6 +804,12 @@ function InvoiceSummary({
                 <span className="sr-only"> — {entry.filename}</span>
               </Button>
             </form>
+            <InvoicePeriod
+              projectId={projectId}
+              meteringPointId={meteringPointId}
+              data={entry.period}
+              onChanged={onPeriodChanged}
+            />
           </li>
         ))}
       </ul>

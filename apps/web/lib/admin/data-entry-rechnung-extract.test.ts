@@ -30,6 +30,9 @@ const { removeMeteringPointInvoiceAction } = await import('./data-entry-actions-
 const { setInvoicePriceBasisAction } = await import('./data-entry-actions-rechnung-basis')
 const { chooseInvoiceFieldValueAction, clearInvoiceFieldChoiceAction, getInvoiceFieldConflictsAction } =
   await import('./data-entry-actions-rechnung-choices')
+const { setInvoicePeriodOverrideAction, clearInvoicePeriodOverrideAction } = await import(
+  './data-entry-actions-rechnung-period'
+)
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_PROJECT_ID = '22222222-2222-4333-8444-555555555555'
@@ -714,6 +717,104 @@ describe('Auswahl je widersprüchlichem Rechnungsfeld', () => {
     })
     expect(forbidden).toEqual({ ok: false, error: expect.stringContaining('Keine Berechtigung') })
     expect(draftWrites).toBe(before)
+  })
+})
+
+describe('Zeitraum-Korrektur je Rechnung', () => {
+  const FIELD = 'energyPriceCtPerKwh'
+  const stored = () =>
+    draft._invoiceExtractions as {
+      documentId: string
+      extraction: Record<string, unknown>
+      billingPeriodOverride?: { from: string; to: string; at: string }
+    }[]
+  const entryOf = (id: string) => stored().find((e) => e.documentId === id)
+  const priced = (price: number, from: string, to: string, head: Record<string, unknown> = {}) =>
+    extraction(
+      { energyPriceCtPerKwh: price },
+      { billingPeriodFrom: from, billingPeriodTo: to, ...head },
+    )
+
+  it('aufgelöste Überlappung bietet den Mittelwert an (#520); die Extraktion bleibt das Original', async () => {
+    outcomes.set('a.pdf', priced(24.5, '2026-01-01', '2026-02-15'))
+    outcomes.set('b.pdf', priced(26.9, '2026-02-01', '2026-02-28'))
+    const [a] = [file('a.pdf'), file('b.pdf')]
+    await extractAndFinalize([idFor('a.pdf'), idFor('b.pdf')])
+
+    const before = await getInvoiceFieldConflictsAction(PROJECT_ID, POINT_ID)
+    const conflictBefore = before.ok ? before.conflicts.find((c) => c.field === FIELD) : undefined
+    expect(conflictBefore?.weightedUnavailableReason).toContain('überschneiden')
+
+    expect(
+      await setInvoicePeriodOverrideAction(PROJECT_ID, POINT_ID, a!, '2026-01-01', '2026-01-31'),
+    ).toEqual({ ok: true })
+    expect(entryOf(a!)?.billingPeriodOverride).toEqual({
+      from: '2026-01-01',
+      to: '2026-01-31',
+      at: '2026-10-19T08:00:00.000Z',
+    })
+    expect(entryOf(a!)?.extraction.billingPeriodTo).toBe('2026-02-15')
+
+    const after = await getInvoiceFieldConflictsAction(PROJECT_ID, POINT_ID)
+    const conflict = after.ok ? after.conflicts.find((c) => c.field === FIELD) : undefined
+    expect(conflict?.options.find((o) => o.kind === 'weighted')).toMatchObject({ value: 25.639 })
+  })
+
+  it('Verlaufsregel (#524) rechnet mit dem korrigierten Zeitraum', async () => {
+    // Steigende kW: bei Überlappung entscheidet der Verlauf nicht, ohne sie ist es ein Jahreshöchstwert.
+    const head = { billingModel: 'monthly_max_sum', billingModelBasis: 'inferred' }
+    outcomes.set('a.pdf', priced(24.5, '2026-01-01', '2026-02-15', { ...head, billedKw: 30 }))
+    outcomes.set('b.pdf', priced(24.5, '2026-02-01', '2026-02-28', { ...head, billedKw: 50 }))
+    const a = file('a.pdf')
+    await extractAndFinalize([a, file('b.pdf')])
+    expect(draft.billingModel).toBe('monthly_max_sum')
+
+    await setInvoicePeriodOverrideAction(PROJECT_ID, POINT_ID, a, '2026-01-01', '2026-01-31')
+    expect(draft.billingModel).toBe('annual_max')
+
+    expect(await clearInvoicePeriodOverrideAction(PROJECT_ID, POINT_ID, a)).toEqual({ ok: true })
+    expect(entryOf(a)).not.toHaveProperty('billingPeriodOverride')
+    expect(draft.billingModel).toBe('monthly_max_sum')
+  })
+
+  it('übersteht Neulesen und verschwindet mit der Rechnung', async () => {
+    outcomes.set('a.pdf', priced(24.5, '2026-01-01', '2026-02-15'))
+    const a = file('a.pdf')
+    await extractAndFinalize([a])
+    await setInvoicePeriodOverrideAction(PROJECT_ID, POINT_ID, a, '2026-01-01', '2026-01-31')
+
+    outcomes.set('a.pdf', priced(25, '2026-01-01', '2026-02-15'))
+    await extractAndFinalize([a])
+    expect(entryOf(a)?.extraction).toMatchObject({ rates: { energyPriceCtPerKwh: 25 } })
+    expect(entryOf(a)?.billingPeriodOverride).toMatchObject({ to: '2026-01-31' })
+
+    await removeMeteringPointInvoiceAction({}, removeChoiceForm(a))
+    expect(stored() ?? []).toEqual([])
+  })
+
+  it('lehnt ungültige Zeiträume, fremde Rechnungen und fremde Projekte ab, ohne zu schreiben', async () => {
+    outcomes.set('a.pdf', priced(24.5, '2026-01-01', '2026-01-31'))
+    const a = file('a.pdf')
+    await extractAndFinalize([a])
+    const before = draftWrites
+    const set = (from: string, to: string, doc = a, project = PROJECT_ID) =>
+      setInvoicePeriodOverrideAction(project, POINT_ID, doc, from, to)
+
+    expect(await set('2026-02-01', '2026-01-01')).toEqual({ ok: false, error: expect.stringContaining('nach dem Ende') })
+    expect(await set('2025-01-01', '2026-02-10')).toEqual({ ok: false, error: expect.stringContaining('400 Tage') })
+    expect(await set('2026-10-01', '2026-10-20')).toEqual({ ok: false, error: expect.stringContaining('Zukunft') })
+    expect(await set('2026-02-30', '2026-03-31')).toEqual({ ok: false, error: expect.stringContaining('gültige') })
+    expect(await set('2026-01-01', '2026-01-31', file('fremd.pdf', OTHER_PROJECT_ID))).toEqual({
+      ok: false,
+      error: expect.stringContaining('nicht (mehr) an diesem Zählpunkt'),
+    })
+    rpc.mockImplementationOnce(async () => ({ data: null, error: { code: '42501' } }))
+    expect(await set('2026-01-01', '2026-01-31', a, OTHER_PROJECT_ID)).toEqual({
+      ok: false,
+      error: expect.stringContaining('Keine Berechtigung'),
+    })
+    expect(draftWrites).toBe(before)
+    expect(entryOf(a)).not.toHaveProperty('billingPeriodOverride')
   })
 })
 

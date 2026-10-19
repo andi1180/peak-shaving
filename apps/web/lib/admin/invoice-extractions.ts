@@ -128,6 +128,21 @@ export type StoredInvoiceExtraction = {
   extraction: InvoiceExtraction
   /** H3: die vom Admin gewählte Preisbasis, wenn die Rechnung selbst sie nicht eindeutig nennt. */
   supplierPriceBasisChosen?: PriceBasis
+  /** Vom Admin korrigierter Abrechnungszeitraum; `extraction` behält den gelesenen. */
+  billingPeriodOverride?: BillingPeriodOverride
+}
+
+/** Ein korrigierter Abrechnungszeitraum (ISO-Daten, beide inklusive) mit Zeitpunkt der Korrektur. */
+export type BillingPeriodOverride = { from: string; to: string; at: string }
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+function readBillingPeriodOverride(value: unknown): BillingPeriodOverride | null {
+  const raw = asObject(value)
+  const { from, to, at } = raw ?? {}
+  if (typeof from !== 'string' || typeof to !== 'string' || typeof at !== 'string') return null
+  if (!ISO_DAY.test(from) || !ISO_DAY.test(to) || from > to) return null
+  return { from, to, at }
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -162,11 +177,13 @@ export function readStoredInvoiceExtractions(
     if (typeof documentId !== 'string' || documentId === '') continue
     if (typeof filename !== 'string' || filename.trim() === '') continue
     const chosen = row?.supplierPriceBasisChosen
+    const override = readBillingPeriodOverride(row?.billingPeriodOverride)
     rows.push({
       documentId,
       filename: filename.trim(),
       extraction: parseInvoiceExtraction(row?.extraction),
       ...(chosen === 'net' || chosen === 'gross' ? { supplierPriceBasisChosen: chosen } : {}),
+      ...(override ? { billingPeriodOverride: override } : {}),
     })
   }
   return rows
@@ -239,10 +256,25 @@ export function foldStoredInvoices(
   }
 }
 
+/**
+ * Die EINE Stelle, an der eine Zeitraum-Korrektur wirkt. Aus dem gelesenen Zeitraum abgeleitete
+ * Parserwerte (z. B. der tagesanteilig nachgerechnete Leistungspreis) bleiben bewusst unverändert.
+ */
+export function effectiveInvoiceExtraction(entry: StoredInvoiceExtraction): InvoiceExtraction {
+  const override = entry.billingPeriodOverride
+  if (!override) return entry.extraction
+  return {
+    ...entry.extraction,
+    billingPeriodFrom: override.from,
+    billingPeriodTo: override.to,
+    billingPeriodAssumed: false,
+  }
+}
+
 /** Die Extraktionen, wie `foldStoredInvoices` sie zusammenführt: Lieferantenpreise netto, unklare Basis → null. */
 export function nettedInvoiceExtractions(entries: readonly StoredInvoiceExtraction[]) {
   return entries.map((entry) =>
-    supplierPricesOnNetBasis(entry.extraction, supplierPriceBasisOf(entry)),
+    supplierPricesOnNetBasis(effectiveInvoiceExtraction(entry), supplierPriceBasisOf(entry)),
   )
 }
 

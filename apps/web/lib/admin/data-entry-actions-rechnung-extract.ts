@@ -270,9 +270,14 @@ export async function finalizeInvoiceExtractionsAction(
     pending.delete(old.documentId)
     if (sameReading(old, entry)) return old
     taken += 1
-    return old.supplierPriceBasisChosen
-      ? { ...entry, supplierPriceBasisChosen: old.supplierPriceBasisChosen }
-      : entry
+    // Admin-Entscheidungen zu dieser Rechnung überstehen das Neulesen.
+    return {
+      ...entry,
+      ...(old.supplierPriceBasisChosen
+        ? { supplierPriceBasisChosen: old.supplierPriceBasisChosen }
+        : {}),
+      ...(old.billingPeriodOverride ? { billingPeriodOverride: old.billingPeriodOverride } : {}),
+    }
   })
   for (const entry of pending.values()) {
     all.push(entry)
