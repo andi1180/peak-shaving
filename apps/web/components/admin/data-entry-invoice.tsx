@@ -115,7 +115,6 @@ import {
   INVOICE_SKIPPED_KEY,
   MAX_INVOICES_PER_SELECTION,
   foldStoredInvoices,
-  invoiceConflictLabels,
   invoiceMergeDisplayRows,
   manualTariffDraftIsEmpty,
   readManualTariffDraft,
@@ -123,7 +122,9 @@ import {
   supplierPriceBasisOf,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
+import { meteringPointStationId, stationHref } from '@/lib/admin/data-entry-stations'
 import { MultiDirectUpload, type UploadedDocument } from './multi-direct-upload'
+import { InvoiceFieldChoices } from './invoice-field-choices'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
@@ -210,6 +211,8 @@ export function DataEntryInvoice({
   const [now, setNow] = React.useState(() => Date.now())
   // Dateinamen der hochgeladenen, aber noch nicht gestarteten Rechnungen (noch ohne Tabellenzeile).
   const queuedNames = React.useRef(new Map<string, string>())
+  // Lädt den Auswahlblock für Widersprüche neu: nach Abschluss, Entfernen und Preisbasis-Wechsel.
+  const [conflictsVersion, reloadConflicts] = React.useReducer((n: number) => n + 1, 0)
 
   const refreshRows = React.useCallback(async () => {
     try {
@@ -234,6 +237,7 @@ export function DataEntryInvoice({
           console.error('[admin/dateneingabe] Rechnungen abschliessen:', cause)
           setState({ formError: FINALIZE_CRASH_TEXT })
         }
+        reloadConflicts()
       },
       onChange: () => {
         setActive(created.active())
@@ -294,6 +298,9 @@ export function DataEntryInvoice({
     setInvoicePriceBasisAction,
     ADMIN_INITIAL_STATE,
   )
+  React.useEffect(() => {
+    if (removeState !== ADMIN_INITIAL_STATE || basisState !== ADMIN_INITIAL_STATE) reloadConflicts()
+  }, [removeState, basisState])
   const error = state.fieldErrors?.files
   /*
    * ⚠ Der erfasste Tarifstand dieses Zählpunkts — aus dem ENTWURF, wie alles andere auf dieser
@@ -341,9 +348,8 @@ export function DataEntryInvoice({
    */
   const skipped = meteringPoint.draft[INVOICE_SKIPPED_KEY] === true
   // H3: gefaltet auf netto — genau das, was auch im Entwurf steht.
-  const { merged, conflicts } = foldStoredInvoices(stored)
+  const { merged } = foldStoredInvoices(stored)
   const rows = invoiceMergeDisplayRows(merged)
-  const conflictLabels = invoiceConflictLabels(conflicts)
 
   return (
     <div className="flex flex-col gap-6">
@@ -380,7 +386,14 @@ export function DataEntryInvoice({
           basisAction={basisAction}
           isSettingBasis={isSettingBasis}
           rows={rows}
-          conflictLabels={conflictLabels}
+          conflictChoices={
+            <InvoiceFieldChoices
+              projectId={projectId}
+              meteringPointId={meteringPoint.id}
+              tariffHref={stationHref(projectId, meteringPointStationId(meteringPointNumber, 'tarif'))}
+              reloadKey={conflictsVersion}
+            />
+          }
           removeAction={removeAction}
           isRemoving={isRemoving}
         />
@@ -653,7 +666,7 @@ function InvoiceSummary({
   meteringPointId,
   entries,
   rows,
-  conflictLabels,
+  conflictChoices,
   removeAction,
   isRemoving,
   basisAction,
@@ -671,7 +684,8 @@ function InvoiceSummary({
   basisAction: (formData: FormData) => void
   isSettingBasis: boolean
   rows: readonly { key: string; label: string; text: string }[]
-  conflictLabels: readonly string[]
+  /** Der Auswahlblock für widersprüchliche Felder — er lädt seine Daten selbst. */
+  conflictChoices: React.ReactNode
   /*
    * ⚠ Action und Wartezustand kommen VON AUSSEN — s. Kopf. Der Zustand gehört der Komponente
    * darüber, weil diese hier mit der letzten Rechnung verschwindet.
@@ -788,29 +802,7 @@ function InvoiceSummary({
         </>
       )}
 
-      {conflictLabels.length > 0 && (
-        /*
-          Bernstein, nicht rot: es ist kein Fehler, sondern ein Befund, der eine Entscheidung
-          verlangt — dieselbe Farbwahl wie bei der Teiljahres-Warnung im Report („Farbe ist
-          Information, kein Dekor", DESIGN.md).
-        */
-        <div className="mt-5 max-w-prose rounded-md border border-warning-border bg-warning-subtle p-3">
-          <p className="text-small font-medium text-ink">
-            {conflictLabels.length === 1
-              ? 'Eine Angabe widerspricht sich zwischen den Rechnungen'
-              : `${conflictLabels.length} Angaben widersprechen sich zwischen den Rechnungen`}
-          </p>
-          <p className="mt-2 max-w-prose text-small text-text-muted">
-            {conflictLabels.join(', ')} — die Rechnungen nennen dazu verschiedene Werte. Es wurde
-            deshalb <strong className="font-medium text-ink">nichts übernommen</strong>; bitte im
-            Tarif-Schritt von Hand eintragen, welcher Wert gilt.
-          </p>
-          <p className="mt-2 max-w-prose text-caption text-text-muted">
-            Widersprüchliche Werte werden nicht übernommen. Das Feld bleibt leer, bis Sie einen Wert
-            wählen oder eintragen.
-          </p>
-        </div>
-      )}
+      {conflictChoices}
     </div>
   )
 }
