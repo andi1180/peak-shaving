@@ -3,7 +3,6 @@ import { Check } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container, Eyebrow } from '@/components/ui/layout'
-import { QuickCalculator } from '@/components/quick-calculator'
 
 /**
  * Peak-Shaving-Block (§4.4 Nr. 2, §4.2 „best of both worlds").
@@ -33,61 +32,34 @@ export function PeakShavingBlock() {
   return (
     <section className="bg-navy text-navy-foreground">
       <Container className="py-16 sm:py-24">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* Erklärung */}
-          <div>
-            {/* Eyebrow trägt sonst den Teal-Akzent — auf Navy wäre er zu dunkel
-                (kein AA gegen #18336f). Hier deshalb der helle Knoten-Ton. */}
-            <Eyebrow className="text-node">{t('eyebrow')}</Eyebrow>
-            <h2 className="mt-3 text-h2 text-navy-foreground">{t('title')}</h2>
-            <p className="mt-5 max-w-prose text-body text-white/80">{t('lead')}</p>
+        <div className="max-w-3xl">
+          {/* Eyebrow trägt sonst den Teal-Akzent — auf Navy wäre er zu dunkel
+              (kein AA gegen #18336f). Hier deshalb der helle Knoten-Ton. */}
+          <Eyebrow className="text-node">{t('eyebrow')}</Eyebrow>
+          <h2 className="mt-3 text-h2 text-navy-foreground">{t('title')}</h2>
+          <p className="mt-5 max-w-prose text-body text-white/80">{t('lead')}</p>
 
-            <ul className="mt-8 space-y-5">
-              {points.map((point) => (
-                <li key={point.title} className="flex gap-3">
-                  <Check
-                    className="mt-0.5 h-4 w-4 shrink-0 text-node"
-                    strokeWidth={2.5}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="text-h4 text-navy-foreground">{point.title}</p>
-                    <p className="mt-1 text-small text-white/70">{point.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <ul className="mt-8 space-y-5">
+            {points.map((point) => (
+              <li key={point.title} className="flex gap-3">
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-node"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-h4 text-navy-foreground">{point.title}</p>
+                  <p className="mt-1 text-small text-white/70">{point.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
 
-            {/*
-             * NUR EIN Sektions-CTA, und der ist bewusst sekundär.
-             *
-             * Vorher standen hier zwei Teal-Buttons auf DASSELBE Ziel: links
-             * „Peak-Shaving Kalkulator", rechts in der Karte „Zum Kalkulator" —
-             * auf Desktop gleichzeitig sichtbar. Zwei Primary nebeneinander
-             * heben sich gegenseitig auf und widersprechen „Akzent sparsam"
-             * (DESIGN.md). Die Karte trägt den Kalkulator-CTA am besseren Ort:
-             * direkt unter der gerechneten Zahl. Der einzige Primary der
-             * Sektion sitzt also dort, hier bleibt der ERKLÄR-Weg
-             * (→ /peak-shaving) als sekundäre Alternative.
-             */}
-            <div className="mt-9">
-              <Button asChild variant="secondary" size="md">
-                <Link href="/peak-shaving">{t('ctaSecondary')}</Link>
-              </Button>
-            </div>
-          </div>
-
-          {/*
-           * Schnellrechner — der freie Teaser (§5.4), jetzt echt rechnend.
-           *
-           * Die Komponente liegt bewusst NICHT unter components/home/: sie wird
-           * auch auf der Peak-Shaving-Seite und auf Branchenseiten eingebettet.
-           * Sie bringt ihren eigenen hellen Kartengrund mit und ist damit von
-           * dieser Navy-Sektion unabhängig — hier wird nichts konfiguriert, die
-           * Default-Werte sind Teil der Komponente.
-           */}
-          <div className="lg:pt-10">
-            <QuickCalculator />
+          {/* Sekundär: der Erklär-Weg. Der Schnellrechner steht seit dem Leadgen-Umbau unter dem Hero. */}
+          <div className="mt-9">
+            <Button asChild variant="secondary" size="md">
+              <Link href="/peak-shaving">{t('ctaSecondary')}</Link>
+            </Button>
           </div>
         </div>
       </Container>

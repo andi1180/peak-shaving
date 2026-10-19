@@ -8,11 +8,9 @@ import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
  * Partner-Banner der Startseite (B16-Einstieg) — der einzige Verweis aufs Partnerprogramm im
  * Startseiten-Inhalt.
  *
- * ── WARUM GANZ UNTEN, NACH DEM KONTAKT-CTA ──────────────────────────────────────────────────────
- * Die Startseite richtet sich an GEWERBEKUNDEN; ihr Ziel ist die Kontaktanfrage (§4.4 Nr. 7,
- * `kontakt-cta.tsx`). Ein Partner-Aufruf oberhalb davon konkurrierte mit genau der Handlung, an
- * der das Geschäft hängt — und zwar zugunsten einer Zielgruppe, die diese Seite gar nicht sucht.
- * Deshalb steht er dahinter: sichtbar für den, der bis zum Ende liest, unsichtbar als Ablenkung.
+ * ── POSITION: VOR DEM KONTAKT-CTA (Leadgen-Umbau Schritt 1, 19.10.2026) ──────────────────────────
+ * Bis dahin stand er hinter dem Kontakt-CTA; die neue Startseiten-Reihenfolge setzt den Kontakt-CTA
+ * bewusst an den Schluss. Der Banner bleibt sekundär und unauffällig.
  *
  * ── WARUM SELBST-QUALIFIZIEREND FORMULIERT ──────────────────────────────────────────────────────
  * Die erste Zeile nennt den Adressaten („Elektro- oder PV-Betrieb"), nicht das Angebot. Ein
@@ -20,12 +18,10 @@ import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
  * erkennt ein Gewerbekunde in einem halben Satz, dass er nicht gemeint ist.
  *
  * ── GENAU EIN BANNER ────────────────────────────────────────────────────────────────────────────
- * Nicht zwei, und keine zweite Platzierung weiter oben. Es gibt daneben genau zwei weitere
- * Einstiege: den Knopf rechts oben (`site-header.tsx`) und den Fusszeilen-Link
- * (`site-footer.tsx`, seit B16-3).
+ * Nicht zwei, und keine zweite Platzierung weiter oben. Daneben gibt es den „Partner"-Knopf rechts
+ * oben (`site-header.tsx`) und den Fusszeilen-Link (`site-footer.tsx`, seit B16-3).
  *
- * Sekundärer Knopf, kein primärer: Der einzige primäre Handlungsaufruf dieser Seite bleibt das
- * Kontaktformular direkt darüber.
+ * Sekundärer Knopf, kein primärer: primär ist auf dieser Seite „Ersparnis berechnen".
  *
  * ⚠ TEXTE SIND ARBEITSSTAND — s. Vermerk bei `Home.Partner` in `messages/de.json`.
  */

@@ -28,7 +28,8 @@ export function Portfolio() {
   const tNav = useTranslations('Nav')
 
   return (
-    <Section tone="alt">
+    /* Standardgrund: steht seit dem Leadgen-Umbau direkt hinter dem Wissen-Teaser (alt). */
+    <Section>
       <Container>
         <Eyebrow>{t('eyebrow')}</Eyebrow>
         <h2 className="mt-3 text-h2 text-ink">{t('title')}</h2>
