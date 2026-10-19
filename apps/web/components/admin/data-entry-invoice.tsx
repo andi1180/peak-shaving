@@ -93,15 +93,27 @@ import { Button } from '@/components/ui/button'
 import {
   removeMeteringPointInvoiceAction,
   discardInvoiceUploadAction,
-  readStoredInvoicesAction,
   registerInvoiceUploadAction,
   requestInvoiceUploadAction,
   skipMeteringPointInvoiceAction,
 } from '@/lib/admin/data-entry-actions'
 import { setInvoicePriceBasisAction } from '@/lib/admin/data-entry-actions-rechnung-basis'
 import {
+  finalizeInvoiceExtractionsAction,
+  listInvoiceExtractionsAction,
+  type InvoiceExtractionRow,
+} from '@/lib/admin/data-entry-actions-rechnung-extract'
+import {
+  INVOICE_EXTRACT_POLL_MS,
+  canRetryInvoiceRow,
+  createInvoiceExtractionQueue,
+  invoiceRowView,
+  invoiceRowsInProgress,
+  type InvoiceRowView,
+} from '@/lib/admin/invoice-extract-queue'
+import {
   INVOICE_SKIPPED_KEY,
-  MAX_INVOICES_PER_UPLOAD,
+  MAX_INVOICES_PER_SELECTION,
   foldStoredInvoices,
   invoiceConflictLabels,
   invoiceMergeDisplayRows,
@@ -110,19 +122,47 @@ import {
   readStoredInvoiceExtractions,
   supplierPriceBasisOf,
 } from '@/lib/admin/invoice-extractions'
-import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
-import { guardInvoiceRead } from '@/lib/admin/invoice-upload-guard'
+import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import { MultiDirectUpload, type UploadedDocument } from './multi-direct-upload'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 
-// Ein 504 der Plattform darf die Station nicht abstürzen lassen (s. `guardInvoiceRead`).
-const guardedReadAction = guardInvoiceRead(readStoredInvoicesAction)
 const PDF_TYPES = ['application/pdf'] as const
 import { AdminError, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-rechnungen'
+const EXTRACT_ROUTE = '/api/admin/invoice-extract'
+
+const ROW_VIEW_TEXT: Record<InvoiceRowView, string> = {
+  waiting: 'wartet',
+  reading: 'wird gelesen …',
+  done: 'gelesen',
+  failed: 'fehlgeschlagen',
+  stale: 'hängt seit über 10 Minuten',
+}
+
+const FINALIZE_CRASH_TEXT =
+  'Die gelesenen Rechnungen konnten gerade nicht zusammengeführt werden. Bitte die Seite neu laden.'
+
+/** Eine Rechnung über die Route lesen; jeder Netz- oder Plattformfehler wird zu `request_failed`. */
+async function extractViaRoute(
+  projectId: string,
+  meteringPointId: string,
+  documentId: string,
+): Promise<{ status: string }> {
+  try {
+    const res = await fetch(EXTRACT_ROUTE, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId, meteringPointId, documentId }),
+    })
+    const body = (await res.json().catch(() => null)) as { status?: unknown } | null
+    return typeof body?.status === 'string' ? { status: body.status } : { status: 'request_failed' }
+  } catch {
+    return { status: 'request_failed' }
+  }
+}
 const MANUAL_ID = 'dateneingabe-rechnung-manuell'
 
 export function DataEntryInvoice({
@@ -147,7 +187,7 @@ export function DataEntryInvoice({
   /**
    * Die Grössengrenze je Datei, aus der Server-Komponente hereingereicht.
    *
-   * ⚠ SIE MUSS EIN PROP SEIN, anders als `MAX_INVOICES_PER_UPLOAD` direkt darüber:
+   * ⚠ SIE MUSS EIN PROP SEIN, anders als `MAX_INVOICES_PER_SELECTION`:
    * `MAX_INVOICE_FILE_BYTES` liegt in `packages/extractors`, und dessen Barrel ist `server-only`.
    * Hier importiert bräche er den Client-Build. Die Zahl selbst ist harmlos — nur ihr Fundort
    * nicht.
@@ -157,18 +197,81 @@ export function DataEntryInvoice({
   nextHref: string | null
 }) {
   /*
-   * Die Dateien gehen direkt in den Storage (`MultiDirectUpload`); diese Action liest danach die
-   * abgelegten Dokumente aus. An die Anwendung gehen dabei nur Kennungen.
+   * Die Dateien gehen direkt in den Storage (`MultiDirectUpload`), danach wird jede in einem
+   * eigenen Request gelesen (`createInvoiceExtractionQueue`, höchstens drei gleichzeitig) und am
+   * Ende einmal zusammengeführt. Der Lesestand je Rechnung kommt aus `document_extractions` und
+   * übersteht damit ein Neuladen.
    */
-  const [state, readAction, isPending] = useActionState(guardedReadAction, ADMIN_INITIAL_STATE)
-  const handleUploaded = (documents: UploadedDocument[]) =>
-    React.startTransition(() =>
-      readAction({
-        projectId,
-        meteringPointId: meteringPoint.id,
-        documentIds: documents.map((document) => document.documentId),
-      }),
-    )
+  const meteringPointId = meteringPoint.id
+  const [state, setState] = React.useState<AdminState>(ADMIN_INITIAL_STATE)
+  const [extractionRows, setExtractionRows] = React.useState<InvoiceExtractionRow[] | null>(null)
+  const [listError, setListError] = React.useState<string | null>(null)
+  const [active, setActive] = React.useState<string[]>([])
+  const [now, setNow] = React.useState(() => Date.now())
+  // Dateinamen der hochgeladenen, aber noch nicht gestarteten Rechnungen (noch ohne Tabellenzeile).
+  const queuedNames = React.useRef(new Map<string, string>())
+
+  const refreshRows = React.useCallback(async () => {
+    try {
+      const result = await listInvoiceExtractionsAction(projectId, meteringPointId)
+      if (result.ok) {
+        setExtractionRows(result.rows)
+        setListError(null)
+      } else setListError(result.error)
+    } catch {
+      setListError('Der Lesestand konnte gerade nicht geladen werden.')
+    }
+    setNow(Date.now())
+  }, [projectId, meteringPointId])
+
+  const queue = React.useMemo(() => {
+    const created = createInvoiceExtractionQueue({
+      extract: (documentId) => extractViaRoute(projectId, meteringPointId, documentId),
+      finalize: async () => {
+        try {
+          setState(await finalizeInvoiceExtractionsAction(projectId, meteringPointId))
+        } catch (cause) {
+          console.error('[admin/dateneingabe] Rechnungen abschliessen:', cause)
+          setState({ formError: FINALIZE_CRASH_TEXT })
+        }
+      },
+      onChange: () => {
+        setActive(created.active())
+        void refreshRows()
+      },
+    })
+    return created
+  }, [projectId, meteringPointId, refreshRows])
+
+  const handleUploaded = (documents: UploadedDocument[]) => {
+    for (const document of documents) queuedNames.current.set(document.documentId, document.name)
+    setState(ADMIN_INITIAL_STATE)
+    queue.enqueue(documents.map((document) => document.documentId))
+  }
+
+  React.useEffect(() => {
+    void refreshRows()
+  }, [refreshRows])
+
+  // Neu laden, solange etwas wartet oder gelesen wird; eine hängende Zeile hält die Abfrage nicht an.
+  const inProgress =
+    active.length > 0 ||
+    (extractionRows !== null && invoiceRowsInProgress(extractionRows, now))
+  React.useEffect(() => {
+    if (!inProgress) return
+    const timer = window.setInterval(() => void refreshRows(), INVOICE_EXTRACT_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [inProgress, refreshRows])
+
+  // Noch nicht gestartete Rechnungen gingen beim Neuladen verloren (sie haben keine Zeile).
+  React.useEffect(() => {
+    if (active.length === 0) return
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [active.length])
+
+  const statusList = invoiceStatusList(extractionRows ?? [], active, queuedNames.current, now)
   /*
    * ⚠ ZWEITER Zustand, absichtlich HIER und nicht im einzelnen Entfernen-Formular — s. Kopf: mit
    * der letzten Rechnung verschwindet die Zusammenfassung, und mit ihr nähme ein Zustand darin
@@ -285,7 +388,7 @@ export function DataEntryInvoice({
 
       {/*
         ⚠ NUR OHNE GELESENE RECHNUNG. Liegt eine vor, hat der Upload das Signal ohnehin auf `false`
-        zurückgesetzt (s. `readStoredInvoicesAction`) — die Bedingung `stored.length === 0`
+        zurückgesetzt (s. `buildInvoiceDraft`) — die Bedingung `stored.length === 0`
         ist damit die zweite Schicht derselben Aussage, nicht ihre einzige: sie hält auch dann,
         wenn ein Entwurf aus einem älteren Stand beides zugleich trägt.
 
@@ -320,13 +423,13 @@ export function DataEntryInvoice({
           id={FIELD_ID}
           label={stored.length > 0 ? 'Weitere Rechnungen' : `Rechnungen für Zählpunkt ${meteringPointNumber}`}
           hint={
-            `PDF, je Datei bis ${Math.floor(maxBytes / (1024 * 1024))} MB, höchstens ${MAX_INVOICES_PER_UPLOAD} pro Vorgang. ` +
-            'Jede Rechnung wird im Projekt abgelegt und ausgelesen; bereits gelesene bleiben erhalten. ' +
+            `PDF, je Datei bis ${Math.floor(maxBytes / (1024 * 1024))} MB, bis zu ${MAX_INVOICES_PER_SELECTION} Rechnungen auf einmal; jede Rechnung wird einzeln gelesen. ` +
+            'Jede Rechnung wird im Projekt abgelegt; bereits gelesene bleiben erhalten. ' +
             'Zum Auslesen wird sie an Anthropic übertragen und dort nicht gespeichert.'
           }
           error={error}
           accept={PDF_TYPES}
-          maxFiles={MAX_INVOICES_PER_UPLOAD}
+          maxFiles={MAX_INVOICES_PER_SELECTION}
           maxBytesPerFile={maxBytes}
           request={(file) =>
             requestInvoiceUploadAction({
@@ -343,9 +446,37 @@ export function DataEntryInvoice({
           discard={(documentId) => discardInvoiceUploadAction({ projectId, documentId })}
           onUploaded={handleUploaded}
           submitLabel="Rechnungen hochladen"
-          busy={isPending}
-          busyLabel="Wird ausgelesen …"
         />
+        {listError && <p className="mt-3 text-small text-warning">{listError}</p>}
+        {statusList.length > 0 && (
+          <div className="mt-4">
+            <p className="text-small font-medium text-ink">Lesestand je Rechnung</p>
+            <ul className="mt-2 flex flex-col gap-1">
+              {statusList.map((item) => (
+                <li
+                  key={item.documentId}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-small text-text-muted"
+                >
+                  <span>{item.filename}</span>
+                  <span className={item.view === 'failed' || item.view === 'stale' ? 'text-warning' : undefined}>
+                    {ROW_VIEW_TEXT[item.view]}
+                    {item.view === 'failed' && item.error ? ` — ${item.error}` : ''}
+                  </span>
+                  {canRetryInvoiceRow(item.view) && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => queue.enqueue([item.documentId])}
+                    >
+                      Neu lesen
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/*
@@ -465,6 +596,47 @@ export function DataEntryInvoice({
       )}
     </div>
   )
+}
+
+type InvoiceStatusItem = {
+  documentId: string
+  filename: string
+  view: InvoiceRowView
+  error: string | null
+}
+
+/**
+ * Die Statusliste: die Zeilen aus `document_extractions`, dazu hochgeladene Rechnungen, deren Lesen
+ * in diesem Browser noch nicht gestartet ist (sie haben noch keine Zeile). Eine Rechnung, die hier
+ * gerade erneut wartet, zeigt keinen „Neu lesen"-Knopf.
+ */
+function invoiceStatusList(
+  rows: readonly InvoiceExtractionRow[],
+  active: readonly string[],
+  queuedNames: ReadonlyMap<string, string>,
+  now: number,
+): InvoiceStatusItem[] {
+  const queued = new Set(active)
+  const items: InvoiceStatusItem[] = rows.map((row) => {
+    const view = invoiceRowView(row, now)
+    return {
+      documentId: row.documentId,
+      filename: row.filename,
+      view: queued.has(row.documentId) && canRetryInvoiceRow(view) ? 'waiting' : view,
+      error: row.error,
+    }
+  })
+  const listed = new Set(rows.map((row) => row.documentId))
+  for (const documentId of active) {
+    if (listed.has(documentId)) continue
+    items.push({
+      documentId,
+      filename: queuedNames.get(documentId) ?? 'Rechnung',
+      view: 'waiting',
+      error: null,
+    })
+  }
+  return items
 }
 
 /**

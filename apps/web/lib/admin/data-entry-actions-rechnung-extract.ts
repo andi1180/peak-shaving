@@ -12,7 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import type { Json } from '@/db-types'
 import {
-  MAX_INVOICES_PER_UPLOAD,
+  MAX_INVOICES_PER_SELECTION,
   readStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
@@ -33,8 +33,8 @@ import { FORBIDDEN, GENERIC, UUID, isForbidden, statusOf } from './data-entry-ac
 
 /**
  * Rechnungen JE DOKUMENT auslesen (ein Request je Rechnung, Status in `platform.document_extractions`)
- * und danach EINMAL zusammenführen. Noch ohne Aufrufer in der Oberfläche; der Sammelweg
- * `readStoredInvoicesAction` bleibt bis zur Umstellung bestehen.
+ * und danach zusammenführen. Die Station ruft das Auslesen über `app/api/admin/invoice-extract`
+ * auf (Server Actions laufen je Client nacheinander), den Abschluss und die Statusliste direkt.
  */
 
 /** Der Extraktor führt keine Versionskonstante; die Spalte bleibt leer, bis es eine gibt. */
@@ -168,9 +168,9 @@ export async function finalizeInvoiceExtractionsAction(
     if (!documentIds.every((id) => typeof id === 'string' && UUID.test(id))) {
       return { formError: GENERIC, open: [] }
     }
-    if (new Set(documentIds).size > MAX_INVOICES_PER_UPLOAD) {
+    if (new Set(documentIds).size > MAX_INVOICES_PER_SELECTION) {
       return {
-        fieldErrors: { files: `Höchstens ${MAX_INVOICES_PER_UPLOAD} Rechnungen pro Vorgang.` },
+        fieldErrors: { files: `Höchstens ${MAX_INVOICES_PER_SELECTION} Rechnungen pro Vorgang.` },
         open: [],
       }
     }
@@ -328,4 +328,69 @@ export async function finalizeInvoiceExtractionsAction(
     ...(openText ? { fieldErrors: { files: openText } } : {}),
     open,
   }
+}
+
+export type InvoiceExtractionRow = {
+  documentId: string
+  filename: string
+  status: Exclude<DocumentExtraction['status'], 'removed'>
+  error: string | null
+  attempts: number
+  startedAt: string | null
+}
+
+export type ListInvoiceExtractionsResult =
+  | { ok: true; rows: InvoiceExtractionRow[] }
+  | { ok: false; error: string }
+
+/** Die Auslese-Zeilen eines Zählpunkts (ohne `removed`) mit Dateinamen — die Statusliste der Station. */
+export async function listInvoiceExtractionsAction(
+  projectId: string,
+  meteringPointId: string,
+): Promise<ListInvoiceExtractionsResult> {
+  if (![projectId, meteringPointId].every((id) => typeof id === 'string' && UUID.test(id))) {
+    return { ok: false, error: GENERIC }
+  }
+  const listed = await listDocumentExtractions({ projectId, meteringPointId, kind: 'invoice' })
+  if (!listed.ok) {
+    console.error('[admin/dateneingabe] list_document_extractions (Statusliste):', listed.reason)
+    return { ok: false, error: GENERIC }
+  }
+  const visible = listed.extractions.filter((row) => row.status !== 'removed')
+  if (visible.length === 0) return { ok: true, rows: [] }
+
+  const db = await createClient()
+  const docs = await db.rpc('list_project_documents', {
+    p_project_id: projectId,
+    p_limit: 200,
+    p_offset: 0,
+  })
+  if (docs.error && isForbidden(docs.error)) return { ok: false, error: FORBIDDEN }
+  const names = new Map<string, string>()
+  const documents = (docs.data as { documents?: unknown } | null)?.documents
+  if (Array.isArray(documents)) {
+    for (const doc of documents as Record<string, unknown>[]) {
+      const name = String(doc.original_filename ?? '').trim()
+      if (typeof doc.id === 'string' && name !== '') names.set(doc.id, name)
+    }
+  }
+
+  const rows: InvoiceExtractionRow[] = []
+  for (const row of visible) {
+    let filename = names.get(row.document_id)
+    // Jenseits der ersten 200 Dokumente einzeln nachschlagen.
+    if (!filename) {
+      const loaded = await loadStoredInvoiceDocument(db, projectId, row.document_id)
+      filename = loaded.ok ? loaded.document.filename : 'Unbenannte Datei'
+    }
+    rows.push({
+      documentId: row.document_id,
+      filename,
+      status: row.status as InvoiceExtractionRow['status'],
+      error: row.error,
+      attempts: row.attempts,
+      startedAt: row.started_at,
+    })
+  }
+  return { ok: true, rows }
 }

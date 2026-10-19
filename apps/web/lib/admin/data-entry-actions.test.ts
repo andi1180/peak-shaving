@@ -1,27 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 /*
- * ⚠ Beide Grenzen kommen aus ihrem echten Fundort, nicht als abgetippte Zahl: ein Test, der 12 und
- * 6 MB selbst behauptet, bliebe grün, wenn die Anwendung gegen andere Werte prüft — und misst dann
- * eine Grenze, die es in Produktion nicht gibt.
+ * ⚠ Die Grenze kommt aus ihrem echten Fundort, nicht als abgetippte Zahl: ein Test, der sie selbst
+ * behauptet, bliebe grün, wenn die Anwendung gegen einen anderen Wert prüft.
  */
-import { MAX_BATTERY_TEXT_CHARS, MAX_INVOICE_FILE_BYTES } from 'extractors'
+import { MAX_BATTERY_TEXT_CHARS } from 'extractors'
 /*
  * Dieselbe Regel für die PV-Grenze: `MAX_PV_PROFILE_BYTES` der Action IST
  * `MAX_PROJECT_DOCUMENT_BYTES` (die ABLAGE ist die kleinere von zwei Grenzen). Hier steht
  * deshalb die Quelle und keine zweite Zahl.
  */
 import { MAX_PROJECT_DOCUMENT_BYTES, pvIsInLoadProfile } from 'shared'
-import {
-  INVOICE_SKIPPED_KEY,
-  MAX_INVOICES_PER_UPLOAD,
-  foldStoredInvoices,
-  withInvoicePriceBasis,
-  withStoredInvoiceExtractions,
-  type StoredInvoiceExtraction,
-} from './invoice-extractions'
-import { replaceInvoiceDraftFields } from './invoice-draft-fields'
-import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
+import { INVOICE_SKIPPED_KEY } from './invoice-extractions'
 
 /**
  * B24, Teil 1 — die Server Actions, deren Zusage in der ORCHESTRIERUNG steckt.
@@ -117,9 +107,10 @@ const {
   saveMeteringPointPvChoiceAction,
   scanPvDesignAction,
   skipMeteringPointInvoiceAction,
-  readStoredInvoicesAction,
   uploadMeteringPointPvProfileAction,
 } = await import('./data-entry-actions')
+const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction } =
+  await import('./data-entry-actions-rechnung-extract')
 
 /*
  * ⚠ AUS DEM MODUL, NICHT AUS DEM BARREL — und das ist kein Umweg, sondern die Zusage selbst:
@@ -150,7 +141,6 @@ const { PV_PROFILE_DRAFT_KEYS, readPvProfileDraft, hasPvProfile } =
   await import('./pv-profile-draft')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
-const OTHER_PROJECT_ID = '22222222-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
 const DOCUMENT_ID = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
 const STORAGE_PATH = `${PROJECT_ID}/${DOCUMENT_ID}`
@@ -190,6 +180,7 @@ beforeEach(() => {
   uploadProjectDocument.mockReset()
   storedFiles.clear()
   documentIds.clear()
+  extractions.clear()
   getProjectDocumentBytes.mockReset()
   getProjectDocumentBytes.mockImplementation(async (path: string) => {
     const file = storedFiles.get(path.slice(path.lastIndexOf('/') + 1))
@@ -312,27 +303,10 @@ describe('removeMeteringPointLoadProfileAction — nichts anfassen, wo nichts zu
 })
 
 /**
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * B24, Teil 1 — der Rechnungs-Schritt: mehrere Dateien in EINEM Vorgang
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Was hier geprüft wird, ist genau das, was WEDER das DB-Gate NOCH `invoice-extractions.test.ts`
- * sehen kann: die Orchestrierung über mehrere Dateien hinweg. Vier Eigenschaften, und jede davon
- * geht im Fehlerfall still schief:
- *
- *   1. EIN FEHLSCHLAG BLOCKIERT DIE ÜBRIGEN NICHT. Zwölf Rechnungen sind zwölf abrechenbare
- *      Modellaufrufe; eine unlesbare darunter darf die elf gelesenen nicht mitnehmen.
- *   2. DER ZWEITE VORGANG ERGÄNZT, ER ERSETZT NICHT. `update_metering_point_draft` ERSETZT den
- *      Entwurf — wer die bestehende Liste nicht mitführt, verliert bei jedem Nachreichen alles,
- *      was vorher gelesen wurde, und die Zusammenführung liefe über eine einzige Rechnung.
- *   3. EIN WIDERSPRUCH ÜBERSCHREIBT NICHTS. `mergeInvoiceExtractions` setzt so ein Feld auf `null`,
- *      und `invoiceDraftValues` lässt es weg — der zuvor übernommene Wert bleibt STEHEN. Wäre das
- *      anders, bestritte ein Widerspruch genau die Angabe, die er gerade in Frage stellt.
- *   4. ÜBER DER OBERGRENZE PASSIERT GAR NICHTS. Nicht die ersten zwölf: eine Datei, die hochgeladen
- *      und gelesen wurde, ist bezahlt und abgelegt.
- *
- * Der Entwurf wird deshalb ZUSTANDSBEHAFTET nachgebildet (`list_metering_points` liest, was
- * `update_metering_point_draft` geschrieben hat) — ein Mock, der immer denselben leeren Entwurf
- * liefert, könnte Punkt 2 und 3 gar nicht messen und bliebe grün.
+ * B24, Teil 1 — der Rechnungs-Schritt. Gelesen wird wie in der Station: jede Rechnung einzeln
+ * (`extractStoredInvoiceAction`), danach ein Abschluss ohne Kennungen. Der Entwurf wird
+ * ZUSTANDSBEHAFTET nachgebildet (`list_metering_points` liest, was `update_metering_point_draft`
+ * geschrieben hat) — sonst liessen sich Ergänzen, Widerspruch und Entfernen gar nicht messen.
  */
 
 /** Der Entwurf des Zählpunkts — von `update_metering_point_draft` geschrieben, von `list_…` gelesen. */
@@ -348,11 +322,6 @@ function pdf(name: string, bytes = 1024): File {
   const content = new Uint8Array(Math.max(bytes, payload.byteLength))
   content.set(payload)
   return new File([content], name, { type: 'application/pdf' })
-}
-
-/** Der Dateiname aus der base64-Nutzlast, die `extractInvoiceData` übergeben bekommt. */
-function filenameOf(pdfBase64: string): string {
-  return Buffer.from(pdfBase64, 'base64').toString('utf8').replace(/\0+$/, '')
 }
 
 /** Eine gelesene Rechnung mit genau den Feldern, die der Test braucht. */
@@ -400,11 +369,45 @@ function withInvoiceWrappers() {
       draft = args.p_draft as Record<string, unknown>
       return { data: { status: 'ok' }, error: null }
     }
-    // Rechnungen dieses Tests haben keine Auslese-Zeile (Sammelweg).
-    if (fn === 'discard_document_extraction') return { data: { status: 'no_row' }, error: null }
+    if (fn === 'start_document_extraction') {
+      const id = String(args.p_document_id)
+      let row = extractions.get(id)
+      if (!row) {
+        row = { id: `e-${id}`, document_id: id, status: 'pending', result: null, error: null }
+        extractions.set(id, row)
+      }
+      if (row.status === 'removed') return { data: { status: 'removed', extraction: row }, error: null }
+      row.status = 'running'
+      return { data: { status: 'ok', extraction: { ...row } }, error: null }
+    }
+    if (fn === 'finish_document_extraction') {
+      const row = [...extractions.values()].find((r) => r.id === args.p_id)
+      if (!row) return { data: { status: 'not_found' }, error: null }
+      Object.assign(row, {
+        status: args.p_status,
+        result: JSON.parse(JSON.stringify(args.p_result ?? null)),
+        error: args.p_error ?? null,
+      })
+      return { data: { status: 'ok', extraction: { ...row } }, error: null }
+    }
+    if (fn === 'list_document_extractions') {
+      return { data: { status: 'ok', extractions: [...extractions.values()] }, error: null }
+    }
+    if (fn === 'discard_document_extraction') {
+      const row = extractions.get(String(args.p_document_id))
+      if (!row) return { data: { status: 'no_row' }, error: null }
+      row.status = 'removed'
+      return { data: { status: 'ok', extraction: { ...row } }, error: null }
+    }
     throw new Error(`unerwarteter Wrapper: ${fn}`)
   })
 }
+
+/** Die Auslese-Zeilen (`document_extractions`) dieses Tests, nach Dokumentkennung. */
+const extractions = new Map<
+  string,
+  { id: string; document_id: string; status: string; result: unknown; error: string | null }
+>()
 
 /** Die im Storage abgelegten Rechnungen dieses Tests, nach Dokumentkennung. */
 const storedFiles = new Map<string, File>()
@@ -420,13 +423,13 @@ function docIdFor(name: string): string {
   return id
 }
 
-/** Legt die Dateien ab (Stand nach dem Direkt-Upload) und liest sie über die Action aus. */
-function readInvoices(files: File[]) {
-  for (const file of files) storedFiles.set(docIdFor(file.name), file)
-  return readStoredInvoicesAction(
-    {},
-    { projectId: PROJECT_ID, meteringPointId: POINT_ID, documentIds: files.map((f) => docIdFor(f.name)) },
-  )
+/** Legt die Dateien ab (Stand nach dem Direkt-Upload), liest jede einzeln und schliesst ab. */
+async function readInvoices(files: File[]) {
+  for (const file of files) {
+    storedFiles.set(docIdFor(file.name), file)
+    await extractStoredInvoiceAction(PROJECT_ID, POINT_ID, docIdFor(file.name))
+  }
+  return finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
 }
 
 /** Was `get_project_document` für eine abgelegte Datei antwortet. */
@@ -453,270 +456,6 @@ function storedEntries(): { documentId: string; filename: string }[] {
   const raw = draft._invoiceExtractions
   return Array.isArray(raw) ? (raw as { documentId: string; filename: string }[]) : []
 }
-
-describe('readStoredInvoicesAction', () => {
-  beforeEach(() => {
-    draft = {}
-    withInvoiceWrappers()
-    extractInvoiceData.mockImplementation(async () => extraction())
-  })
-
-  it('liest eine abgelegte Datei aus und schreibt die Werte in den Entwurf', async () => {
-    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
-
-    const state = await readInvoices([pdf('Jahr 2025.pdf')])
-
-    expect(state.success).toContain('Eine Rechnung gelesen')
-    expect(state.fieldErrors).toBeUndefined()
-    expect(getProjectDocumentBytes).toHaveBeenCalledTimes(1)
-    expect(extractInvoiceData).toHaveBeenCalledTimes(1)
-
-    // Der Seiteneintrag trägt die Ablage-Kennung und den Dateinamen …
-    expect(storedEntries()).toHaveLength(1)
-    expect(storedEntries()[0]).toMatchObject({
-      documentId: docIdFor('Jahr 2025.pdf'),
-      filename: 'Jahr 2025.pdf',
-    })
-    // … und der gelesene Wert steht als Contract-Feld daneben.
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    // ⚠ Die Netzebene als „NE X", nicht als Zahl — sonst wäre der Entwurf dauerhaft ungültig.
-    expect(draft.netzebene).toBe('NE 5')
-    // ⚠ UMGEDREHT am 16.09.2026: der erkannte Netzbetreiber steht jetzt im Entwurf — unter
-    // demselben Schlüssel, den die Handeingabe schreibt und `report-render-actions.ts` liest.
-    expect(draft.netzbetreiber).toBe('wiener_netze')
-
-    expect(revalidatePath).toHaveBeenCalledWith(
-      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
-    )
-  })
-
-  it('verarbeitet mehrere Dateien in EINEM Vorgang', async () => {
-    const state = await readInvoices([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')])
-
-    expect(state.success).toContain('3 Rechnungen gelesen')
-    expect(state.success).toContain('Es liegen jetzt 3 Rechnungen')
-    expect(getProjectDocumentBytes).toHaveBeenCalledTimes(3)
-    expect(extractInvoiceData).toHaveBeenCalledTimes(3)
-    expect(storedEntries().map((entry) => entry.filename)).toEqual(['a.pdf', 'b.pdf', 'c.pdf'])
-
-    // ⚠ EIN Schreibvorgang, nicht drei: der Seiteneintrag und die übernommenen Werte gehören
-    // zusammen, und `update_metering_point_draft` ERSETZT ohnehin.
-    const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
-    expect(writes).toHaveLength(1)
-  })
-
-  it('⚠ weist mehr als MAX_INVOICES_PER_UPLOAD ab, OHNE etwas zu speichern', async () => {
-    const files = Array.from({ length: MAX_INVOICES_PER_UPLOAD + 1 }, (_, i) => pdf(`r${i}.pdf`))
-
-    const state = await readInvoices(files)
-
-    expect(state.fieldErrors?.files).toContain(String(MAX_INVOICES_PER_UPLOAD))
-    expect(state.fieldErrors?.files).toContain('nichts ausgelesen')
-    expect(state.success).toBeUndefined()
-
-    // Nicht die ersten zwölf: eine gelesene Datei ist bezahlt.
-    expect(getProjectDocumentBytes).not.toHaveBeenCalled()
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-    expect(rpc).not.toHaveBeenCalled()
-    expect(revalidatePath).not.toHaveBeenCalled()
-  })
-
-  it('benennt einen falschen Medientyp je Datei — ohne sie zu lesen', async () => {
-    const foto = new File([new Uint8Array(1024)], 'foto.png', { type: 'image/png' })
-
-    const state = await readInvoices([foto])
-
-    expect(state.fieldErrors?.files).toContain('foto.png')
-    expect(state.fieldErrors?.files).toContain('Nur PDF')
-    // Die Prüfung läuft VOR dem Lesen der Ablage und vor jedem abrechenbaren Aufruf.
-    expect(getProjectDocumentBytes).not.toHaveBeenCalled()
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-    // Nichts zu speichern — der Entwurf wird nicht geschrieben.
-    expect(rpc.mock.calls.some(([fn]) => fn === 'update_metering_point_draft')).toBe(false)
-  })
-
-  it('benennt eine zu grosse Datei je Datei — ohne sie auszulesen', async () => {
-    const zuGross = pdf('scan.pdf', MAX_INVOICE_FILE_BYTES + 1)
-
-    const state = await readInvoices([zuGross])
-
-    expect(state.fieldErrors?.files).toContain('scan.pdf')
-    expect(state.fieldErrors?.files).toContain('Grösser als')
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-  })
-
-  // ── Der geforderte Teilausfall ───────────────────────────────────────────────────────────────
-  it('⚠ lässt EINEN Fehlschlag die übrigen Dateien NICHT blockieren', async () => {
-    extractInvoiceData.mockImplementation(async (pdfBase64: string) => {
-      // Genau EINE Datei ist unlesbar — erkannt an ihrem Inhalt, nicht an der Aufrufreihenfolge.
-      if (filenameOf(pdfBase64) === 'kaputt.pdf') return { ok: false, reason: 'unreadable' }
-      return extraction({ energyPriceCtPerKwh: 24.5 })
-    })
-
-    const state = await readInvoices([pdf('gut-1.pdf'), pdf('kaputt.pdf'), pdf('gut-2.pdf')])
-
-    // Erfolg UND Fehlermeldung nebeneinander — beides ist wahr.
-    expect(state.success).toContain('2 Rechnungen gelesen')
-    expect(state.fieldErrors?.files).toContain('kaputt.pdf')
-    expect(state.fieldErrors?.files).not.toContain('gut-1.pdf')
-
-    expect(storedEntries().map((entry) => entry.filename)).toEqual(['gut-1.pdf', 'gut-2.pdf'])
-    // Die zwei gelesenen Rechnungen sind gespeichert, der Wert steht im Entwurf.
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-  })
-
-  it('Zeitüberschreitung beim Auslesen wird je Datei benannt, statt den Vorgang zu werfen', async () => {
-    extractInvoiceData.mockResolvedValue({ ok: false, reason: 'timeout' })
-    const state = await readInvoices([pdf('lang.pdf')])
-    expect(state.fieldErrors?.files).toContain('„lang.pdf": Das Auslesen hat zu lange gedauert')
-  })
-
-  it('⚠ ERGÄNZT beim zweiten Vorgang, statt die bestehende Liste zu ersetzen', async () => {
-    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
-    await readInvoices([pdf('erste.pdf')])
-    expect(storedEntries()).toHaveLength(1)
-
-    // Zweiter Vorgang, andere Datei — dieselben Werte, also kein Widerspruch.
-    extractInvoiceData.mockResolvedValue(
-      extraction({ energyPriceCtPerKwh: 24.5, leistungspreisEurPerKwYear: 38.52 }),
-    )
-    const state = await readInvoices([pdf('zweite.pdf')])
-
-    expect(state.success).toContain('Eine Rechnung gelesen')
-    expect(state.success).toContain('Es liegen jetzt 2 Rechnungen')
-    expect(storedEntries().map((entry) => entry.filename)).toEqual(['erste.pdf', 'zweite.pdf'])
-
-    // ⚠ Der Merge läuft über ALTE UND NEUE Extraktionen: das nur in der zweiten Rechnung
-    // enthaltene Feld kommt dazu, das übereinstimmende bleibt.
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
-  })
-
-  it('⚠ lässt einen WIDERSPRUCH den zuvor gesetzten Wert NICHT überschreiben', async () => {
-    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
-    await readInvoices([pdf('erste.pdf')])
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-
-    // Die zweite Rechnung sagt etwas anderes — der Merge setzt das Feld auf `null`, und
-    // `invoiceDraftValues` lässt es weg.
-    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 26.9 }))
-    const state = await readInvoices([pdf('zweite.pdf')])
-
-    expect(state.success).toContain('widersprechen einander')
-    expect(state.success).toContain('NICHT übernommen')
-
-    // ⚠ Der Wert von vorher steht UNVERÄNDERT — weder gelöscht noch mit 26,9 überschrieben.
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    // Der übereinstimmende Teil bleibt ebenfalls stehen.
-    expect(draft.netzebene).toBe('NE 5')
-    // Und beide Belege liegen am Zählpunkt.
-    expect(storedEntries()).toHaveLength(2)
-  })
-
-  it('fragt die Datenbank gar nicht erst, wenn keine Datei übergeben wurde', async () => {
-    const state = await readInvoices([])
-
-    expect(state.fieldErrors?.files).toContain('mindestens eine PDF-Rechnung')
-    expect(rpc).not.toHaveBeenCalled()
-  })
-
-  it('⚠ weist ein Dokument eines ANDEREN Projekts ab und liest gar nichts', async () => {
-    storedFiles.set(docIdFor('fremd.pdf'), pdf('fremd.pdf'))
-    const base = rpc.getMockImplementation()!
-    rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
-      if (fn !== 'get_project_document') return base(fn, args)
-      const answer = documentAnswer(String(args.p_document_id))
-      const doc = (answer.data as { document: Record<string, unknown> }).document
-      return { data: { status: 'ok', document: { ...doc, project_id: OTHER_PROJECT_ID } }, error: null }
-    })
-
-    const state = await readStoredInvoicesAction(
-      {},
-      { projectId: PROJECT_ID, meteringPointId: POINT_ID, documentIds: [docIdFor('fremd.pdf')] },
-    )
-
-    expect(state.formError).toContain('gehört nicht zu diesem Projekt')
-    expect(getProjectDocumentBytes).not.toHaveBeenCalled()
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-    expect(rpc.mock.calls.some(([fn]) => fn === 'update_metering_point_draft')).toBe(false)
-  })
-
-  it('meldet ein nicht (mehr) vorhandenes Dokument, statt es als Problem der Datei zu führen', async () => {
-    const state = await readStoredInvoicesAction(
-      {},
-      { projectId: PROJECT_ID, meteringPointId: POINT_ID, documentIds: [docIdFor('weg.pdf')] },
-    )
-
-    expect(state.formError).toBeDefined()
-    expect(state.fieldErrors).toBeUndefined()
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-  })
-
-  it('liest eine schon am Zählpunkt gelesene Rechnung nicht ein zweites Mal', async () => {
-    await readInvoices([pdf('a.pdf')])
-    extractInvoiceData.mockClear()
-
-    const state = await readInvoices([pdf('a.pdf')])
-
-    expect(state.formError).toContain('schon gelesen')
-    expect(extractInvoiceData).not.toHaveBeenCalled()
-    expect(storedEntries()).toHaveLength(1)
-  })
-
-  it('⚠ ergibt für dieselbe Rechnungsmenge den Entwurf der gemeinsamen Logik', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-10-19T08:00:00.000Z'))
-    try {
-      const outcomes: Record<string, unknown> = {
-        'a.pdf': extraction({ energyPriceCtPerKwh: 24.5, leistungspreisEurPerKwYear: 38.52 }),
-        'b.pdf': extraction({ energyPriceCtPerKwh: 26.9 }),
-        'c.pdf': extraction({ minBillableKw: 44 }, { supplierPriceBasis: null }),
-      }
-      extractInvoiceData.mockImplementation(async (base64: string) => outcomes[filenameOf(base64)])
-
-      await readInvoices([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')])
-
-      const entries = ['a.pdf', 'b.pdf', 'c.pdf'].map((name) => ({
-        documentId: docIdFor(name),
-        filename: name,
-        extraction: (outcomes[name] as { extraction: unknown }).extraction,
-      })) as StoredInvoiceExtraction[]
-      const now = new Date()
-      const fold = foldStoredInvoices(entries, ['wiener_netze', 'netz_noe', 'salzburg_netz'])
-      let expected = withInvoicePriceBasis(withStoredInvoiceExtractions({}, entries), fold)
-      expected = replaceInvoiceDraftFields(expected, fold.values, fold.conflicts, now, false)
-      expected = setDraftField(expected, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
-
-      expect(draft).toEqual(dropInapplicableBillingModel(expected))
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('gibt eine entzogene Rolle als solche zurück, ohne den Entwurf anzufassen', async () => {
-    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
-
-    const state = await readInvoices([pdf('a.pdf')])
-
-    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
-    expect(revalidatePath).not.toHaveBeenCalled()
-  })
-
-  it('fragt die Datenbank gar nicht erst, wenn die Kennungen unbrauchbar sind', async () => {
-    const badPoint = await readStoredInvoicesAction(
-      {},
-      { projectId: PROJECT_ID, meteringPointId: 'x', documentIds: [docIdFor('a.pdf')] },
-    )
-    const badDoc = await readStoredInvoicesAction(
-      {},
-      { projectId: PROJECT_ID, meteringPointId: POINT_ID, documentIds: ['kein-uuid'] },
-    )
-
-    expect(badPoint.formError).toBeDefined()
-    expect(badDoc.formError).toBeDefined()
-    expect(rpc).not.toHaveBeenCalled()
-  })
-})
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -863,7 +602,7 @@ describe('removeMeteringPointInvoiceAction', () => {
 })
 
 // Erneutes Lesen ersetzt die aus Rechnungen übernommenen Felder — Handeingaben bleiben.
-describe('readStoredInvoicesAction — erneutes Lesen', () => {
+describe('Rechnungen auslesen — erneutes Lesen', () => {
   beforeEach(() => {
     draft = {}
     withInvoiceWrappers()
