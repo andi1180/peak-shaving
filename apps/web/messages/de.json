@@ -1080,6 +1080,172 @@
     "prefillKw": "Höchste Leistung: {kw} kW",
     "prefillBill": "Stromrechnung pro Jahr: {bill} €"
   },
+  "Schnellreport": {
+    "brandPrefix": "COOL",
+    "brandI": "i",
+    "brandSuffix": "N ENERGY",
+    "createdOn": "Erstellt am {date}",
+    "headMeta": "Schnellreport · {firma}",
+    "firmaFallback": "Ihren Betrieb",
+    "pageOf": "Seite {page} von {total}",
+    "eur": "{amount} €",
+    "aroundEur": "rund {amount} €",
+    "aroundPercent": "rund {pct} %",
+    "savingValue": "−{amount} €",
+    "page1": {
+      "kicker": "Schnellreport",
+      "title": "Was Ihre Lastspitze kostet",
+      "forPrefix": "Für ",
+      "forRest": " · {branche} · {country}",
+      "heroCaption": "kostet Sie Ihre Lastspitze pro Jahr",
+      "tileKwh": "Jahresverbrauch",
+      "tileKw": "Höchste Leistung",
+      "tilePrice": "Leistungspreis",
+      "kwhValue": "{kwh} kWh",
+      "kwValue": "{kw} kW",
+      "priceValue": "{price} €/kW",
+      "billTitle": "Anteil an Ihrer Stromrechnung",
+      "billTotal": "Stromrechnung gesamt",
+      "billPeak": "davon Lastspitze",
+      "tenText": "sparen Sie schon, wenn Ihre Lastspitze nur um 10 % sinkt. Wie viel bei Ihnen tatsächlich möglich ist, zeigt der Profi-Report.",
+      "meaningTitle": "Was bedeutet das?",
+      "meaningBefore": "Ihr Netzbetreiber verrechnet nicht nur die Strommenge, sondern auch den höchsten Wert, den Sie in einer Viertelstunde aus dem Netz ziehen.",
+      "meaningAfter": "Jedes Kilowatt, um das diese Spitze sinkt, senkt Ihre Kosten, ohne dass Sie weniger arbeiten.",
+      "billingAT": "In Österreich zählt dabei jeden Monat der höchste Viertelstundenwert.",
+      "billingDE": "In Deutschland zählt dabei die höchste Viertelstunde des ganzen Jahres.",
+      "net": "Alle Beträge netto.",
+      "footer": "Schnellreport · Prinzipberechnung mit Durchschnittswerten"
+    },
+    "page2": {
+      "kicker": "Warum Spitzen entstehen",
+      "title": "So entstehen Spitzen in {branche}",
+      "chartLabel": "Ihre Spitze bestimmt den Preis",
+      "general": "Oft reichen wenige Minuten im Monat, um die Spitze zu setzen. Der Rest des Tages liegt deutlich darunter. Genau darin liegt das Potenzial: Die Spitze ist selten, kostet aber das ganze Jahr.",
+      "leversTitle": "Drei Hebel ohne Investition",
+      "levers": [
+        {
+          "title": "Anlauf staffeln",
+          "text": "Große Verbraucher nicht gleichzeitig einschalten, sondern im Abstand von einigen Minuten. Das gilt besonders zu Schichtbeginn und nach Pausen."
+        },
+        {
+          "title": "Verschieben, was warten kann",
+          "text": "Laden von Staplern und Firmenautos, Vorkühlen, Spülen oder Wäsche in ruhige Zeiten legen, etwa in die Nacht oder die Mittagspause."
+        },
+        {
+          "title": "Die eigene Spitze kennen",
+          "text": "Auf der Netzrechnung steht Ihr Höchstwert. Im Kundenportal Ihres Netzbetreibers sehen Sie im Lastgang, wann er entsteht. Oft ist es ein einziger, vermeidbarer Vorgang."
+        }
+      ],
+      "footer": "Schnellreport"
+    },
+    "branchen": {
+      "produktion": {
+        "label": "Produktion & Industrie",
+        "dative": "Produktion und Industrie",
+        "text": "Spitzen entstehen, wenn Maschinen, Öfen, Kompressoren oder Pressen gleichzeitig anlaufen, typischerweise zu Schichtbeginn oder nach Pausen. Große Motoren ziehen beim Anlaufen kurz ein Vielfaches ihrer normalen Leistung."
+      },
+      "lebensmittel": {
+        "label": "Lebensmittel & Bäckerei",
+        "dative": "Lebensmittelbetrieben und Bäckereien",
+        "text": "Backöfen, Kälteanlagen und Teigmaschinen laufen oft gleichzeitig hoch, meist am frühen Morgen. Kälteanlagen springen zudem bei Wärme oder nach dem Öffnen von Kühlräumen gemeinsam an."
+      },
+      "gastro": {
+        "label": "Hotellerie & Gastronomie",
+        "dative": "Hotellerie und Gastronomie",
+        "text": "Küche, Spülmaschinen, Lüftung und Warmwasser fallen zu den Essenszeiten zusammen. Wellness, Wäscherei oder Klimatisierung kommen oft noch dazu."
+      },
+      "logistik": {
+        "label": "Kühlhaus & Logistik",
+        "dative": "Kühlhäusern und Logistikbetrieben",
+        "text": "Kompressoren der Kühlung, Ladegeräte für Stapler und Torluftschleier erzeugen Spitzen, besonders wenn viele Fahrzeuge gleichzeitig an die Ladestation gehen."
+      },
+      "handel": {
+        "label": "Handel & Filialen",
+        "dative": "Handel und Filialbetrieben",
+        "text": "Kühlung, Beleuchtung, Lüftung und Klimatisierung starten zur Öffnung gemeinsam. Im Sommer treibt vor allem die Klimatisierung die Spitzen nach oben."
+      },
+      "sonstige": {
+        "label": "Andere Branche",
+        "dative": "Ihrem Betrieb",
+        "text": "Spitzen entstehen, wenn mehrere große Verbraucher gleichzeitig laufen: Maschinen, Kühlung, Heizung, Lüftung oder Ladestationen. Oft genügt ein kurzer Moment, in dem alles zusammenfällt."
+      }
+    },
+    "page3": {
+      "kicker": "Neue Netztarife 2027",
+      "title": "Was sich für Betriebe ändert",
+      "factsAT": [
+        {
+          "when": "1. Jänner 2027",
+          "text": "Die neuen Grundsätze für Netzentgelte gelten (Systemnutzungsentgelte-Grundsatzverordnung, BGBl. II Nr. 299/2026, kundgemacht am 12. Oktober 2026)."
+        },
+        {
+          "when": "Jeden Monat",
+          "text": "Der Leistungspreis richtet sich nach dem höchsten Viertelstundenwert im Monat. Eine einzige Spitze bestimmt also die Kosten des ganzen Monats."
+        },
+        {
+          "when": "Schrittweise",
+          "text": "Das Verhältnis zwischen Leistungspreis und Arbeitspreis wird stufenweise zugunsten des Leistungspreises verschoben. Spitzen werden damit wichtiger, nicht unwichtiger."
+        },
+        {
+          "when": "2027 bis Mitte 2028",
+          "text": "Auch Anschlüsse in der Niederspannung erhalten einen Leistungspreis je kW. Die Umstellung erfolgt je Netzgebiet, spätestens bis 30. Juni 2028."
+        },
+        {
+          "when": "Noch offen",
+          "text": "Die konkreten Preise legt eine eigene Tarifverordnung fest, die noch aussteht. Sobald sie veröffentlicht ist, rechnen wir mit den neuen Werten."
+        }
+      ],
+      "factsDE": [
+        {
+          "when": "Heute",
+          "text": "Betriebe ab 100.000 kWh werden in der Regel mit Leistungsmessung abgerechnet. Der Leistungspreis bezieht sich auf die höchste Viertelstunde im ganzen Jahr."
+        },
+        {
+          "when": "2.500 Stunden",
+          "text": "Ab 2.500 Benutzungsstunden gilt ein Tarif mit deutlich höherem Leistungspreis und niedrigerem Arbeitspreis. Eine niedrigere Spitze kann die Einstufung verändern."
+        },
+        {
+          "when": "2027",
+          "text": "Die Netzbetreiber veröffentlichen ihre Netzentgelte für 2027. Die ersten Preisblätter sind vorläufig und hängen unter anderem vom geplanten Bundeszuschuss ab."
+        },
+        {
+          "when": "Ab 2029 geplant",
+          "text": "Die Bundesnetzagentur plant für Betriebe ab 100.000 kWh einen Preis auf die bestellte Leistung, mit einem Aufschlag, wenn diese überschritten wird. Das Verfahren ist noch nicht abgeschlossen. Spitzen werden damit wichtiger, nicht unwichtiger."
+        }
+      ],
+      "checklistTitle": "Checkliste für Ihre genaue Berechnung",
+      "checklist": [
+        "Lastgang der letzten 12 Monate in Viertelstundenwerten. Den bekommen Sie bei Ihrem Netzbetreiber, meist als Datei im Kundenportal.",
+        "Letzte Netzrechnung und Stromrechnung.",
+        "Laufzeit Ihres Stromliefervertrags.",
+        "Falls vorhanden: Leistung Ihrer Photovoltaikanlage in kWp.",
+        "Optional: Ihre größten Stromverbraucher, z. B. Maschinen, Kühlung, Ladestationen."
+      ],
+      "footer": "Schnellreport · Stand Oktober 2026"
+    },
+    "page4": {
+      "kicker": "Der nächste Schritt",
+      "title": "Ihr Profi-Report: die genaue Antwort",
+      "lead": "Dieser Schnellreport rechnet mit Durchschnittswerten. Der Profi-Report rechnet mit Ihren echten Daten.",
+      "offer": [
+        "Analyse Ihres echten Lastgangs über ein ganzes Jahr, Viertelstunde für Viertelstunde",
+        "Ihre tatsächlichen Netztarife statt Durchschnittswerten",
+        "Die passende Speichergröße und wie viel er Ihnen pro Jahr spart",
+        "Intelligente Ladesteuerung mit Ihren Strompreisen",
+        "Investition, Ersparnis und Amortisation auf einen Blick",
+        "Eine konkrete Empfehlung, umsetzbar mit unseren Partnerbetrieben"
+      ],
+      "cta": "Profi-Report anfragen",
+      "ctaNote": "coolin.at/profi-report · Wir melden uns innerhalb eines Werktags per E-Mail.",
+      "example": "Ein Beispiel-Report auf derselben Seite zeigt Ihnen vorab, was Sie bekommen.",
+      "talk": "Lieber zuerst reden? Wir bieten ein kostenloses Erstgespräch von 15 Minuten.",
+      "contactName": "Ihr Ansprechpartner",
+      "contactPhone": "Telefon",
+      "contactEmail": "E-Mail",
+      "contactWeb": "Web",
+      "footer": "COOLiN ENERGY GmbH · coolin.at"
+    }
+  },
   "Home": {
     "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial in 2 Minuten schätzen.",
     "Hero": {
