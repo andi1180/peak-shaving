@@ -1,0 +1,415 @@
+<title>COOLiN Schnellreport</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: oben das Formular „Schnellreport per E-Mail" im Stil des Schnellchecks, darunter die vier A4-Seiten des PDF als Vorschau. Kleine Steuerleiste zum Durchprobieren von Land und Branche. */
+:root {
+  --navy: #18336f;
+  --ink: #0f172a;
+  --text: #1e293b;
+  --muted: #475569;
+  --faint: #737373;
+  --accent: #0f766e;
+  --accent-hover: #0e6b64;
+  --accent-subtle: #f0fdfa;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --bar: #cbd5e1;
+  --negative: #b91c1c;
+  --desk: #e9edf3;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--surface-alt); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 72px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+.section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+
+/* Steuerleiste nur für die Abstimmung */
+.dev { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px dashed var(--bar); border-radius: 12px; padding: 12px 16px; }
+.dev select { font: 500 13px var(--font); padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+
+/* Formular */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 18px 40px -24px rgba(15,23,42,.22); padding: 26px; display: grid; gap: 20px; max-width: 640px; }
+.card h2 { margin: 0; font-size: 22px; color: var(--navy); letter-spacing: -0.01em; }
+.card .sub { margin: -12px 0 0; color: var(--muted); font-size: 15px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.f { display: grid; gap: 6px; min-width: 0; }
+.f label { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.f .opt { font-weight: 500; color: var(--faint); }
+.f input, .f select { width: 100%; font: 500 15px var(--font); color: var(--ink); border: 1px solid #a3aab5; border-radius: 10px; padding: 11px 12px; background: var(--surface); }
+.f input:focus, .f select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.consent { display: grid; gap: 10px; }
+.chk { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; font-size: 13.5px; color: var(--text); }
+.chk input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+.legal { font-size: 12.5px; color: var(--faint); margin: 0; }
+.legal a { color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; font: 600 15px/1 var(--font); padding: 14px 20px; cursor: pointer; }
+.btn:hover { background: var(--accent-hover); }
+.btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.done { display: grid; gap: 6px; background: var(--accent-subtle); border: 1px solid #99f6e4; border-radius: 12px; padding: 14px 16px; font-size: 14.5px; }
+.done b { color: var(--accent); }
+.ask { display: grid; gap: 10px; margin-top: 8px; padding-top: 12px; border-top: 1px solid #99f6e4; }
+.ask-q { font-weight: 600; color: var(--ink); }
+.ask-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn.sm { padding: 10px 14px; font-size: 14px; }
+.btn.ghost { background: var(--surface); color: var(--navy); border: 1px solid var(--border); }
+.btn.ghost:hover { border-color: var(--navy); background: var(--surface); }
+/* E-Mail-Vorschau */
+.mail { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; max-width: 640px; overflow: hidden; }
+.mail-head { padding: 12px 18px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
+.mail-head b { color: var(--ink); }
+.mail-body { padding: 22px 24px; display: grid; gap: 14px; font-size: 15px; }
+.mail-body p { margin: 0; }
+.mail-num { font-size: 26px; font-weight: 700; color: var(--negative); font-variant-numeric: tabular-nums; }
+.mail-att { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; justify-self: start; }
+.pdf-btn { display: inline-block; justify-self: start; background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; padding: 12px 18px; border-radius: 9px; text-decoration: none; }
+
+/* PDF-Vorschau */
+.desk { background: var(--desk); border-radius: 16px; padding: 28px 16px; display: grid; gap: 28px; justify-items: center; overflow-x: auto; }
+.page {
+  width: 595px; min-height: 842px; flex: none;
+  background: #fff; box-shadow: 0 2px 4px rgba(15,23,42,.06), 0 18px 36px -18px rgba(15,23,42,.35);
+  padding: 46px 52px 40px; display: grid; grid-template-rows: auto 1fr auto; gap: 0; font-size: 10.5px; line-height: 1.55; color: var(--text);
+}
+.p-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 22px; }
+.p-brand { font-weight: 700; letter-spacing: .05em; font-size: 10px; color: var(--navy); }
+.p-brand span { color: var(--accent); }
+.p-meta { font-size: 8.5px; color: var(--faint); }
+.p-foot { display: flex; justify-content: space-between; font-size: 8px; color: var(--faint); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 18px; }
+.p-body { display: grid; align-content: start; gap: 16px; }
+.p-kicker { font-size: 8.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.p-h1 { font-size: 24px; font-weight: 700; color: var(--navy); letter-spacing: -0.02em; line-height: 1.12; margin: 2px 0 0; }
+.p-h2 { font-size: 15px; font-weight: 700; color: var(--navy); letter-spacing: -0.01em; margin: 0; }
+.p-lead { font-size: 11.5px; color: var(--muted); margin: 0; }
+.p-p { margin: 0; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tile { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.tile .k { font-size: 8px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.tile .v { font-size: 16px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hero-num { border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; padding: 16px 18px; display: grid; gap: 2px; }
+.hero-num .v { font-size: 30px; font-weight: 700; color: var(--negative); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.hero-num .k { font-size: 11px; color: var(--ink); font-weight: 600; }
+.billbar { display: flex; height: 18px; border-radius: 5px; overflow: hidden; background: var(--bar); }
+.billbar .r { background: var(--negative); }
+.billleg { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-top: 5px; }
+.billleg b { color: var(--ink); }
+.tenbox { display: flex; gap: 12px; align-items: center; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.tenbox .n { font-size: 17px; font-weight: 700; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.small { font-size: 8.5px; color: var(--faint); margin: 0; }
+.levers { display: grid; gap: 10px; }
+.lever { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+.lever .no { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 10px; display: grid; place-items: center; }
+.lever b { color: var(--ink); display: block; font-size: 11px; }
+.facts { display: grid; gap: 8px; }
+.fact { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.fact:first-child { border-top: 0; }
+.fact .d { font-weight: 700; color: var(--navy); font-size: 10px; }
+.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.checks li { display: grid; grid-template-columns: 14px 1fr; gap: 9px; }
+.checks li::before { content: ""; width: 11px; height: 11px; border: 1.3px solid var(--muted); border-radius: 3px; margin-top: 2px; }
+.offer { border-radius: 10px; border: 1px solid var(--border); padding: 16px 18px; display: grid; gap: 10px; }
+.price { display: flex; align-items: baseline; gap: 10px; }
+.price .v { font-size: 26px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+.price .t { font-size: 10px; color: var(--muted); }
+.tick { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.tick li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+.tick li::before { content: "✓"; color: var(--accent); font-weight: 700; font-size: 10px; }
+.contact { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: var(--surface-alt); border-radius: 10px; padding: 14px 16px; }
+.contact .k { font-size: 8px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.contact .v { font-size: 11px; font-weight: 600; color: var(--ink); }
+.ph { background: #fef9c3; padding: 0 3px; border-radius: 2px; }
+.cta-line { font-size: 11.5px; font-weight: 600; color: var(--ink); margin: 0; }
+
+@media (max-width: 680px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .card { padding: 18px; }
+  .desk { justify-items: start; }
+}
+</style>
+
+<div class="wrap">
+  <div class="dev" aria-label="Vorschau-Einstellungen">
+    <strong>Vorschau</strong>
+    <label>Land <select id="dCountry"><option value="AT">Österreich</option><option value="DE">Deutschland</option></select></label>
+    <label>Branche <select id="dBranch"></select></label>
+    <span>Beispielwerte: 250.000 kWh, 180 kW, Rechnung 65.000 €</span>
+  </div>
+
+  <div>
+    <p class="section-label">1 · Formular auf der Website (nach Klick auf „Schnellreport kostenlos per E-Mail")</p>
+    <form class="card" id="form" novalidate>
+      <h2>Ihr Schnellreport als PDF</h2>
+      <p class="sub">Wir schicken Ihnen Ihr Ergebnis mit Erklärungen und Tipps per E-Mail. Kostenlos.</p>
+      <div class="grid2">
+        <div class="f"><label for="firma">Firma</label><input id="firma" value="Muster Metallbau GmbH"></div>
+        <div class="f"><label for="branche">Branche</label><select id="branche"></select></div>
+        <div class="f"><label for="vorname">Vorname</label><input id="vorname" value="Anna"></div>
+        <div class="f"><label for="nachname">Nachname</label><input id="nachname" value="Beispiel"></div>
+        <div class="f"><label for="email">E-Mail</label><input id="email" type="email" value="anna.beispiel@example.com"></div>
+        <div class="f"><label for="tel">Telefon <span class="opt">(optional)</span></label><input id="tel" type="tel"></div>
+      </div>
+      <div class="consent">
+        <label class="chk"><input type="checkbox" id="c2"><span>Ja, schicken Sie mir in den nächsten Wochen Tipps für meinen Betrieb: wie ich meinen Lastgang bekomme, wie ein Profi-Report aussieht, ein echter Praxisfall. 4 E-Mails, Abmeldung jederzeit. <span style="color:var(--faint)">(optional)</span></span></label>
+      </div>
+      <p class="legal">Mit dem Absenden erhalten Sie Ihren Schnellreport per E-Mail. Ohne Ihre Zustimmung rufen wir nicht an. <a href="#">Datenschutz</a></p>
+      <button class="btn" type="submit">Schnellreport senden</button>
+      <div class="done" id="done" hidden>
+        <b>Ihr Schnellreport ist unterwegs.</b>
+        <span>Wir haben ihn an <span id="doneMail"></span> geschickt. Schauen Sie in ein paar Minuten in Ihr Postfach, auch im Spam-Ordner.</span>
+        <div class="ask" id="ask">
+          <span class="ask-q">Sollen wir Ihnen in 15 Minuten am Telefon erklären, was das für Ihren Betrieb bedeutet?</span>
+          <div class="f" id="askTel" hidden><label for="tel2">Ihre Telefonnummer</label><input id="tel2" type="tel" placeholder="+43 …"></div>
+          <div class="ask-btns"><button type="button" class="btn sm" id="askYes">Ja, gerne anrufen</button><button type="button" class="btn sm ghost" id="askNo">Nein, danke</button></div>
+        </div>
+        <span id="askThanks" hidden>Danke! Wir rufen Sie innerhalb eines Werktags an.</span>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    <p class="section-label">2 · PDF im Anhang der E-Mail (4 Seiten A4)</p>
+    <div class="desk">
+
+      <!-- Seite 1 -->
+      <section class="page">
+        <div class="p-head"><div class="p-brand">COOL<span>i</span>N ENERGY</div><div class="p-meta"><span class="v-date"></span></div></div>
+        <div class="p-body">
+          <div>
+            <div class="p-kicker">Schnellreport</div>
+            <h1 class="p-h1">Was Ihre Lastspitze kostet</h1>
+            <p class="p-lead" style="margin-top:6px">Für <b class="v-firma"></b> · <span class="v-branche"></span> · <span class="v-country"></span></p>
+          </div>
+          <div class="hero-num">
+            <span class="v v-peak"></span>
+            <span class="k">kostet Sie Ihre Lastspitze pro Jahr</span>
+          </div>
+          <div class="tiles">
+            <div class="tile"><span class="k">Jahresverbrauch</span><span class="v">250.000 kWh</span></div>
+            <div class="tile"><span class="k">Höchste Leistung</span><span class="v">180 kW</span></div>
+            <div class="tile"><span class="k">Leistungspreis</span><span class="v v-lp"></span></div>
+          </div>
+          <div>
+            <div class="p-h2" style="font-size:12px;margin-bottom:8px">Anteil an Ihrer Stromrechnung</div>
+            <div class="billbar"><div class="r v-peakbar"></div></div>
+            <div class="billleg"><span>Stromrechnung gesamt <b>65.000 €</b></span><span>davon Lastspitze <b class="v-peak2"></b> · <b class="v-pct"></b></span></div>
+          </div>
+          <div class="tenbox"><span class="n v-ten"></span><span>sparen Sie schon, wenn Ihre Lastspitze nur um 10 % sinkt. Wie viel bei Ihnen tatsächlich möglich ist, zeigt der Profi-Report.</span></div>
+          <div>
+            <div class="p-h2" style="font-size:12px;margin-bottom:6px">Was bedeutet das?</div>
+            <p class="p-p">Ihr Netzbetreiber verrechnet nicht nur die Strommenge, sondern auch den höchsten Wert, den Sie in einer Viertelstunde aus dem Netz ziehen. <span class="v-billing"></span> Jedes Kilowatt, um das diese Spitze sinkt, senkt Ihre Kosten, ohne dass Sie weniger arbeiten.</p>
+          </div>
+          <p class="small v-src"></p>
+        </div>
+        <div class="p-foot"><span>Schnellreport · Prinzipberechnung mit Durchschnittswerten</span><span>Seite 1 von 4</span></div>
+      </section>
+
+      <!-- Seite 2 -->
+      <section class="page">
+        <div class="p-head"><div class="p-brand">COOL<span>i</span>N ENERGY</div><div class="p-meta">Schnellreport · <span class="v-firma"></span></div></div>
+        <div class="p-body">
+          <div>
+            <div class="p-kicker">Warum Spitzen entstehen</div>
+            <h2 class="p-h1" style="font-size:20px">So entstehen Spitzen in <span class="v-branche-dat"></span></h2>
+          </div>
+          <svg viewBox="0 0 490 150" width="100%" aria-hidden="true">
+            <line x1="10" x2="480" y1="135" y2="135" stroke="#cbd5e1"/>
+            <g id="dayBars"></g>
+            <line x1="10" x2="480" y1="58" y2="58" stroke="#18336f" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <text x="480" y="52" text-anchor="end" font-size="9" font-weight="600" fill="#18336f">Ihre Spitze bestimmt den Preis</text>
+          </svg>
+          <p class="p-p v-branchtext"></p>
+          <p class="p-p">Oft reichen wenige Minuten im Monat, um die Spitze zu setzen. Der Rest des Tages liegt deutlich darunter. Genau darin liegt das Potenzial: Die Spitze ist selten, kostet aber das ganze Jahr.</p>
+          <div style="margin-top:6px">
+            <div class="p-kicker" style="margin-bottom:6px">Drei Hebel ohne Investition</div>
+            <div class="levers">
+              <div class="lever"><span class="no">1</span><div><b>Anlauf staffeln</b>Große Verbraucher nicht gleichzeitig einschalten, sondern im Abstand von einigen Minuten. Das gilt besonders zu Schichtbeginn und nach Pausen.</div></div>
+              <div class="lever"><span class="no">2</span><div><b>Verschieben, was warten kann</b>Laden von Staplern und Firmenautos, Vorkühlen, Spülen oder Wäsche in ruhige Zeiten legen, etwa in die Nacht oder die Mittagspause.</div></div>
+              <div class="lever"><span class="no">3</span><div><b>Die eigene Spitze kennen</b>Auf der Netzrechnung steht Ihr Höchstwert. Im Kundenportal Ihres Netzbetreibers sehen Sie im Lastgang, wann er entsteht. Oft ist es ein einziger, vermeidbarer Vorgang.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-foot"><span>Schnellreport</span><span>Seite 2 von 4</span></div>
+      </section>
+
+      <!-- Seite 3 -->
+      <section class="page">
+        <div class="p-head"><div class="p-brand">COOL<span>i</span>N ENERGY</div><div class="p-meta">Schnellreport · <span class="v-firma"></span></div></div>
+        <div class="p-body">
+          <div>
+            <div class="p-kicker">Neue Netztarife 2027</div>
+            <h2 class="p-h1" style="font-size:20px">Was sich für Betriebe ändert</h2>
+          </div>
+          <div class="facts" id="factsAT">
+            <div class="fact"><span class="d">1. Jänner 2027</span><span>Die neuen Grundsätze für Netzentgelte gelten (Systemnutzungsentgelte-Grundsatzverordnung, BGBl. II Nr. 299/2026, kundgemacht am 12. Oktober 2026).</span></div>
+            <div class="fact"><span class="d">Jeden Monat</span><span>Der Leistungspreis richtet sich nach dem höchsten Viertelstundenwert im Monat. Eine einzige Spitze bestimmt also die Kosten des ganzen Monats.</span></div>
+            <div class="fact"><span class="d">Schrittweise</span><span>Das Verhältnis zwischen Leistungspreis und Arbeitspreis wird stufenweise zugunsten des Leistungspreises verschoben. Spitzen werden damit wichtiger, nicht unwichtiger.</span></div>
+            <div class="fact"><span class="d">2027 bis Mitte 2028</span><span>Auch Anschlüsse in der Niederspannung erhalten einen Leistungspreis je kW. Die Umstellung erfolgt je Netzgebiet, spätestens bis 30. Juni 2028.</span></div>
+            <div class="fact"><span class="d">Noch offen</span><span>Die konkreten Preise legt eine eigene Tarifverordnung fest, die noch aussteht. Sobald sie veröffentlicht ist, rechnen wir mit den neuen Werten.</span></div>
+          </div>
+          <div class="facts" id="factsDE" hidden>
+            <div class="fact"><span class="d">Heute</span><span>Betriebe ab 100.000 kWh werden in der Regel mit Leistungsmessung abgerechnet. Der Leistungspreis bezieht sich auf die höchste Viertelstunde im ganzen Jahr.</span></div>
+            <div class="fact"><span class="d">2.500 Stunden</span><span>Ab 2.500 Benutzungsstunden gilt ein Tarif mit deutlich höherem Leistungspreis und niedrigerem Arbeitspreis. Eine niedrigere Spitze kann die Einstufung verändern.</span></div>
+            <div class="fact"><span class="d">2027</span><span>Die Netzbetreiber veröffentlichen ihre Netzentgelte für 2027. Die ersten Preisblätter sind vorläufig und hängen unter anderem vom geplanten Bundeszuschuss ab.</span></div>
+            <div class="fact"><span class="d">Ab 2029 geplant</span><span>Die Bundesnetzagentur plant für Betriebe ab 100.000 kWh einen Preis auf die bestellte Leistung, mit einem Aufschlag, wenn diese überschritten wird. Das Verfahren ist noch nicht abgeschlossen. Spitzen werden damit wichtiger, nicht unwichtiger.</span></div>
+          </div>
+          <div style="margin-top:8px">
+            <div class="p-kicker" style="margin-bottom:8px">Checkliste für Ihre genaue Berechnung</div>
+            <ul class="checks">
+              <li>Lastgang der letzten 12 Monate in Viertelstundenwerten. Den bekommen Sie bei Ihrem Netzbetreiber, meist als Datei im Kundenportal.</li>
+              <li>Letzte Netzrechnung und Stromrechnung.</li>
+              <li>Laufzeit Ihres Stromliefervertrags.</li>
+              <li>Falls vorhanden: Leistung Ihrer Photovoltaikanlage in kWp.</li>
+              <li>Optional: Ihre größten Stromverbraucher, z. B. Maschinen, Kühlung, Ladestationen.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="p-foot"><span>Schnellreport · Stand Oktober 2026</span><span>Seite 3 von 4</span></div>
+      </section>
+
+      <!-- Seite 4 -->
+      <section class="page">
+        <div class="p-head"><div class="p-brand">COOL<span>i</span>N ENERGY</div><div class="p-meta">Schnellreport · <span class="v-firma"></span></div></div>
+        <div class="p-body">
+          <div>
+            <div class="p-kicker">Der nächste Schritt</div>
+            <h2 class="p-h1" style="font-size:20px">Ihr Profi-Report: die genaue Antwort</h2>
+            <p class="p-lead" style="margin-top:6px">Dieser Schnellreport rechnet mit Durchschnittswerten. Der Profi-Report rechnet mit Ihren echten Daten.</p>
+          </div>
+          <div class="offer">
+            <ul class="tick">
+              <li>Analyse Ihres echten Lastgangs über ein ganzes Jahr, Viertelstunde für Viertelstunde</li>
+              <li>Ihre tatsächlichen Netztarife statt Durchschnittswerten</li>
+              <li>Die passende Speichergröße und wie viel er Ihnen pro Jahr spart</li>
+              <li>Intelligente Ladesteuerung mit Ihren Strompreisen</li>
+              <li>Investition, Ersparnis und Amortisation auf einen Blick</li>
+              <li>Eine konkrete Empfehlung, umsetzbar mit unseren Partnerbetrieben</li>
+            </ul>
+            <div class="price"><span class="v">495 €</span><span class="t">Einführungspreis bis 31.12.2026, zzgl. USt.</span></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="background:var(--accent);color:#fff;font-weight:600;font-size:11px;padding:8px 12px;border-radius:7px">Profi-Report anfragen</span><span class="small" style="font-size:9px">coolin.at/profi-report · Wir melden uns innerhalb eines Werktags per E-Mail.</span></div>
+            <p class="small" style="font-size:9px">Ein Beispiel-Report auf derselben Seite zeigt Ihnen vorab, was Sie bekommen.</p>
+          </div>
+          <p class="cta-line">Lieber zuerst reden? Wir bieten ein kostenloses Erstgespräch von 15 Minuten.</p>
+          <div class="contact">
+            <div><div class="k">Ihr Ansprechpartner</div><div class="v"><span class="ph">[Name]</span></div></div>
+            <div><div class="k">Telefon</div><div class="v"><span class="ph">[Telefonnummer]</span></div></div>
+            <div><div class="k">E-Mail</div><div class="v">energy@coolin.at</div></div>
+            <div><div class="k">Web</div><div class="v">coolin.at</div></div>
+          </div>
+        </div>
+        <div class="p-foot"><span>COOLiN ENERGY GmbH · coolin.at</span><span>Seite 4 von 4</span></div>
+      </section>
+
+    </div>
+  </div>
+
+  <div>
+    <p class="section-label">3 · Die E-Mail, mit der der Schnellreport kommt</p>
+    <div class="mail">
+      <div class="mail-head"><span>Von: <b>COOLiN ENERGY</b> &lt;energy@coolin.at&gt;</span><span>Betreff: <b>Ihr Schnellreport: Was Ihre Lastspitze kostet</b></span></div>
+      <div class="mail-body">
+        <p>Guten Tag Anna Beispiel,</p>
+        <p>hier ist Ihr Schnellreport. Nach Ihren Angaben kostet Ihre Lastspitze</p>
+        <span class="mail-num v-peak"></span>
+        <p>pro Jahr. Im PDF finden Sie, warum diese Spitze in Ihrer Branche entsteht, drei Hebel ohne Investition und was sich mit den Netztarifen 2027 ändert.</p>
+        <span class="mail-att">PDF · Schnellreport_<span class="v-firma"></span>.pdf</span>
+        <p>Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten, zum Einführungspreis von 495 € bis 31.12.2026.</p>
+        <a class="pdf-btn" href="#">Profi-Report anfragen</a>
+        <p style="font-size:14px;color:var(--muted)">Wir melden uns innerhalb eines Werktags per E-Mail. Lieber gleich telefonieren? Rufen Sie uns an: <span class="ph">[Telefonnummer]</span></p>
+        <p>Freundliche Grüße<br><span class="ph">[Name]</span><br>COOLiN ENERGY GmbH</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const fmt = (n) => Math.round(n).toLocaleString("de-DE");
+  const r100 = (n) => Math.round(n / 100) * 100;
+
+  const BRANCHES = {
+    produktion: ["Produktion & Industrie", "Produktion und Industrie",
+      "Spitzen entstehen, wenn Maschinen, Öfen, Kompressoren oder Pressen gleichzeitig anlaufen, typischerweise zu Schichtbeginn oder nach Pausen. Große Motoren ziehen beim Anlaufen kurz ein Vielfaches ihrer normalen Leistung."],
+    lebensmittel: ["Lebensmittel & Bäckerei", "Lebensmittelbetrieben und Bäckereien",
+      "Backöfen, Kälteanlagen und Teigmaschinen laufen oft gleichzeitig hoch, meist am frühen Morgen. Kälteanlagen springen zudem bei Wärme oder nach dem Öffnen von Kühlräumen gemeinsam an."],
+    gastro: ["Hotellerie & Gastronomie", "Hotellerie und Gastronomie",
+      "Küche, Spülmaschinen, Lüftung und Warmwasser fallen zu den Essenszeiten zusammen. Wellness, Wäscherei oder Klimatisierung kommen oft noch dazu."],
+    logistik: ["Kühlhaus & Logistik", "Kühlhäusern und Logistikbetrieben",
+      "Kompressoren der Kühlung, Ladegeräte für Stapler und Torluftschleier erzeugen Spitzen, besonders wenn viele Fahrzeuge gleichzeitig an die Ladestation gehen."],
+    handel: ["Handel & Filialen", "Handel und Filialbetrieben",
+      "Kühlung, Beleuchtung, Lüftung und Klimatisierung starten zur Öffnung gemeinsam. Im Sommer treibt vor allem die Klimatisierung die Spitzen nach oben."],
+    sonstige: ["Andere Branche", "Ihrem Betrieb",
+      "Spitzen entstehen, wenn mehrere große Verbraucher gleichzeitig laufen: Maschinen, Kühlung, Heizung, Lüftung oder Ladestationen. Oft genügt ein kurzer Moment, in dem alles zusammenfällt."],
+  };
+
+  // Branchen in beide Auswahlen
+  [$("#dBranch"), $("#branche")].forEach((sel) => {
+    Object.entries(BRANCHES).forEach(([k, v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v[0]; sel.appendChild(o); });
+  });
+
+  // Tageskurve auf Seite 2
+  const LOAD = [0.18,0.17,0.17,0.17,0.18,0.22,0.33,0.48,0.56,0.70,0.92,0.74,0.52,0.55,0.71,0.60,0.56,0.50,0.40,0.31,0.25,0.21,0.19,0.18];
+  const g = $("#dayBars"), NS = "http://www.w3.org/2000/svg";
+  LOAD.forEach((v, h) => {
+    const w = 470 / 24, x = 10 + h * w + 3, hgt = v * 125, y = 135 - hgt;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", w - 6); r.setAttribute("height", hgt); r.setAttribute("rx", 2);
+    r.setAttribute("fill", v >= 0.85 ? "#b91c1c" : "#cbd5e1");
+    g.appendChild(r);
+  });
+
+  const KWH = 250000, KW = 180, BILL = 65000;
+  function render() {
+    const country = $("#dCountry").value;
+    const b = BRANCHES[$("#dBranch").value];
+    $("#branche").value = $("#dBranch").value;
+    let lp, src, billing;
+    if (country === "AT") {
+      lp = 67;
+      src = "Berechnet mit dem durchschnittlichen Leistungspreis in Österreich: rund 67 € pro kW und Jahr, Mittel aller Netzgebiete laut Systemnutzungsentgelte-Verordnung, Stand 2026. Ihr Netzgebiet kann darüber oder darunter liegen. Alle Beträge netto.";
+      billing = "In Österreich zählt dabei jeden Monat der höchste Viertelstundenwert.";
+    } else {
+      const bd = KWH / KW;
+      lp = bd >= 2500 ? 152 : 34;
+      src = "Ihr Betrieb nutzt seine Spitze rund " + fmt(bd) + " Stunden im Jahr. Berechnet mit dem durchschnittlichen Leistungspreis in der Niederspannung für diesen Fall: rund " + lp + " € pro kW und Jahr, Stichprobe von 18 Netzbetreibern, vorläufige Preisblätter 2027. Ihr Netzbetreiber kann deutlich abweichen. Alle Beträge netto.";
+      billing = "In Deutschland zählt dabei die höchste Viertelstunde des ganzen Jahres.";
+    }
+    const peak = r100(KW * lp), pct = peak / BILL * 100;
+    $$(".v-firma").forEach((e) => e.textContent = $("#firma").value || "Ihren Betrieb");
+    $$(".v-branche").forEach((e) => e.textContent = b[0]);
+    $$(".v-branche-dat").forEach((e) => e.textContent = b[1]);
+    $$(".v-branchtext").forEach((e) => e.textContent = b[2]);
+    $$(".v-country").forEach((e) => e.textContent = country === "AT" ? "Österreich" : "Deutschland");
+    $$(".v-peak, .v-peak2").forEach((e) => e.textContent = "rund " + fmt(peak) + " €");
+    $$(".v-lp").forEach((e) => e.textContent = lp + " €/kW");
+    $$(".v-pct").forEach((e) => e.textContent = "rund " + Math.round(pct) + " %");
+    $$(".v-peakbar").forEach((e) => e.style.width = pct.toFixed(1) + "%");
+    $$(".v-ten").forEach((e) => e.textContent = "−" + fmt(r100(peak * 0.1)) + " €");
+    $$(".v-src").forEach((e) => e.textContent = src);
+    $$(".v-billing").forEach((e) => e.textContent = billing);
+    $$(".v-date").forEach((e) => e.textContent = "Erstellt am 19. Oktober 2026");
+    $("#factsAT").hidden = country !== "AT";
+    $("#factsDE").hidden = country !== "DE";
+  }
+  $("#dCountry").addEventListener("change", render);
+  $("#dBranch").addEventListener("change", render);
+  $("#branche").addEventListener("change", () => { $("#dBranch").value = $("#branche").value; render(); });
+  $("#firma").addEventListener("input", render);
+  $("#askYes").addEventListener("click", () => {
+    if (!$("#tel").value && $("#askTel").hidden) { $("#askTel").hidden = false; $("#tel2").focus(); return; }
+    $("#ask").hidden = true; $("#askThanks").hidden = false;
+  });
+  $("#askNo").addEventListener("click", () => { $("#ask").hidden = true; });
+  $("#form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    $("#doneMail").textContent = $("#email").value;
+    $("#done").hidden = false;
+  });
+  render();
+})();
+</script>

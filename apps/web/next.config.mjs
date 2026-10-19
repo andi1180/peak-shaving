@@ -42,6 +42,12 @@ const nextConfig = {
     serverActions: { bodySizeLimit: '24mb' },
     middlewareClientMaxBodySize: '24mb',
   },
+  // PDF-Schnellreport (3b-1): react-pdf läuft serverseitig ungebündelt, die Schrift liest
+  // `lib/schnellreport/render.ts` per fs aus `assets/` — jede Route, die rendert, braucht den Eintrag.
+  serverExternalPackages: ['@react-pdf/renderer'],
+  outputFileTracingIncludes: {
+    '/api/schnellreport/vorschau': ['./assets/schnellreport-fonts/**'],
+  },
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).
    *
