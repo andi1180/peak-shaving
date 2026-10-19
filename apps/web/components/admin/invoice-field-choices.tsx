@@ -18,6 +18,7 @@ import {
   getInvoiceFieldConflictsAction,
 } from '@/lib/admin/data-entry-actions-rechnung-choices'
 import type { InvoiceFieldConflict } from '@/lib/admin/invoice-field-choices'
+import type { TieredDemandInfo } from '@/lib/admin/invoice-tiered-demand'
 import {
   applyMarkedChoice,
   chosenDescription,
@@ -29,6 +30,8 @@ import {
   optionText,
   orderedOptions,
   partText,
+  tieredInvoiceValueText,
+  tieredStandText,
   type InvoiceFieldChoiceActions,
 } from './invoice-field-choices-model'
 import { AdminError } from './ui'
@@ -43,7 +46,7 @@ const LOAD_CRASH_TEXT = 'Die widersprüchlichen Werte konnten gerade nicht gelad
 
 type LoadState =
   | { status: 'loading' }
-  | { status: 'ready'; conflicts: InvoiceFieldConflict[] }
+  | { status: 'ready'; conflicts: InvoiceFieldConflict[]; tieredDemandInfo?: TieredDemandInfo }
   | { status: 'error'; message: string }
 
 type RowHandlers = {
@@ -77,7 +80,11 @@ export function InvoiceFieldChoices({
         if (!current) return
         setState(
           result.ok
-            ? { status: 'ready', conflicts: result.conflicts }
+            ? {
+                status: 'ready',
+                conflicts: result.conflicts,
+                tieredDemandInfo: result.tieredDemandInfo,
+              }
             : { status: 'error', message: result.error },
         )
       })
@@ -105,18 +112,76 @@ export function InvoiceFieldChoices({
     )
   }
   return (
-    <InvoiceFieldChoicesView conflicts={state.conflicts} tariffHref={tariffHref} {...handlers} />
+    <InvoiceFieldChoicesView
+      conflicts={state.conflicts}
+      tieredDemandInfo={state.tieredDemandInfo}
+      tariffHref={tariffHref}
+      {...handlers}
+    />
   )
 }
 
-/** Reine Darstellung — ohne Konfliktfelder kein Block. */
+/** Reine Darstellung — ohne Konfliktfelder und ohne Stufen-Hinweis kein Block. */
 export function InvoiceFieldChoicesView({
+  conflicts,
+  tieredDemandInfo,
+  tariffHref,
+  onApply,
+  onLift,
+}: {
+  conflicts: readonly InvoiceFieldConflict[]
+  tieredDemandInfo?: TieredDemandInfo
+  tariffHref: string
+} & RowHandlers) {
+  if (conflicts.length === 0 && tieredDemandInfo === undefined) return null
+  return (
+    <>
+      {tieredDemandInfo !== undefined && <TieredDemandHint info={tieredDemandInfo} />}
+      {conflicts.length > 0 && (
+        <ConflictList
+          conflicts={conflicts}
+          tariffHref={tariffHref}
+          onApply={onApply}
+          onLift={onLift}
+        />
+      )}
+    </>
+  )
+}
+
+/** Nur zur Ansicht: bei Stufen ist der Rechnungswert wirkungslos, es gibt nichts zu wählen. */
+function TieredDemandHint({ info }: { info: TieredDemandInfo }) {
+  return (
+    <div className="mt-5 max-w-prose rounded-md border border-line bg-surface-alt p-3">
+      <p className="text-small font-medium text-ink">
+        Leistungspreis mit Benutzungsdauer-Stufen – gerechnet wird mit den Stufen aus dem
+        Netzentgelt-Katalog.
+      </p>
+      {info.tiers.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-0.5 text-small tabular-nums text-ink">
+          {info.tiers.map((stand) => (
+            <li key={stand.validFrom}>{tieredStandText(stand)}</li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-caption text-text-muted">
+        Die Rechnungswerte dienen nur zur Kontrolle:
+      </p>
+      <ul className="mt-1 flex flex-col gap-0.5 text-caption tabular-nums text-text-muted">
+        {info.invoiceValues.map((value) => (
+          <li key={value.documentId}>{tieredInvoiceValueText(value)}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ConflictList({
   conflicts,
   tariffHref,
   onApply,
   onLift,
 }: { conflicts: readonly InvoiceFieldConflict[]; tariffHref: string } & RowHandlers) {
-  if (conflicts.length === 0) return null
   return (
     <ChoicesFrame>
       <ul className="mt-4 flex flex-col gap-4">

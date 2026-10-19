@@ -70,3 +70,45 @@ describe('Auswahlblock für widersprüchliche Rechnungswerte', () => {
     expect(html).not.toContain('Übernehmen')
   })
 })
+
+describe('Hinweis bei Leistungspreis mit Benutzungsdauer-Stufen', () => {
+  const info = {
+    tiers: [
+      {
+        validFrom: '2026-01-01',
+        thresholdHours: 2500,
+        belowEurPerKwYear: 22.75,
+        aboveEurPerKwYear: 131.8,
+      },
+    ],
+    invoiceValues: [
+      {
+        documentId: 'jan',
+        filename: 'jan.pdf',
+        periodFrom: '2026-01-01',
+        periodTo: '2026-01-31',
+        value: 22.75,
+      },
+    ],
+  }
+
+  it('zeigt Stände und Rechnungswerte ohne Auswahlelemente, auch ohne weitere Konfliktfelder', () => {
+    const html = renderToStaticMarkup(
+      <InvoiceFieldChoicesView
+        conflicts={[]}
+        tieredDemandInfo={info}
+        tariffHref={TARIFF_HREF}
+        onApply={noop}
+        onLift={noop}
+      />,
+    )
+    expect(html).toContain('Leistungspreis mit Benutzungsdauer-Stufen')
+    // de-AT gruppiert Tausender mit einem schmalen Leerzeichen.
+    expect(html).toMatch(
+      /gültig ab 01\.01\.2026: bis 2\s500 h 22,75 €\/kW·a, darüber 131,80 €\/kW·a/,
+    )
+    expect(html).toContain('Die Rechnungswerte dienen nur zur Kontrolle:')
+    expect(html).toContain('22,75 €/kW·a – 01.01.2026–31.01.2026 – jan.pdf')
+    expect(html).not.toMatch(/<input|<button|Übernehmen|Tarif-Schritt|Widersprüchliche/)
+  })
+})

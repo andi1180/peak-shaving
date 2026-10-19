@@ -23,10 +23,12 @@
  */
 import 'server-only'
 
+import { tariffPricingSubject } from 'extractors'
 import {
   DEFAULT_COUNTRY,
   buildLevySchedule,
   gridTariffTierFields,
+  parseNetzebeneDraftValue,
   readDraftDynamicTariff,
   spotPriceProviderFor,
   type Country,
@@ -84,6 +86,29 @@ export type GridTariffReadParams = {
   /** Projektland — eine Kennung eines anderen Landes findet so keine Zeile (Blocker statt Kreuzung). */
   country: Country
   window: AnalysisPeriod
+}
+
+/**
+ * Die Netzentgelt-Abfrage eines Zählpunkts über seinen Lastgang-Zeitraum — dieselbe Zuordnung wie der
+ * Analyse-Lauf (`tariffPricingSubject`); `null`, wenn Netzbetreiber, Netzebene oder Zeitraum fehlen.
+ */
+export function gridTariffReadOfPoint(point: {
+  draft: Record<string, unknown>
+  coveredFrom: string | null
+  coveredTo: string | null
+}): Omit<GridTariffReadParams, 'country'> | null {
+  const { operatorId, netzebene, meteringVariant } = tariffPricingSubject(
+    point.draft,
+    parseNetzebeneDraftValue(point.draft.netzebene),
+  )
+  if (operatorId === null || netzebene === null) return null
+  if (point.coveredFrom === null || point.coveredTo === null) return null
+  return {
+    operatorId,
+    netzebene,
+    meteringVariant,
+    window: { startIso: point.coveredFrom, endIso: point.coveredTo },
+  }
 }
 
 /**
