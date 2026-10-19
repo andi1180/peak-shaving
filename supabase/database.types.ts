@@ -603,6 +603,79 @@ export type Database = {
         }
         Relationships: []
       }
+      document_extractions: {
+        Row: {
+          attempts: number
+          created_at: string
+          document_id: string
+          error: string | null
+          extractor_version: string | null
+          finished_at: string | null
+          id: string
+          kind: string
+          metering_point_id: string | null
+          project_id: string
+          result: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          document_id: string
+          error?: string | null
+          extractor_version?: string | null
+          finished_at?: string | null
+          id?: string
+          kind: string
+          metering_point_id?: string | null
+          project_id: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          document_id?: string
+          error?: string | null
+          extractor_version?: string | null
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          metering_point_id?: string | null
+          project_id?: string
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "project_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_metering_point_id_fkey"
+            columns: ["metering_point_id"]
+            isOneToOne: false
+            referencedRelation: "metering_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_events: {
         Row: {
           bounce_subtype: string | null
@@ -2637,6 +2710,15 @@ export type Database = {
         }
         Returns: Json
       }
+      finish_document_extraction: {
+        Args: {
+          p_error: string
+          p_id: string
+          p_result: Json
+          p_status: string
+        }
+        Returns: Json
+      }
       get_active_consent_text: {
         Args: {
           p_locale?: string
@@ -2687,6 +2769,14 @@ export type Database = {
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       get_system_prompt_extension: { Args: { p_kind?: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      list_document_extractions: {
+        Args: {
+          p_kind?: string
+          p_metering_point_id?: string
+          p_project_id: string
+        }
+        Returns: Json
+      }
       list_metering_points: { Args: { p_project_id: string }; Returns: Json }
       list_my_projects: { Args: never; Returns: Json }
       list_open_questions: {
@@ -2787,6 +2877,15 @@ export type Database = {
       }
       start_contract_reminder_run: {
         Args: { p_max_batch?: number }
+        Returns: Json
+      }
+      start_document_extraction: {
+        Args: {
+          p_document_id: string
+          p_extractor_version: string
+          p_kind: string
+          p_metering_point_id: string
+        }
         Returns: Json
       }
       submit_calculator_request: { Args: { p_message: string }; Returns: Json }
