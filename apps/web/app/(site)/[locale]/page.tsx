@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Hero } from '@/components/home/hero'
+import { Schnellrechner } from '@/components/home/schnellrechner'
 import { PeakShavingBlock } from '@/components/home/peak-shaving-block'
 import { Portfolio } from '@/components/home/portfolio'
 import { BranchenTeaser } from '@/components/home/branchen-teaser'
@@ -26,12 +27,11 @@ export async function generateMetadata({
 }
 
 /**
- * Startseite (/) — Reihenfolge = Hierarchie (Pflichtenheft §4.4).
+ * Startseite (/) — Reihenfolge = Hierarchie (Leadgen-Umbau Schritt 1, Abweichung von §4.4).
  *
- * Hero → Peak-Shaving-Block → Leistungsportfolio → Branchen → Wissen →
- * Vorgehen → Kontakt-CTA. Jede Sektion ist eine eigene Komponente unter
- * `components/home/`; der Inhalt jeder einzelnen ist dort dokumentiert
- * (inkl. Quelle des Textes im Bestandscontent).
+ * Hero → Schnellrechner → Vorgehen → Peak-Shaving-Block → Branchen → Wissen →
+ * Portfolio → Partner-Banner → Kontakt-CTA. Jede Sektion ist eine eigene Komponente unter
+ * `components/home/`.
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -40,21 +40,17 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   return (
     <>
       <Hero />
+      <Schnellrechner />
+      <Vorgehen />
       <PeakShavingBlock />
-      <Portfolio />
       <BranchenTeaser />
       {/* `locale` explizit: Der Wissen-Teaser liest die Artikel aus
           `content/wissen/` (Dateiname trägt die Locale) — er ist die einzige
           Startseiten-Sektion, deren Inhalt nicht aus den Messages kommt. */}
       <WissenTeaser locale={locale} />
-      <Vorgehen />
-      <KontaktCta />
-      {/*
-       * NACH dem Kontakt-CTA, nicht davor (B16-Einstieg): Diese Seite richtet sich an Gewerbekunden, und
-       * ihr Ziel ist die Kontaktanfrage. Ein Partner-Aufruf weiter oben zöge Aufmerksamkeit von
-       * genau der Handlung ab, an der das Geschäft hängt. Ausführlich begründet in der Komponente.
-       */}
+      <Portfolio />
       <PartnerBanner />
+      <KontaktCta />
     </>
   )
 }

@@ -145,7 +145,8 @@ export const KONTAKT_HREF = '/kontakt'
 
 /**
  * Die Produktseite des Kalkulators — das Ziel der HANDLUNGSAUFFORDERUNGEN IM SEITENINHALT
- * (Startseiten-Hero, Schnellrechner, `/peak-shaving`, die Ergebnis-Mail).
+ * (Schnellrechner, `/peak-shaving`, die Ergebnis-Mail). Der Startseiten-Hero zeigt seit dem
+ * Leadgen-Umbau auf `SCHNELLRECHNER_HREF`.
  *
  * ⚠ SEIT B16-EINSTIEG IST DAS NICHT MEHR DAS ZIEL DES KNOPFES RECHTS OBEN. Der Header trug bis
  * dahin einen eigenen Kalkulator-Knopf neben dem Menüeintrag „Peak Shaving", der ohnehin dorthin
@@ -158,10 +159,17 @@ export const KONTAKT_HREF = '/kontakt'
  * vergeben und beide noch offen. Eine dieser Nummern hier zu verwenden hiesse, einen Bauabschnitt
  * als erledigt zu kennzeichnen, der nicht stattgefunden hat.
  *
- * Der Name bleibt: Es ist weiterhin der primäre Handlungsaufruf der Seite, nur nicht mehr im
- * Header. Wer ihn umbiegt, verschiebt vier Einstiege auf einmal (s. Fundorte oben).
+ * Der Name bleibt. Wer ihn umbiegt, verschiebt drei Einstiege auf einmal (s. Fundorte oben).
  */
 export const CTA_HREF = '/peak-shaving/kalkulator'
+
+/**
+ * Der Schnellrechner auf der Startseite — Ziel des Primär-Buttons „Ersparnis berechnen" im Hero und
+ * rechts oben im Header (Leadgen-Umbau Schritt 1). Mit Pfad, damit der Header-Button auch von
+ * Unterseiten auf die Startseite springt.
+ */
+export const SCHNELLRECHNER_ANCHOR_ID = 'schnellrechner'
+export const SCHNELLRECHNER_HREF = `/#${SCHNELLRECHNER_ANCHOR_ID}`
 
 /**
  * Der laufende Kalkulator INNERHALB der coolin.at-Hülle (Rechner im iframe).

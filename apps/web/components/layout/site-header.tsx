@@ -5,7 +5,7 @@ import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { MAIN_NAV, KONTAKT_HREF } from '@/lib/nav'
+import { MAIN_NAV, KONTAKT_HREF, SCHNELLRECHNER_HREF } from '@/lib/nav'
 import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
@@ -93,7 +93,8 @@ export async function SiteHeader() {
           className="flex shrink-0 items-center justify-self-start gap-2.5 rounded-md text-navy outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <EmblemImage size={44} className="h-11 w-11" priority />
-          <HeaderWordmark className="h-11 w-auto" />
+          {/* Unter `sm` nur das Emblem: sonst passt „Ersparnis berechnen" bei 360 px nicht in die Zeile. */}
+          <HeaderWordmark className="hidden h-11 w-auto sm:block" />
         </Link>
 
         {/*
@@ -260,22 +261,20 @@ export async function SiteHeader() {
               <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
             </Button>
             {/*
-             * PARTNER STATT KALKULATOR (B16-Einstieg).
-             *
-             * Hier stand bis B16-Einstieg ein zweiter Weg zum Kalkulator — daneben führt der
-             * Menüeintrag „Peak Shaving" bereits dorthin, und der bleibt der Produkteinstieg.
-             * Der Platz trägt jetzt den einzigen öffentlichen Einstieg zum Partnerprogramm, das
-             * sonst nur in der Fusszeile hing.
-             *
-             * Beschriftung „Partner", NICHT „Partnerportal": Es gibt heute keine Partner,
-             * praktisch jeder Aufruf kommt von jemandem ohne Konto, und „Portal" liest sich, als
-             * wäre ein Konto Voraussetzung. Die Zielseite trägt beide Wege — Bewerbung und
-             * Anmeldung für bestehende Partner.
+             * Partner-Einstieg (B16-Einstieg), seit dem Leadgen-Umbau sekundär: primär ist
+             * „Ersparnis berechnen" daneben. „Partner", nicht „Partnerportal" — fast jeder
+             * Aufruf kommt von jemandem ohne Konto. Erst ab `xl`: bei 1024 px bräche die Nav sonst
+             * zweizeilig um (gemessen); darunter bleiben Fusszeile und Startseiten-Banner.
              */}
-            <Button asChild variant="primary" size="sm">
+            <Button asChild variant="secondary" size="sm" className="hidden xl:inline-flex">
               <Link href={PARTNER_BEWERBUNG_HREF}>{t('partner')}</Link>
             </Button>
           </div>
+
+          {/* Auf allen Breiten sichtbar: der primäre Weg zum Schnellrechner (Startseite + Sprungmarke). */}
+          <Button asChild variant="primary" size="sm">
+            <Link href={SCHNELLRECHNER_HREF}>{t('ersparnisBerechnen')}</Link>
+          </Button>
 
           {/* Mobile */}
           <MobileNav />

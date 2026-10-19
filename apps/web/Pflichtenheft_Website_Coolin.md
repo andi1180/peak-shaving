@@ -145,6 +145,8 @@ Deutsch, sprechend, keyword-orientiert (final gegen §6-Keywords gegenprüfen). 
 6. **Vorgehen / Vertrauen:** kompakter „So arbeiten wir"-Block (aus Bestandscontent ableitbar), belastbare Trust-Elemente (keine erfundenen Zahlen).
 7. **Kontakt-CTA** → Kontaktformular (§5.5).
 
+> **Revision 19.10.2026 (Leadgen-Umbau Schritt 1):** Reihenfolge jetzt Hero → Schnellrechner → Vorgehen → Peak-Shaving-Block → Branchen → Wissen → Leistungsportfolio → Partner-Banner → Kontakt-CTA. Hero mit genau einem Primär-CTA „Ersparnis berechnen" (→ Schnellrechner), Zielgruppe Betriebe ab ca. 100.000 kWh in AT/DE. Der Schnellrechner steht nicht mehr im Peak-Shaving-Block. Details: `CLAUDE.md`, Stand-Eintrag „Leadgen-Umbau Schritt 1".
+
 ---
 
 ## 5. Seiten & Content je Typ

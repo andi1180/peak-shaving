@@ -31,6 +31,7 @@
     "ueberUns": "Über uns",
     "stromCheck": "Strom-Monitor",
     "kontakt": "Kontakt",
+    "ersparnisBerechnen": "Ersparnis berechnen",
     "partner": "Partner",
     "bau": "Bau & Baunebengewerbe",
     "hotellerieGastronomie": "Hotellerie & Gastronomie",
@@ -1024,11 +1025,10 @@
     "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial in 2 Minuten schätzen.",
     "Hero": {
       "eyebrow": "Wirtschaftlich dekarbonisieren — ohne Greenwashing",
-      "title": "Wir senken Energiekosten und CO₂ — mit messbarem Erfolg",
-      "lead": "COOLiN ENERGY berät Unternehmen bei der nachhaltigen Nutzung von Energie: PV & Speicher, Peak Shaving, Energiemanagement, PPAs, Finanzierung, Förderungen und mehr.",
-      "focus": "Fokus: schnelle Umsetzbarkeit, belastbare Business Cases, Compliance-ready (CSRD/ESG).",
-      "ctaPrimary": "Kalkulator",
-      "ctaSecondary": "Beratung anfragen"
+      "title": "Sie zahlen für Ihren teuersten Moment. Das ganze Jahr.",
+      "lead": "Ihr Netzbetreiber verrechnet nicht nur, wie viel Strom Sie verbrauchen, sondern auch, wie viel Sie auf einmal ziehen. Wir finden diese Spitzen und senken sie. Ihre Stromkosten sinken mit.",
+      "audience": "Für Betriebe ab ca. 100.000 kWh Jahresverbrauch in Österreich und Deutschland.",
+      "ctaPrimary": "Ersparnis berechnen"
     },
     "HeroChart": {
       "seriesBefore": "Netzbezug ohne Speicher",

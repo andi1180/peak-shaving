@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Container, Eyebrow } from '@/components/ui/layout'
 import { HeroLoadChart } from '@/components/home/hero-load-chart'
-import { CTA_HREF, KONTAKT_HREF } from '@/lib/nav'
+import { SCHNELLRECHNER_HREF } from '@/lib/nav'
 
 /**
  * Hero (§4.4 Nr. 1) — Problem/Lösung in einem Satz.
@@ -15,7 +15,7 @@ import { CTA_HREF, KONTAKT_HREF } from '@/lib/nav'
  *
  * Gestaltung bewusst ruhig (Pflichtenheft §7.1/§7.2): eine Textspalte, flache
  * Fläche, kein Gradient, kein „big number"-Klischee, kein Teaser-Rechner —
- * der sitzt im Peak-Shaving-Block darunter (§4.4 Nr. 2).
+ * als eigener Block direkt darunter (`home/schnellrechner.tsx`).
  *
  * GRAFIK 1 (Prompt 14): die kompakte „Lastgang vor/nach Kappung"-Grafik steht
  * NEBEN der Headline (ab `lg`, zweispaltig) und UNTER ihr (Mobile, per
@@ -40,15 +40,12 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-prose text-lead text-text">{t('lead')}</p>
-          <p className="mt-3 max-w-prose text-body text-text-muted">{t('focus')}</p>
+          <p className="mt-3 max-w-prose text-body text-text-muted">{t('audience')}</p>
 
-          {/* Hierarchie: Primär = der EINE Akzent, Sekundär = Navy-Kontur (§4.1). */}
+          {/* Genau EIN Button: der Weg zum Schnellrechner direkt darunter (Leadgen-Umbau Schritt 1). */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button asChild variant="primary" size="lg">
-              <Link href={CTA_HREF}>{t('ctaPrimary')}</Link>
-            </Button>
-            <Button asChild variant="secondary" size="lg">
-              <Link href={KONTAKT_HREF}>{t('ctaSecondary')}</Link>
+              <Link href={SCHNELLRECHNER_HREF}>{t('ctaPrimary')}</Link>
             </Button>
           </div>
         </div>
