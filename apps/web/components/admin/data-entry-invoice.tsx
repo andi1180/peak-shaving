@@ -90,11 +90,13 @@ import {
 } from 'shared'
 
 import { Button } from '@/components/ui/button'
-import { FieldHint, Label } from '@/components/ui/input'
 import {
   removeMeteringPointInvoiceAction,
+  discardInvoiceUploadAction,
+  readStoredInvoicesAction,
+  registerInvoiceUploadAction,
+  requestInvoiceUploadAction,
   skipMeteringPointInvoiceAction,
-  uploadMeteringPointInvoicesAction,
 } from '@/lib/admin/data-entry-actions'
 import { setInvoicePriceBasisAction } from '@/lib/admin/data-entry-actions-rechnung-basis'
 import {
@@ -109,16 +111,15 @@ import {
   supplierPriceBasisOf,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
-import {
-  MAX_INVOICE_UPLOAD_REQUEST_BYTES,
-  guardInvoiceUpload,
-} from '@/lib/admin/invoice-upload-guard'
+import { guardInvoiceRead } from '@/lib/admin/invoice-upload-guard'
+import { MultiDirectUpload, type UploadedDocument } from './multi-direct-upload'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 
-// Ein 504/413 der Plattform darf die Station nicht abstürzen lassen (s. `guardInvoiceUpload`).
-const guardedUploadAction = guardInvoiceUpload(uploadMeteringPointInvoicesAction)
+// Ein 504 der Plattform darf die Station nicht abstürzen lassen (s. `guardInvoiceRead`).
+const guardedReadAction = guardInvoiceRead(readStoredInvoicesAction)
+const PDF_TYPES = ['application/pdf'] as const
 import { AdminError, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-rechnungen'
@@ -155,10 +156,19 @@ export function DataEntryInvoice({
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
 }) {
-  const [state, formAction, isPending] = useActionState(
-    guardedUploadAction,
-    ADMIN_INITIAL_STATE,
-  )
+  /*
+   * Die Dateien gehen direkt in den Storage (`MultiDirectUpload`); diese Action liest danach die
+   * abgelegten Dokumente aus. An die Anwendung gehen dabei nur Kennungen.
+   */
+  const [state, readAction, isPending] = useActionState(guardedReadAction, ADMIN_INITIAL_STATE)
+  const handleUploaded = (documents: UploadedDocument[]) =>
+    React.startTransition(() =>
+      readAction({
+        projectId,
+        meteringPointId: meteringPoint.id,
+        documentIds: documents.map((document) => document.documentId),
+      }),
+    )
   /*
    * ⚠ ZWEITER Zustand, absichtlich HIER und nicht im einzelnen Entfernen-Formular — s. Kopf: mit
    * der letzten Rechnung verschwindet die Zusammenfassung, und mit ihr nähme ein Zustand darin
@@ -275,7 +285,7 @@ export function DataEntryInvoice({
 
       {/*
         ⚠ NUR OHNE GELESENE RECHNUNG. Liegt eine vor, hat der Upload das Signal ohnehin auf `false`
-        zurückgesetzt (s. `uploadMeteringPointInvoicesAction`) — die Bedingung `stored.length === 0`
+        zurückgesetzt (s. `readStoredInvoicesAction`) — die Bedingung `stored.length === 0`
         ist damit die zweite Schicht derselben Aussage, nicht ihre einzige: sie hält auch dann,
         wenn ein Entwurf aus einem älteren Stand beides zugleich trägt.
 
@@ -296,65 +306,47 @@ export function DataEntryInvoice({
         </div>
       )}
 
-      <form
-        action={formAction}
-        noValidate
+      <div
         className={
           /* Der Strich trennt vom Stand darüber — und der ist entweder die Zusammenfassung ODER der Vermerk. */
-          stored.length > 0 || skipped
-            ? 'flex flex-col gap-4 border-t border-line pt-6'
-            : 'flex flex-col gap-4'
+          stored.length > 0 || skipped ? 'border-t border-line pt-6' : undefined
         }
       >
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
-
-        <div className="max-w-xl">
-          <Label htmlFor={FIELD_ID}>
-            {stored.length > 0 ? 'Weitere Rechnungen' : `Rechnungen für Zählpunkt ${meteringPointNumber}`}
-          </Label>
-          <div className="mt-1.5">
-            {/*
-              ⚠ HIER SEHR WOHL EIN `accept`-FILTER — anders als beim Lastgang, und das ist kein
-              Versehen. Dort versteckte er Dateien, die der Leser durchaus lesen kann (ein
-              Netzbetreiber liefert CSV, XLSX, gelegentlich mit abweichender Endung). Hier ist PDF
-              die EINZIGE Form, die das Auslesen überhaupt annimmt (die API erwartet einen
-              `document`-Block mit genau diesem Medientyp) — ein Dateidialog, der ein Foto anbietet,
-              führt zuverlässig in eine Ablehnung, die er selbst verursacht hat. Die Prüfung in der
-              Action bleibt trotzdem: `accept` ist eine Bedienhilfe des Browsers, keine Sperre.
-            */}
-            <input
-              id={FIELD_ID}
-              name="files"
-              type="file"
-              multiple
-              accept="application/pdf"
-              required
-              aria-invalid={error ? true : undefined}
-              aria-describedby={`${FIELD_ID}-hint`}
-              className="block w-full text-small text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-surface-sunken file:px-3 file:py-1.5 file:text-small file:text-ink hover:file:bg-surface-alt"
-            />
-          </div>
-          <FieldHint id={`${FIELD_ID}-hint`} tone={error ? 'error' : 'muted'}>
-            {error ??
-              `PDF, zusammen bis ${Math.floor(Math.min(maxBytes, MAX_INVOICE_UPLOAD_REQUEST_BYTES) / (1024 * 1024))} MB, höchstens ${MAX_INVOICES_PER_UPLOAD} pro Vorgang. ` +
-                'Jede Rechnung wird im Projekt abgelegt und ausgelesen; bereits gelesene bleiben erhalten. ' +
-                'Zum Auslesen wird sie an Anthropic übertragen und dort nicht gespeichert.'}
-          </FieldHint>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" variant="primary" size="md" disabled={isPending}>
-            {isPending && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-            )}
-            {isPending ? 'Wird ausgelesen …' : 'Rechnungen hochladen'}
-          </Button>
-          <span role="status" aria-live="polite" className="sr-only">
-            {isPending ? 'Wird ausgelesen …' : ''}
-          </span>
-        </div>
-      </form>
+        {/*
+          `accept` nur PDF: es ist die EINZIGE Form, die das Auslesen annimmt (die API erwartet
+          einen `document`-Block mit genau diesem Medientyp). Die Actions prüfen trotzdem selbst.
+        */}
+        <MultiDirectUpload
+          id={FIELD_ID}
+          label={stored.length > 0 ? 'Weitere Rechnungen' : `Rechnungen für Zählpunkt ${meteringPointNumber}`}
+          hint={
+            `PDF, je Datei bis ${Math.floor(maxBytes / (1024 * 1024))} MB, höchstens ${MAX_INVOICES_PER_UPLOAD} pro Vorgang. ` +
+            'Jede Rechnung wird im Projekt abgelegt und ausgelesen; bereits gelesene bleiben erhalten. ' +
+            'Zum Auslesen wird sie an Anthropic übertragen und dort nicht gespeichert.'
+          }
+          error={error}
+          accept={PDF_TYPES}
+          maxFiles={MAX_INVOICES_PER_UPLOAD}
+          maxBytesPerFile={maxBytes}
+          request={(file) =>
+            requestInvoiceUploadAction({
+              projectId,
+              meteringPointId: meteringPoint.id,
+              fileName: file.name,
+              fileSize: file.size,
+              contentType: file.type,
+            })
+          }
+          register={(documentId, file) =>
+            registerInvoiceUploadAction({ projectId, documentId, fileName: file.name })
+          }
+          discard={(documentId) => discardInvoiceUploadAction({ projectId, documentId })}
+          onUploaded={handleUploaded}
+          submitLabel="Rechnungen hochladen"
+          busy={isPending}
+          busyLabel="Wird ausgelesen …"
+        />
+      </div>
 
       {/*
         ⚠ DER WEG NACH VORN GEHÖRT DIESER KOMPONENTE, NICHT DER SEITE — dieselbe Regel wie bei der
