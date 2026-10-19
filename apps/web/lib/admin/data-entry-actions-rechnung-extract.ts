@@ -25,6 +25,7 @@ import {
   type InvoiceFileResult,
   type StoredInvoiceDocument,
 } from './invoice-stored-read'
+import { invoiceDraftFieldsDiffer } from './invoice-draft-fields'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -285,7 +286,8 @@ export async function finalizeInvoiceExtractionsAction(
     now: new Date(),
   })
 
-  if (taken > 0) {
+  // Auch ohne neue Leseergebnisse, wenn nur ein veraltetes oder widersprüchliches Feld zu leeren ist.
+  if (taken > 0 || invoiceDraftFieldsDiffer(point.draft, nextDraft)) {
     const draftRes = await db.rpc('update_metering_point_draft', {
       p_metering_point_id: meteringPointId,
       p_draft: nextDraft as Json,

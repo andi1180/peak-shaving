@@ -189,9 +189,9 @@ export function buildInvoiceDraft(input: {
   /*
    * `measured`: jeder dieser Werte steht übereinstimmend auf allen Rechnungen, die etwas dazu sagen.
    * Ein früher übernommener Wert, zu dem keine gelesene Rechnung mehr etwas sagt, wird entfernt;
-   * Handeingaben und widersprüchliche Felder bleiben (s. `replaceInvoiceDraftFields`).
+   * widersprüchliche Felder werden geleert, Handeingaben bleiben (s. `replaceInvoiceDraftFields`).
    */
-  next = replaceInvoiceDraftFields(next, fold.values, fold.conflicts, now, stored.length > 0)
+  next = replaceInvoiceDraftFields(next, fold.values, now, stored.length > 0)
   /*
    * ⚠ EIN ECHTER UPLOAD WIDERLEGT EIN FRÜHERES „ohne Rechnungsdaten fortgefahren" — ohne diese
    * Zeile stünden „bewusst keine Tarifangabe" und eine gelesene Rechnung gleichzeitig im Entwurf.

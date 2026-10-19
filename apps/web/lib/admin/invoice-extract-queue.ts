@@ -46,10 +46,9 @@ export type InvoiceExtractionQueue = {
 
 /**
  * ⚠ ZUSAMMENGEFÜHRT WIRD ERST, WENN NICHTS MEHR LÄUFT — nicht nach jedem einzelnen `done`.
- * `replaceInvoiceDraftFields` lässt ein widersprüchliches Feld stehen: nach Rechnung A allein
- * stünde deren Wert im Entwurf und bliebe beim Widerspruch mit B dort, obwohl die Station
- * „nicht übernommen" sagt. Ein Abschluss über die ganze Auswahl ergibt den Entwurf des früheren
- * Sammelwegs; zudem läuft so nie mehr als ein Abschluss gleichzeitig.
+ * Ein Abschluss über die ganze Auswahl ergibt den Entwurf des früheren Sammelwegs, ohne dass ein
+ * Zwischenstand nach Rechnung A allein geschrieben wird; zudem läuft so nie mehr als ein
+ * Abschluss gleichzeitig.
  */
 export function createInvoiceExtractionQueue(ports: {
   extract: (documentId: string) => Promise<{ status: string }>

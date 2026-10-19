@@ -467,9 +467,8 @@ function storedEntries(): { documentId: string; filename: string }[] {
  *      das nur, wenn das Entfernen einen WIDERSPRUCH auflöst: dann — und nur dann — ändert sich
  *      ein Wert im Entwurf. Ein Test über zwei einige Rechnungen bliebe grün, auch wenn die
  *      Zusammenführung gar nicht erneut liefe.
- *   2. ES WIRD NICHTS AUFGERÄUMT. Ein Feld, dessen einzige Stütze die entfernte Rechnung war,
- *      bleibt STEHEN (dieselbe schonende Richtung wie bei einem Widerspruch). Das ist eine
- *      Entscheidung, keine Nachlässigkeit — der Test hält sie fest, damit sie niemand „repariert".
+ *   2. VERALTETES WIRD GELEERT. Ein aus Rechnungen übernommenes Feld, dessen einzige Stütze die
+ *      entfernte Rechnung war, verschwindet samt Vermerk; Handeingaben bleiben.
  *   3. EIN UNBEKANNTER EINTRAG SCHREIBT NICHTS. Zweiter Klick, zweiter Tab: das Ziel ist bereits
  *      hergestellt, und ein Schreibvorgang über eine unveränderte Liste wäre eine Änderung, die
  *      keine ist.
@@ -506,9 +505,9 @@ describe('removeMeteringPointInvoiceAction', () => {
   it('⚠ führt NUR die verbliebenen Rechnungen zusammen — ein aufgelöster Widerspruch wirkt', async () => {
     await seedThree()
 
-    // Ausgangslage: der Widerspruch hat den zuerst übernommenen Wert stehen lassen.
+    // Ausgangslage: der widersprüchliche Arbeitspreis ist geleert.
     expect(storedEntries()).toHaveLength(3)
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(draft).not.toHaveProperty('energyPriceCtPerKwh')
     expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
 
     rpc.mockClear()
@@ -525,15 +524,16 @@ describe('removeMeteringPointInvoiceAction', () => {
 
     /*
      * ⚠ DER KERN: b und c sind sich einig, der Widerspruch ist mit a verschwunden — der Wert
-     * wechselt auf 26,9. Liefe die Zusammenführung noch über alle drei, stünde hier weiterhin 24,5.
+     * wird 26,9 übernommen. Liefe die Zusammenführung noch über alle drei, bliebe das Feld leer.
      */
     expect(draft.energyPriceCtPerKwh).toBe(26.9)
+    expect(
+      (draft._provenance as Record<string, { origin?: string }>).energyPriceCtPerKwh?.origin,
+    ).toBe('invoice')
 
-    /*
-     * ⚠ POSITIV-KONTROLLE zur bewussten Nicht-Bereinigung: den Leistungspreis trug AUSSCHLIESSLICH
-     * die entfernte Rechnung. Er steht unverändert im Entwurf.
-     */
-    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+    // Den Leistungspreis trug AUSSCHLIESSLICH die entfernte Rechnung — er wird samt Vermerk geleert.
+    expect(draft).not.toHaveProperty('leistungspreisEurPerKwYear')
+    expect(draft._provenance).not.toHaveProperty('leistungspreisEurPerKwYear')
 
     // EIN Schreibvorgang — die gekürzte Liste und die neuen Werte gehören zusammen.
     const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
@@ -543,18 +543,25 @@ describe('removeMeteringPointInvoiceAction', () => {
     )
   })
 
-  it('⚠ lässt beim Entfernen der LETZTEN Rechnung die übernommenen Angaben stehen', async () => {
+  it('⚠ leert beim Entfernen der LETZTEN Rechnung die übernommenen Angaben — Handeingaben bleiben', async () => {
     extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
     await readInvoices([pdf('einzige.pdf')])
     expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    const hand = { source: 'measured', at: new Date().toISOString() }
+    draft = {
+      ...draft,
+      supplierBaseFeeEurPerMonth: 4.2,
+      _provenance: { ...(draft._provenance as object), supplierBaseFeeEurPerMonth: hand },
+    }
 
     const state = await removeMeteringPointInvoiceAction({}, removeForm(docIdFor('einzige.pdf')))
 
     expect(state.success).toContain('keine gelesene Rechnung mehr')
     expect(storedEntries()).toHaveLength(0)
-    // Der Wert bleibt — er kann inzwischen von Hand geprüft worden sein.
-    expect(draft.energyPriceCtPerKwh).toBe(24.5)
-    expect(draft.netzebene).toBe('NE 5')
+    expect(draft).not.toHaveProperty('energyPriceCtPerKwh')
+    expect(draft).not.toHaveProperty('netzebene')
+    expect(draft.supplierBaseFeeEurPerMonth).toBe(4.2)
+    expect((draft._provenance as Record<string, unknown>).supplierBaseFeeEurPerMonth).toEqual(hand)
   })
 
   it('⚠ schreibt NICHTS, wenn der Eintrag schon weg ist — rendert die Station aber neu', async () => {
@@ -617,15 +624,14 @@ describe('Rechnungen auslesen — erneutes Lesen', () => {
     await readInvoices([pdf('a.pdf')])
     expect(draft.minBillableKw).toBe(44)
 
-    // Entfernen lässt den Wert stehen (unverändert) …
+    // Entfernen leert ihn bereits; das erneute Lesen ohne Wert bringt ihn nicht zurück.
     const fd = new FormData()
     fd.set('projectId', PROJECT_ID)
     fd.set('meteringPointId', POINT_ID)
     fd.set('documentId', docIdFor('a.pdf'))
     await removeMeteringPointInvoiceAction({}, fd)
-    expect(draft.minBillableKw).toBe(44)
+    expect(draft).not.toHaveProperty('minBillableKw')
 
-    // … das erneute Lesen ohne Wert entfernt ihn samt Vermerk.
     extractInvoiceData.mockResolvedValue(extraction({ leistungspreisEurPerKwYear: 38.52 }))
     await readInvoices([pdf('b.pdf')])
     expect(draft).not.toHaveProperty('minBillableKw')
