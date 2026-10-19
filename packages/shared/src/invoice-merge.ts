@@ -209,8 +209,28 @@ function withoutAnnualMaxOnDifferingKw(
   )
 }
 
+/** Die Vorverarbeitung vor dem Feldvergleich — eine Stelle für Zusammenführung und Einzelwerte. */
+function prepareForMerge(input: readonly InvoiceExtraction[]): readonly InvoiceExtraction[] {
+  return measuredWhenAnyBilledKw(withoutAnnualMaxOnDifferingKw(input))
+}
+
+/**
+ * Je Rechnung (Reihenfolge der Eingabe) der Wert jedes Merge-Felds, nach derselben Vorverarbeitung
+ * wie `mergeInvoiceExtractions` — die Werte, zwischen denen ein Widerspruch entsteht.
+ */
+export function invoiceFieldValuesByDocument(
+  input: readonly InvoiceExtraction[],
+): Record<InvoiceMergeFieldKey, string | number | null>[] {
+  return prepareForMerge(input).map(
+    (extraction) =>
+      Object.fromEntries(
+        INVOICE_MERGE_FIELD_KEYS.map((key) => [key, fieldValue(extraction, key)]),
+      ) as Record<InvoiceMergeFieldKey, string | number | null>,
+  )
+}
+
 export function mergeInvoiceExtractions(input: readonly InvoiceExtraction[]): InvoiceMergeResult {
-  const extractions = measuredWhenAnyBilledKw(withoutAnnualMaxOnDifferingKw(input))
+  const extractions = prepareForMerge(input)
   const merged = emptyInvoiceExtraction()
   const conflicts: InvoiceMergeFieldKey[] = []
 

@@ -6,11 +6,18 @@ import {
   type DraftValue,
 } from '@/lib/project-chat/draft'
 
+import type { DraftValueSource } from '@/lib/project-chat/tools'
 import {
   INVOICE_DRAFT_FIELD_KEYS,
   draftFieldFor,
   type InvoiceDraftValue,
 } from './invoice-extractions'
+
+/** Seiteneintrag der gespeicherten Wahl je widersprüchlichem Rechnungsfeld (s. `invoice-field-choices.ts`). */
+export const INVOICE_FIELD_CHOICES_KEY = '_invoiceFieldChoices'
+
+/** Ein Rechnungswert; eine gespeicherte Wahl bringt eigene Herkunft und Notiz mit. */
+export type InvoiceDraftWrite = InvoiceDraftValue & { source?: DraftValueSource; note?: string }
 
 /**
  * Übergang für Entwürfe von vor dem Rechnungs-Vermerk: ein `measured`-Wert ohne Notiz, der vor
@@ -56,18 +63,19 @@ export function setInvoiceDraftField(
  */
 export function replaceInvoiceDraftFields(
   draft: Record<string, unknown>,
-  values: readonly InvoiceDraftValue[],
+  values: readonly InvoiceDraftWrite[],
   now: Date,
   legacyInvoiceDraft: boolean,
 ): Record<string, unknown> {
-  const provenance = readDraftProvenance(draft)
-  const byHand = (field: string) =>
-    field in draft && !isInvoiceDerived(provenance[field], legacyInvoiceDraft)
+  const byHand = (field: string) => invoiceFieldIsByHand(draft, field, legacyInvoiceDraft)
 
   let next = draft
-  for (const { field, value } of values) {
+  for (const { field, value, source, note } of values) {
     if (byHand(field)) continue
-    next = setInvoiceDraftField(next, field, value, now)
+    next =
+      source === undefined
+        ? setInvoiceDraftField(next, field, value, now)
+        : setDraftField(next, field, value, source, note, now, 'invoice')
   }
 
   const provided = new Set(values.map(({ field }) => field))
@@ -87,6 +95,15 @@ export function replaceInvoiceDraftFields(
   return cleared
 }
 
+/** Ist dieses Feld eine Handeingabe (vorhanden, aber nicht aus Rechnungen)? */
+export function invoiceFieldIsByHand(
+  draft: Record<string, unknown>,
+  field: string,
+  legacyInvoiceDraft: boolean,
+): boolean {
+  return field in draft && !isInvoiceDerived(readDraftProvenance(draft)[field], legacyInvoiceDraft)
+}
+
 /** Unterscheiden sich die Rechnungsfelder samt Herkunft (ohne Zeitstempel) zwischen zwei Entwürfen? */
 export function invoiceDraftFieldsDiffer(
   before: Record<string, unknown>,
@@ -99,7 +116,12 @@ export function invoiceDraftFieldsDiffer(
       entry ? [entry.source, entry.note ?? null, entry.origin ?? null] : null,
     ])
   }
-  return INVOICE_DRAFT_FIELD_KEYS.map(draftFieldFor).some(
-    (field) => fieldState(before, field) !== fieldState(after, field),
+  const choices = (draft: Record<string, unknown>) =>
+    JSON.stringify(draft[INVOICE_FIELD_CHOICES_KEY] ?? null)
+  return (
+    choices(before) !== choices(after) ||
+    INVOICE_DRAFT_FIELD_KEYS.map(draftFieldFor).some(
+      (field) => fieldState(before, field) !== fieldState(after, field),
+    )
   )
 }

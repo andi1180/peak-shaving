@@ -26,6 +26,7 @@ import {
   type StoredInvoiceDocument,
 } from './invoice-stored-read'
 import { invoiceDraftFieldsDiffer } from './invoice-draft-fields'
+import { consumptionForInvoiceMerge } from './invoice-field-choices-server'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -284,6 +285,7 @@ export async function finalizeInvoiceExtractionsAction(
     all,
     knownOperatorIds: await readKnownOperatorIdsForProject(db, projectId),
     now: new Date(),
+    consumption: await consumptionForInvoiceMerge(db, projectId, point),
   })
 
   // Auch ohne neue Leseergebnisse, wenn nur ein veraltetes oder widersprüchliches Feld zu leeren ist.

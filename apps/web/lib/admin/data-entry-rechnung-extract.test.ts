@@ -28,6 +28,8 @@ const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction, listInvoic
   await import('./data-entry-actions-rechnung-extract')
 const { removeMeteringPointInvoiceAction } = await import('./data-entry-actions-rechnung')
 const { setInvoicePriceBasisAction } = await import('./data-entry-actions-rechnung-basis')
+const { chooseInvoiceFieldValueAction, clearInvoiceFieldChoiceAction, getInvoiceFieldConflictsAction } =
+  await import('./data-entry-actions-rechnung-choices')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_PROJECT_ID = '22222222-2222-4333-8444-555555555555'
@@ -587,4 +589,138 @@ const SAMMELWEG_ENTWURF = {
   "leistungspreisEurPerKwYear": 38.52,
   "minBillableKw": 44,
   "invoiceSkipped": false
+}
+
+describe('Auswahl je widersprüchlichem Rechnungsfeld', () => {
+  const FIELD = 'energyPriceCtPerKwh'
+  const prov = () => (draft._provenance as Record<string, Record<string, unknown>>)[FIELD]
+  const choices = () => draft._invoiceFieldChoices as Record<string, unknown> | undefined
+  const priced = (price: number, from: string, to: string) =>
+    extraction({ energyPriceCtPerKwh: price }, { billingPeriodFrom: from, billingPeriodTo: to })
+
+  /** a: Januar 24,5 ct · b: Februar 26,9 ct — ein Widerspruch beim Arbeitspreis. */
+  async function twoConflicting() {
+    outcomes.set('a.pdf', priced(24.5, '2026-01-01', '2026-01-31'))
+    outcomes.set('b.pdf', priced(26.9, '2026-02-01', '2026-02-28'))
+    const ids = [file('a.pdf'), file('b.pdf')]
+    await extractAndFinalize(ids)
+    expect(draft).not.toHaveProperty(FIELD)
+    return ids
+  }
+
+  it('Rechnungswahl schreibt Wert + Herkunft, übersteht Neulesen und verfällt beim Entfernen', async () => {
+    const [a] = await twoConflicting()
+    outcomes.set('c.pdf', priced(28, '2026-03-01', '2026-03-31'))
+    await extractAndFinalize([file('c.pdf')])
+
+    const listed = await getInvoiceFieldConflictsAction(PROJECT_ID, POINT_ID)
+    expect(listed.ok && listed.conflicts.map((c) => c.field)).toEqual([FIELD])
+
+    const res = await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, {
+      kind: 'document',
+      documentId: a!,
+    })
+    expect(res).toEqual({ ok: true })
+    expect(draft[FIELD]).toBe(24.5)
+    expect(prov()).toMatchObject({
+      source: 'measured',
+      origin: 'invoice',
+      note: 'Gewählt aus Rechnung a.pdf (01.01.2026–31.01.2026)',
+    })
+
+    await extractAndFinalize([a!])
+    expect(draft[FIELD]).toBe(24.5)
+
+    await removeMeteringPointInvoiceAction({}, removeChoiceForm(a!))
+    expect(draft).not.toHaveProperty(FIELD)
+    expect(choices()).toBeUndefined()
+  })
+
+  it('Mittelwert (nach Tagen ohne Lastgang) wird bei einer neuen Rechnung neu berechnet', async () => {
+    await twoConflicting()
+    await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, { kind: 'weighted' })
+    // (24,5·31 + 26,9·28) / 59
+    expect(draft[FIELD]).toBe(25.639)
+    expect(prov()).toMatchObject({
+      source: 'assumed',
+      origin: 'invoice',
+      note:
+        'Gewichteter Mittelwert aus den Rechnungen (Gewichtung: Tage): ' +
+        '01.01.2026–31.01.2026 zu 24,5 ct/kWh; 01.02.2026–28.02.2026 zu 26,9 ct/kWh',
+    })
+
+    outcomes.set('c.pdf', priced(28, '2026-03-01', '2026-03-31'))
+    await extractAndFinalize([file('c.pdf')])
+    // (24,5·31 + 26,9·28 + 28·31) / 90
+    expect(draft[FIELD]).toBe(26.4522)
+    expect(String(prov()!.note)).toContain('01.03.2026–31.03.2026 zu 28 ct/kWh')
+  })
+
+  it('Handeingabe schlägt die Wahl; die Wahl verfällt, wenn der Widerspruch verschwindet', async () => {
+    const [a, b] = await twoConflicting()
+    draft = {
+      ...draft,
+      [FIELD]: 30,
+      _provenance: {
+        ...(draft._provenance as object),
+        [FIELD]: { source: 'measured', at: '2026-10-19T07:00:00.000Z' },
+      },
+    }
+    await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, { kind: 'document', documentId: a! })
+    expect(draft[FIELD]).toBe(30)
+    expect(prov()).not.toHaveProperty('origin')
+    expect(choices()).toHaveProperty(FIELD)
+
+    delete draft[FIELD]
+    await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, { kind: 'document', documentId: a! })
+    expect(draft[FIELD]).toBe(24.5)
+
+    outcomes.set('b.pdf', priced(24.5, '2026-02-01', '2026-02-28'))
+    await extractAndFinalize([b!])
+    expect(draft[FIELD]).toBe(24.5)
+    expect(prov()).not.toHaveProperty('note')
+    expect(choices()).toBeUndefined()
+  })
+
+  it('Entfernen der Wahl leert das Feld wieder', async () => {
+    const [a] = await twoConflicting()
+    await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, { kind: 'document', documentId: a! })
+    expect(await clearInvoiceFieldChoiceAction(PROJECT_ID, POINT_ID, FIELD)).toEqual({ ok: true })
+    expect(draft).not.toHaveProperty(FIELD)
+    expect(choices()).toBeUndefined()
+  })
+
+  it('lehnt Mittelwert ausserhalb der ct/kWh-Felder, fremde Rechnungen und fremde Projekte ab', async () => {
+    outcomes.set('a.pdf', extraction({ leistungspreisEurPerKwYear: 30, energyPriceCtPerKwh: 24.5 }))
+    outcomes.set('b.pdf', extraction({ leistungspreisEurPerKwYear: 50, energyPriceCtPerKwh: 26.9 }))
+    await extractAndFinalize([file('a.pdf'), file('b.pdf')])
+    const before = draftWrites
+
+    const weighted = await chooseInvoiceFieldValueAction(
+      PROJECT_ID, POINT_ID, 'leistungspreisEurPerKwYear', { kind: 'weighted' },
+    )
+    expect(weighted).toEqual({ ok: false, error: expect.stringContaining('keinen gewichteten') })
+
+    const fremd = await chooseInvoiceFieldValueAction(PROJECT_ID, POINT_ID, FIELD, {
+      kind: 'document',
+      documentId: file('fremd.pdf', OTHER_PROJECT_ID),
+    })
+    expect(fremd).toEqual({ ok: false, error: expect.stringContaining('nicht zur Verfügung') })
+
+    rpc.mockImplementationOnce(async () => ({ data: null, error: { code: '42501' } }))
+    const forbidden = await chooseInvoiceFieldValueAction(OTHER_PROJECT_ID, POINT_ID, FIELD, {
+      kind: 'document',
+      documentId: idFor('a.pdf'),
+    })
+    expect(forbidden).toEqual({ ok: false, error: expect.stringContaining('Keine Berechtigung') })
+    expect(draftWrites).toBe(before)
+  })
+})
+
+function removeChoiceForm(documentId: string): FormData {
+  const fd = new FormData()
+  fd.set('projectId', PROJECT_ID)
+  fd.set('meteringPointId', POINT_ID)
+  fd.set('documentId', documentId)
+  return fd
 }

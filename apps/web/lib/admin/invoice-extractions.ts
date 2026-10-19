@@ -227,9 +227,7 @@ export function foldStoredInvoices(
   entries: readonly StoredInvoiceExtraction[],
   knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
 ) {
-  const { merged, conflicts } = mergeInvoiceExtractions(
-    entries.map((entry) => supplierPricesOnNetBasis(entry.extraction, supplierPriceBasisOf(entry))),
-  )
+  const { merged, conflicts } = mergeInvoiceExtractions(nettedInvoiceExtractions(entries))
   const counted = entries.find(
     (entry) => hasSupplierPrices(entry.extraction) && supplierPriceBasisOf(entry) !== null,
   )
@@ -239,6 +237,13 @@ export function foldStoredInvoices(
     values: invoiceDraftValues(merged, knownOperatorIds),
     supplierPriceBasis: counted ? supplierPriceBasisOf(counted) : null,
   }
+}
+
+/** Die Extraktionen, wie `foldStoredInvoices` sie zusammenführt: Lieferantenpreise netto, unklare Basis → null. */
+export function nettedInvoiceExtractions(entries: readonly StoredInvoiceExtraction[]) {
+  return entries.map((entry) =>
+    supplierPricesOnNetBasis(entry.extraction, supplierPriceBasisOf(entry)),
+  )
 }
 
 /** H3: die Basis der eingegangenen Lieferantenpreise in den Entwurf — nur wenn es eine gibt. */
@@ -343,23 +348,32 @@ export function invoiceDraftValues(
 ): InvoiceDraftValue[] {
   const values: InvoiceDraftValue[] = []
   for (const key of INVOICE_DRAFT_FIELD_KEYS) {
-    const raw = mergeFieldValue(merged, key)
-    if (raw === null) continue
-    /*
-     * ⚠ NUR EINE BEKANNTE KENNUNG WIRD ÜBERNOMMEN, und es wird NICHTS zugeordnet. Der Scan liefert
-     * den Betreiber bereits als Aufzählungswert (`parseInvoiceExtraction` → `oneOf`), diese Prüfung
-     * ist die zweite, örtliche Absicherung derselben Zusage: was der Handeingabe-Auswahl nicht
-     * entspricht, bleibt weg. Einen Freitextnamen auf eine der drei Kennungen zu raten wäre eine
-     * eigene Entscheidung — und eine falsch geratene Zuständigkeit sähe im Report aus wie eine
-     * abgelesene.
-     */
-    if (key === 'netzbetreiber' && !isKnownNetzbetreiber(raw, knownOperatorIds)) continue
-    values.push({
-      field: draftFieldFor(key),
-      value: key === 'netzebene' ? netzebeneDraftValue(raw) : raw,
-    })
+    const value = invoiceDraftValueFor(key, mergeFieldValue(merged, key), knownOperatorIds)
+    if (value !== null) values.push(value)
   }
   return values
+}
+
+/** Ein einzelner Merge-Wert in Entwurfsform — `null`, wenn er nicht eingetragen wird. */
+export function invoiceDraftValueFor(
+  key: InvoiceMergeFieldKey,
+  raw: string | number | null,
+  knownOperatorIds: KnownOperatorIds = NETZBETREIBER_IDS,
+): InvoiceDraftValue | null {
+  if (raw === null) return null
+  /*
+   * ⚠ NUR EINE BEKANNTE KENNUNG WIRD ÜBERNOMMEN, und es wird NICHTS zugeordnet. Der Scan liefert
+   * den Betreiber bereits als Aufzählungswert (`parseInvoiceExtraction` → `oneOf`), diese Prüfung
+   * ist die zweite, örtliche Absicherung derselben Zusage: was der Handeingabe-Auswahl nicht
+   * entspricht, bleibt weg. Einen Freitextnamen auf eine der drei Kennungen zu raten wäre eine
+   * eigene Entscheidung — und eine falsch geratene Zuständigkeit sähe im Report aus wie eine
+   * abgelesene.
+   */
+  if (key === 'netzbetreiber' && !isKnownNetzbetreiber(raw, knownOperatorIds)) return null
+  return {
+    field: draftFieldFor(key),
+    value: key === 'netzebene' ? netzebeneDraftValue(raw) : raw,
+  }
 }
 
 /** Liest ein Merge-Feld aus einer Extraktion, egal ob es im Kopf oder unter `rates` steht. */

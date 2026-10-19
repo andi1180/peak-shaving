@@ -17,20 +17,18 @@ import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/
 import { discardDocumentExtraction } from '@/lib/project-documents/document-extractions'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
-import { replaceInvoiceDraftFields } from './invoice-draft-fields'
 import {
   INVOICE_SKIPPED_KEY,
   MANUAL_PRICE_BASIS_FIELD,
   MANUAL_TARIFF_NUMBER_FIELDS,
   draftFieldFor,
-  foldStoredInvoices,
   isSupplierPriceField,
   netzebeneDraftValue,
   readPriceBasisField,
   readStoredInvoiceExtractions,
-  withInvoicePriceBasis,
-  withStoredInvoiceExtractions,
 } from './invoice-extractions'
+import { mergeInvoiceDraft } from './invoice-field-choices'
+import { consumptionForInvoiceMerge } from './invoice-field-choices-server'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref, readAdminProject } from './projects'
@@ -160,11 +158,6 @@ export async function removeMeteringPointInvoiceAction(
   }
 
   const remaining = stored.filter((entry) => entry.documentId !== documentId)
-  const fold = foldStoredInvoices(
-    remaining,
-    await readKnownOperatorIdsForProject(supabase, projectId),
-  )
-  const { conflicts } = fold
 
   /*
    * ⚠ Die Werte werden NEU GEFALTET, nicht bloss die Liste gekürzt. Für ein unverändertes Feld ist
@@ -175,12 +168,17 @@ export async function removeMeteringPointInvoiceAction(
    * Derselbe Weg wie beim Lesen: Handeingaben bleiben, was keine verbliebene Rechnung mehr trägt
    * oder sich widerspricht, wird geleert.
    */
-  const nextDraft = replaceInvoiceDraftFields(
-    withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, remaining), fold),
-    fold.values,
-    new Date(),
-    true,
-  )
+  const {
+    draft: nextDraft,
+    fold: { conflicts },
+  } = mergeInvoiceDraft({
+    draft: point.draft,
+    entries: remaining,
+    knownOperatorIds: await readKnownOperatorIdsForProject(supabase, projectId),
+    now: new Date(),
+    legacyInvoiceDraft: true,
+    consumption: await consumptionForInvoiceMerge(supabase, projectId, point),
+  })
 
   /*
    * Erst die Auslese-Zeile auf 'removed', dann der Entwurf: sonst käme die Rechnung beim nächsten
