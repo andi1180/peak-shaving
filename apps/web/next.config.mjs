@@ -45,8 +45,13 @@ const nextConfig = {
   // PDF-Schnellreport (3b-1): react-pdf läuft serverseitig ungebündelt, die Schrift liest
   // `lib/schnellreport/render.ts` per fs aus `assets/` — jede Route, die rendert, braucht den Eintrag.
   serverExternalPackages: ['@react-pdf/renderer'],
+  // pdfkit (unter react-pdf) lädt `js/standard-fonts/*.cjs` per dynamischem require nach — der
+  // Trace sieht das nicht, auf Vercel endete die Route ohne den Eintrag mit MODULE_NOT_FOUND.
   outputFileTracingIncludes: {
-    '/api/schnellreport/vorschau': ['./assets/schnellreport-fonts/**'],
+    '/api/schnellreport/vorschau': [
+      './assets/schnellreport-fonts/**',
+      '../../node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**',
+    ],
   },
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).
