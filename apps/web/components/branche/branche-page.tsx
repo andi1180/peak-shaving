@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
-import { QuickCalculator } from '@/components/quick-calculator'
+import { Schnellcheck } from '@/components/schnellcheck'
 import { FaqSection, type FaqItem } from '@/components/faq-section'
 import { TagesverlaufChart } from '@/components/branche/tagesverlauf-chart'
 import { findBranche, FLAGSHIP_LINKS, type Branche } from '@/lib/branchen'
@@ -26,7 +26,7 @@ import { articleHref, findArticle } from '@/lib/wissen'
  * die Texte aus `messages/de.json` (`Branchen.Pages.<key>`).
  *
  * Aufbau (§5.3): Hero (Schmerz) → Tageslastverlauf → passende Hebel →
- * Kostentreiber → FAQ → Schnellrechner → „Was wir für … tun" → Kontakt-CTA.
+ * Kostentreiber → FAQ → Schnellcheck → „Was wir für … tun" → Kontakt-CTA.
  *
  * DIE PRIMÄRE AKTION IST KONTAKT (§3.1 Beratungs-Achse) — wie bei den
  * Leistungen. Der Kalkulator ist die Produkt-Achse und steht auf halbem Weg:
@@ -350,20 +350,11 @@ function BrancheFaq({ branche }: { branche: Branche }) {
 }
 
 /**
- * Eingebetteter Schnellrechner (§5.3 Nr. 5 / §5.4).
+ * Eingebetteter Schnellcheck (§5.3 Nr. 5, Leadgen-Umbau 3a).
  *
- * UNVERÄNDERT wiederverwendet — dieselbe Komponente wie auf der Startseite und
- * auf /peak-shaving, inklusive ihrer Default-Werte. Bewusst OHNE
- * branchenspezifische Vorbelegung: Eine Zahl, die auf `/branchen/handwerk`
- * schon im Feld steht, liest sich als „so viel hat eine Werkstatt" — also als
- * Benchmark, den wir nicht belegen können (§9.5). Die Vorbelegung bleibt das
- * neutrale Rechenbeispiel, das die Komponente selbst als solches ausweist.
- *
- * KEIN ZWEITER CTA-BUTTON: Der Schnellrechner trägt bereits einen Primary („Zum
- * Kalkulator") auf die Produktseite — genau das geforderte Ziel. Ein zweiter
- * Button daneben wäre der Doppel-CTA-Fehler, der auf der Startseite und auf
- * /peak-shaving schon einmal behoben wurde. Links steht deshalb der Lead-in,
- * nicht ein Knopf, der dasselbe tut.
+ * Bewusst OHNE branchenspezifische Vorbelegung: Eine Zahl, die auf `/branchen/handwerk` schon im
+ * Feld steht, liest sich als Benchmark, den wir nicht belegen können (§9.5). Gestapelt statt
+ * zweispaltig, weil der Schnellcheck für drei Felder nebeneinander die volle Breite braucht.
  */
 function RechnerSection({ branche }: { branche: Branche }) {
   const t = usePage(branche)
@@ -371,14 +362,12 @@ function RechnerSection({ branche }: { branche: Branche }) {
   return (
     <Section tone="alt">
       <Container>
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
-          <div>
-            <h2 className="text-h2 text-ink">{t('rechner.title')}</h2>
-            <p className="mt-5 max-w-prose text-body text-text-muted">{t('rechner.lead')}</p>
-          </div>
-          <div>
-            <QuickCalculator />
-          </div>
+        <div className="max-w-prose">
+          <h2 className="text-h2 text-ink">{t('rechner.title')}</h2>
+          <p className="mt-5 text-body text-text-muted">{t('rechner.lead')}</p>
+        </div>
+        <div className="mt-10 max-w-[55rem]">
+          <Schnellcheck />
         </div>
       </Container>
     </Section>

@@ -7,18 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
-import { QuickCalculator } from '@/components/quick-calculator'
+import { Schnellcheck } from '@/components/schnellcheck'
 import { LoadCurveChart } from '@/components/peak-shaving/load-curve-chart'
-import { loadLeadCaptureTexts, type LeadCaptureConsentTexts } from '@/lib/leads/capture-texts'
 import { CTA_HREF } from '@/lib/nav'
 import { pageAlternates } from '@/lib/seo'
-
-/**
- * ISR statt „einmal statisch für immer" (B3-2) — dieselbe Begründung wie auf `/kontakt` und
- * `/branchen/handwerk`: der Einwilligungswortlaut der Erfassung unter dem Schnellrechner kommt aus
- * `platform.consent_texts` (append-only) und soll ohne Deploy nachziehen können.
- */
-export const revalidate = 3600
 
 export async function generateMetadata({
   params,
@@ -43,7 +35,7 @@ export async function generateMetadata({
  *
  * Aufbau folgt §5.2a: Was es ist → Leistungspreis vs. Arbeitspreis → RLM →
  * Diagramm → physikalische vs. RLM-Kappung → Speicher/Steuerung/Strategie →
- * Cross-Links → Schnellrechner + CTA zum Kalkulator.
+ * Cross-Links → Schnellcheck + CTA zum Kalkulator.
  *
  * KEIN SIGNATURE-MOTIV: kanonischer Ort ist der Footer (DESIGN.md), der auf
  * dieser Seite bereits läuft. Ein Auftritt hier wäre der zweite.
@@ -51,17 +43,6 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-
-  /*
-   * B3-2: DER PLATZIERTE SCHNELLRECHNER. Von den vier Einbettungen des Schnellrechners (Startseite,
-   * Branchenseiten, Artikel, hier) trägt genau diese die Zusendung des Ergebnisses — sie ist die
-   * einzige, bei der der Rechner der Zweck des Abschnitts ist und nicht Beiwerk. Die anderen drei
-   * bleiben unverändert.
-   *
-   * Die Texte werden HIER geladen und durchgereicht, weil `QuickCalculator` eine Client-Komponente
-   * ist und keine Datenbank sehen darf.
-   */
-  const leadCaptureTexts = await loadLeadCaptureTexts('rechnerergebnis', locale)
 
   return (
     <>
@@ -72,7 +53,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <KappungSection />
       <ZusammenspielSection />
       <RelatedSection />
-      <CtaSection leadCaptureTexts={leadCaptureTexts} />
+      <CtaSection />
     </>
   )
 }
@@ -303,41 +284,33 @@ function RelatedSection() {
 }
 
 /**
- * Abschluss der Seite: der wiederverwendbare Schnellrechner (§5.4) + der CTA
- * zur Produktseite. Der Rechner wird hier NICHT neu gebaut — es ist exakt die
- * Komponente der Startseite, mit denselben Default-Werten. Sie bringt ihren
- * eigenen hellen Kartengrund mit und funktioniert deshalb auch auf Navy.
+ * Abschluss der Seite: der Schnellcheck (Leadgen-Umbau 3a) + der CTA zur Produktseite.
  *
- * WARUM DER SEKTIONS-CTA SEKUNDÄR IST: Der Schnellrechner trägt bereits einen
- * eigenen Primary („Zum Kalkulator") auf DASSELBE Ziel. Zwei Teal-Buttons auf
- * dasselbe Ziel in einer Sektion sind genau der Fehler, der auf der Startseite
- * gerade behoben wurde (DESIGN.md „Akzent sparsam"). Der Primary bleibt dort,
- * wo er am meisten wiegt: direkt unter der gerechneten Zahl. Dieser hier ist
- * der Weg für alle, die gar nicht erst schätzen wollen.
+ * Gestapelt statt zweispaltig: der Schnellcheck braucht für drei Felder nebeneinander die volle
+ * Breite. Er bringt seinen eigenen hellen Kartengrund mit und funktioniert deshalb auch auf Navy.
+ * Der Sektions-CTA bleibt sekundär — der Primary sitzt im Schnellcheck unter der Zahl.
  */
-function CtaSection({ leadCaptureTexts }: { leadCaptureTexts: LeadCaptureConsentTexts }) {
+function CtaSection() {
   const t = useTranslations('PeakShaving.Cta')
 
   return (
     <section className="bg-navy text-navy-foreground">
       <Container className="py-16 sm:py-24">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-          <div>
-            {/* Auf Navy trägt der Eyebrow den hellen Knoten-Ton — Teal 700
-                erreicht gegen #18336f kein AA (gleiche Regel wie auf der
-                Startseite). */}
-            <Eyebrow className="text-node">{t('eyebrow')}</Eyebrow>
-            <h2 className="mt-3 text-h2 text-navy-foreground">{t('title')}</h2>
-            <p className="mt-5 max-w-prose text-body text-white/80">{t('lead')}</p>
+        <div className="max-w-prose">
+          {/* Auf Navy trägt der Eyebrow den hellen Knoten-Ton — Teal 700
+              erreicht gegen #18336f kein AA (gleiche Regel wie auf der
+              Startseite). */}
+          <Eyebrow className="text-node">{t('eyebrow')}</Eyebrow>
+          <h2 className="mt-3 text-h2 text-navy-foreground">{t('title')}</h2>
+          <p className="mt-5 text-body text-white/80">{t('lead')}</p>
 
-            <Button asChild variant="secondary" size="md" className="mt-8">
-              <Link href={CTA_HREF}>{t('cta')}</Link>
-            </Button>
-          </div>
+          <Button asChild variant="secondary" size="md" className="mt-8">
+            <Link href={CTA_HREF}>{t('cta')}</Link>
+          </Button>
+        </div>
 
-          <div>
-            <QuickCalculator capture={{ consentTexts: leadCaptureTexts }} />
-          </div>
+        <div className="mt-12 max-w-[55rem]">
+          <Schnellcheck />
         </div>
       </Container>
     </section>

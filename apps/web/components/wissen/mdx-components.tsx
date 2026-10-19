@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { MDXRemoteProps } from 'next-mdx-remote/rsc'
 import { Link as TextLink } from '@/components/ui/link'
 import { Num } from '@/components/ui/layout'
-import { QuickCalculator } from '@/components/quick-calculator'
+import { Schnellcheck } from '@/components/schnellcheck'
 import { Callout } from '@/components/wissen/callout'
 import { ChartFigure, Figure } from '@/components/wissen/figure'
 import { ArbeitLeistungChart } from '@/components/wissen/charts/arbeit-leistung-chart'
@@ -223,16 +223,13 @@ export const mdxComponents: MdxComponentMap = {
    */
   Num,
   /**
-   * Der SCHNELLRECHNER (§5.4/§6.5). UNVERÄNDERT dieselbe Komponente wie auf der
-   * Startseite, /peak-shaving und den Branchenseiten — nicht geforkt, und
-   * bewusst OHNE Prefill-Props: Eine Zahl, die in einem Artikel über Werkstätten
-   * schon im Feld steht, liest sich als Benchmark, den §9.5 nicht deckt. Sie
-   * bringt ihren eigenen CTA („Zum Kalkulator") mit; ein zweiter Button daneben
-   * wäre der Doppel-CTA-Fehler, der an anderer Stelle schon behoben wurde.
+   * Der SCHNELLCHECK (Leadgen-Umbau 3a) — dieselbe Komponente wie auf Startseite, /peak-shaving
+   * und den Branchenseiten, ohne Vorbelegung. Breiter als die Prosa-Spalte, damit die drei Felder
+   * nebeneinander Platz haben.
    */
-  Schnellrechner: () => (
-    <div className="mt-8 max-w-prose">
-      <QuickCalculator />
+  Schnellcheck: () => (
+    <div className="mt-8 max-w-[55rem]">
+      <Schnellcheck />
     </div>
   ),
 }

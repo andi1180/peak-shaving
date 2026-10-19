@@ -15,7 +15,7 @@ import {
   type KontaktFieldName,
   type KontaktResponse,
 } from '@/lib/kontakt/schema'
-import { THEMA_PARAM, THEMEN, isThemaKey, type Thema } from '@/lib/kontakt/themen'
+import { NACHRICHT_PARAM, THEMA_PARAM, THEMEN, isThemaKey, type Thema } from '@/lib/kontakt/themen'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 
 /**
@@ -206,6 +206,10 @@ export function KontaktForm({
 
     const param = query.get(THEMA_PARAM)
     if (isThemaKey(param)) setValues((prev) => ({ ...prev, thema: param as string }))
+
+    // Vorbelegte Nachricht (Schnellcheck-Werte); bleibt editierbar und wird wie jede Eingabe geprüft.
+    const nachricht = query.get(NACHRICHT_PARAM)
+    if (nachricht) setValues((prev) => (prev.nachricht ? prev : { ...prev, nachricht }))
 
     /*
      * B16-2: `?partner=<slug>` — für Links, die direkt auf die Kontaktseite zeigen. Hier wird NICHTS

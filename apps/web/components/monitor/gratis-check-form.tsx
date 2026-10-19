@@ -13,7 +13,7 @@
  *
  * `noValidate` + `type="text"`/`inputMode` statt `type="number"`: dieselbe,
  * bereits an anderer Stelle in `apps/web` getroffene und begründete
- * Entscheidung wie in `components/quick-calculator.tsx` — `type="number"`
+ * Entscheidung wie im früheren Schnellrechner — `type="number"`
  * liefert bei Komma-Eingabe („27,9") je nach Browser einen leeren Wert.
  */
 import * as React from 'react'
@@ -42,7 +42,7 @@ export type GratisCheckFormProps = {
   onValidSubmit: (values: GratisCheckValues) => void
 }
 
-/** Eine Zeile: Label + Feld + EIN Hinweis-Slot (Fehler ersetzt den Hilfetext, Muster wie `quick-calculator.tsx`). */
+/** Eine Zeile: Label + Feld + EIN Hinweis-Slot (Fehler ersetzt den Hilfetext, Muster wie im früheren Schnellrechner). */
 function FieldRow({
   id,
   label,

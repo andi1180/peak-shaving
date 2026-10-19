@@ -646,7 +646,7 @@
         },
         "rechner": {
           "title": "Was wäre eine niedrigere Spitze wert?",
-          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung Ihres festen Standorts, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen: Jahresverbrauch, höchste Leistung und, wenn zur Hand, die Stromrechnung. Die höchste Leistung steht auf der Netzrechnung Ihres festen Standorts. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
           "title": "Was wir für Bau- und Baunebengewerbe tun",
@@ -729,7 +729,7 @@
         },
         "rechner": {
           "title": "Was wäre eine niedrigere Spitze wert?",
-          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen: Jahresverbrauch, höchste Leistung und, wenn zur Hand, die Stromrechnung. Die höchste Leistung steht auf Ihrer Netzrechnung. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
           "title": "Was wir für Hotellerie & Gastronomie tun",
@@ -812,7 +812,7 @@
         },
         "rechner": {
           "title": "Was wäre ein abgefangener Anlauf wert?",
-          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen: Jahresverbrauch, höchste Leistung und, wenn zur Hand, die Stromrechnung. Die höchste Leistung steht auf Ihrer Netzrechnung. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
           "title": "Was wir für Handwerksbetriebe tun",
@@ -895,7 +895,7 @@
         },
         "rechner": {
           "title": "Was wäre eine niedrigere Spitze wert?",
-          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen: Jahresverbrauch, höchste Leistung und, wenn zur Hand, die Stromrechnung. Die höchste Leistung steht auf Ihrer Netzrechnung. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
           "title": "Was wir für Industrie & verarbeitendes Gewerbe tun",
@@ -978,7 +978,7 @@
         },
         "rechner": {
           "title": "Und wenn doch eine Spitze da ist?",
-          "lead": "Der Schnellrechner schätzt, was eine niedrigere Leistungsspitze im Jahr wert wäre. In der Land- und Forstwirtschaft ist die ehrliche Antwort oft: weniger, als PV und Eigenverbrauch bringen. Rechnen Sie es mit den Werten Ihrer Netzrechnung durch — wenn wenig herauskommt, ist das ein Ergebnis und kein Fehler."
+          "lead": "Der Schnellcheck schätzt, was Ihre Leistungsspitze im Jahr kostet. In der Land- und Forstwirtschaft ist die ehrliche Antwort oft: weniger, als PV und Eigenverbrauch bringen. Rechnen Sie es mit den Werten Ihrer Netzrechnung durch — wenn wenig herauskommt, ist das ein Ergebnis und kein Fehler."
         },
         "tun": {
           "title": "Was wir für Land- und Forstwirtschaft tun",
@@ -1020,6 +1020,66 @@
     "hintCapped": "Mehr als die aktuelle Spitze lässt sich nicht reduzieren — gerechnet wird mit {value} kW.",
     "disclaimer": "Orientierungswert. Die belastbare Auslegung liefert der Peak-Shaving Kalkulator anhand Ihrer 15-Minuten-Lastgangdaten.",
     "cta": "Zum Kalkulator"
+  },
+  "Schnellcheck": {
+    "eyebrow": "Schnellcheck",
+    "title": "Was kostet Sie Ihre Lastspitze?",
+    "intro": "Drei Angaben, Ergebnis sofort. Ohne Anmeldung.",
+    "ariaLabel": "Schnellcheck",
+    "countryLabel": "Land",
+    "countryAT": "Österreich",
+    "countryDE": "Deutschland",
+    "optional": "(optional)",
+    "kwhLabel": "Jahresverbrauch",
+    "kwhPlaceholder": "z. B. 250.000",
+    "kwhHint": "steht auf Ihrer Jahresrechnung",
+    "kwLabel": "Höchste Leistung",
+    "kwPlaceholder": "z. B. 180",
+    "kwHint": "steht auf Ihrer Netzrechnung",
+    "billLabel": "Stromrechnung pro Jahr",
+    "billPlaceholder": "z. B. 65.000",
+    "billHint": "Strom und Netz zusammen, netto",
+    "unitKwh": "kWh",
+    "unitKw": "kW",
+    "unitEur": "€",
+    "empty": "Geben Sie Ihren Jahresverbrauch ein, dann sehen Sie sofort Ihr Ergebnis.",
+    "small": "Bei unter 100.000 kWh Jahresverbrauch lohnt sich ein Speicher meist noch nicht. Wir sagen Ihnen gern, ab wann es sich rechnet.",
+    "big": "rund {amount} €",
+    "bigSubKnown": "kostet Sie Ihre Lastspitze pro Jahr.",
+    "bigSubExample": "kostet eine Lastspitze von {kw} kW pro Jahr.",
+    "sliderLabel": "Ihre höchste Leistung (Beispielwert, bitte anpassen)",
+    "sliderAria": "Höchste Leistung in kW",
+    "kwValue": "{kw} kW",
+    "vizTitle": "Ihre Stromrechnung pro Jahr",
+    "billAria": "Von {bill} € Stromkosten entfallen rund {peak} € auf die Lastspitze.",
+    "legendRest": "Strommenge, Netz, Abgaben",
+    "legendPeak": "Lastspitze",
+    "eur": "{amount} €",
+    "percent": "rund {pct} %",
+    "perKwValue": "{price} €",
+    "perKwText": "kostet jedes Kilowatt Ihrer Spitze pro Jahr. Jedes Kilowatt weniger spart genau diesen Betrag.",
+    "note": "Gerechnet mit dem durchschnittlichen Leistungspreis in Österreich (rund {price} € pro kW und Jahr, Mittel aller Netzgebiete laut Systemnutzungsentgelte-Verordnung, Stand 2026). Ihr Netzgebiet kann darüber oder darunter liegen.",
+    "deText": "In Deutschland zahlen Betriebe ab 100.000 kWh einen Leistungspreis auf ihre höchste Viertelstunde im Jahr.",
+    "deNote": "Die Preise unterscheiden sich je Netzbetreiber stark. Ihre genaue Zahl berechnen wir im Profi-Report.",
+    "pdfTitle": "Schnellreport",
+    "pdfFor": "für Ihren Betrieb",
+    "pdfCaption": "Kosten Ihrer Lastspitze pro Jahr",
+    "offerTitle": "Ihr persönlicher Schnellreport als PDF",
+    "check1": "<b>Ihre Zahlen auf einen Blick</b>, sauber aufbereitet zum Weitergeben an Geschäftsführung oder Buchhaltung",
+    "check2": "<b>Warum Spitzen entstehen</b>, erklärt für Ihre Branche",
+    "check3": "<b>Neue Netztarife ab 2027</b>: was sich für Betriebe ändert",
+    "check4": "<b>Drei Hebel ohne Investition</b>, mit denen Sie Spitzen schon morgen senken",
+    "check5": "<b>Checkliste</b>: welche Unterlagen Sie für eine genaue Berechnung brauchen",
+    "ctaReport": "Schnellreport kostenlos per E-Mail",
+    "reportNote": "Kostenlos. Kein Anruf ohne Ihre Zustimmung.",
+    "teaser": "Wie viel davon Sie mit einem Speicher vermeiden können, rechnet der Profi-Report mit Ihren echten Daten.",
+    "ctaProfi": "Profi-Report ansehen",
+    "erstgespraech": "oder <link>kostenloses Erstgespräch</link>, 15 Minuten am Telefon",
+    "prefillIntro": "Werte aus dem Schnellcheck:",
+    "prefillCountry": "Land: {country}",
+    "prefillKwh": "Jahresverbrauch: {kwh} kWh",
+    "prefillKw": "Höchste Leistung: {kw} kW",
+    "prefillBill": "Stromrechnung pro Jahr: {bill} €"
   },
   "Home": {
     "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial in 2 Minuten schätzen.",
@@ -1191,7 +1251,7 @@
     "Cta": {
       "eyebrow": "Ihr Potenzial",
       "title": "Einsparpotenzial in zwei Minuten schätzen",
-      "lead": "Der Schnellrechner gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Peak-Shaving Kalkulator.",
+      "lead": "Der Schnellcheck gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Peak-Shaving Kalkulator.",
       "cta": "Zum Peak-Shaving Kalkulator"
     }
   },
@@ -1217,23 +1277,23 @@
       "f3Text": "Jeder Speicher-Kandidat wird einzeln durchgerechnet und gereiht — mit Investition, Förderung, Amortisation und Ersparnis über den Betrachtungszeitraum. Die Anteile aus Spitzenkappung, Eigenverbrauch und Lastverschiebung weist der Report getrennt aus, statt sie zu addieren."
     },
     "Vergleich": {
-      "eyebrow": "Schnellrechner oder Kalkulator",
-      "title": "Der Unterschied zum Schnellrechner",
+      "eyebrow": "Schnellcheck oder Kalkulator",
+      "title": "Der Unterschied zum Schnellcheck",
       "lead": "Beide beantworten dieselbe Frage — mit sehr unterschiedlicher Verbindlichkeit.",
-      "teaserTitle": "Schnellrechner",
+      "teaserTitle": "Schnellcheck",
       "teaserSub": "Die Orientierung",
       "teaser1": "Drei Eingaben, direkt auf der Seite",
-      "teaser2": "Rechnet Zielreduktion × Leistungspreis",
-      "teaser3": "Die Zielreduktion geben Sie selbst vor",
+      "teaser2": "Rechnet höchste Leistung × durchschnittlichen Leistungspreis",
+      "teaser3": "Zeigt, was die Spitze kostet, nicht was ein Speicher spart",
       "teaser4": "Ergebnis: eine grobe Größenordnung",
-      "teaserLink": "Zum Schnellrechner",
+      "teaserLink": "Zum Schnellcheck",
       "proTitle": "Peak-Shaving Kalkulator",
       "proSub": "Die Entscheidungsgrundlage",
       "pro1": "Ihre echten 15-Minuten-Lastgangdaten",
       "pro2": "Simuliert den Ladezustand über das ganze Jahr",
-      "pro3": "Errechnet, welche Reduktion überhaupt erreichbar ist",
+      "pro3": "Errechnet, wie weit sich die Spitze tatsächlich senken lässt",
       "pro4": "Ergebnis: Speicherempfehlung, ROI und Report",
-      "note": "Der Schnellrechner nimmt an, dass die gewünschte Reduktion erreichbar ist. Ob sie das ist, hängt an Leistung, Kapazität und am zeitlichen Verlauf Ihrer Spitzen — genau das rechnet der Kalkulator aus."
+      "note": "Der Schnellcheck sagt, was Ihre Spitze heute kostet. Wie viel davon ein Speicher vermeidet, hängt an Leistung, Kapazität und am zeitlichen Verlauf Ihrer Spitzen — genau das rechnet der Kalkulator aus."
     },
     "Screens": {
       "eyebrow": "Einblick",
@@ -1349,6 +1409,9 @@
     },
     "themen": {
       "peakShaving": "Peak Shaving / Kalkulator",
+      "schnellreport": "Schnellreport",
+      "profiReport": "Profi-Report",
+      "erstgespraech": "Erstgespräch",
       "sonstiges": "Sonstiges"
     },
     "errors": {

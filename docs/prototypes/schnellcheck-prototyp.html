@@ -1,0 +1,361 @@
+<title>COOLiN Schnellcheck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: eine Karte im Stil der Hero-Animation. Oben drei Eingaben, darunter das Ergebnis mit einer großen Zahl, einer Grafik und zwei Wegen weiter. */
+:root {
+  --navy: #18336f;
+  --ink: #0f172a;
+  --text: #1e293b;
+  --muted: #475569;
+  --faint: #737373;
+  --accent: #0f766e;
+  --accent-hover: #0e6b64;
+  --accent-subtle: #f0fdfa;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --bar: #cbd5e1;
+  --negative: #b91c1c;
+  --negative-subtle: #fef2f2;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--surface-alt);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding-block: 48px 72px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+}
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+h2 { margin: 0 0 8px; color: var(--navy); font-size: clamp(28px, 3.4vw, 38px); line-height: 1.1; letter-spacing: -0.02em; text-wrap: balance; }
+.intro { margin: 0 0 28px; color: var(--muted); font-size: 17px; max-width: 38em; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px -24px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+.inputs { display: grid; gap: 20px; padding: 24px 26px; }
+.country { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; justify-self: start; }
+.country button {
+  appearance: none; border: 0; background: transparent; color: var(--muted);
+  font: 600 13px/1 var(--font); padding: 8px 14px; border-radius: 7px; cursor: pointer;
+}
+.country button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field label { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.field .opt { font-weight: 500; color: var(--faint); }
+.inp { position: relative; }
+.inp input {
+  width: 100%; font: 500 17px/1 var(--font); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 10px; padding: 13px 52px 13px 14px;
+  background: var(--surface); font-variant-numeric: tabular-nums;
+}
+.inp input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.inp .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--faint); font-weight: 600; }
+.hint { font-size: 12.5px; color: var(--faint); }
+
+.result { border-top: 1px solid var(--border); background: var(--surface-alt); padding: 24px 26px 26px; display: grid; gap: 22px; }
+.empty { color: var(--muted); font-size: 15px; }
+.headline { display: grid; gap: 4px; }
+.big { font-size: clamp(34px, 5vw, 46px); font-weight: 700; color: var(--negative); letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.big-sub { font-size: 16px; color: var(--ink); font-weight: 600; }
+.note { font-size: 12.5px; color: var(--faint); }
+
+.viz { display: grid; gap: 10px; }
+.viz-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.bill { position: relative; height: 44px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; display: flex; }
+.bill .rest { background: var(--bar); height: 100%; transition: width .6s cubic-bezier(.2,.7,.2,1); }
+.bill .peak { background: var(--negative); height: 100%; transition: width .6s cubic-bezier(.2,.7,.2,1); position: relative; }
+.bill-legend { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.bill-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.bill-legend .r b { color: var(--negative); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+.slider { display: grid; gap: 8px; }
+.slider-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.slider-head span { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.slider-head b { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ink); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.scale { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+.perkw {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+}
+.perkw .num { font-size: 22px; font-weight: 700; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.perkw p { margin: 0; font-size: 14px; color: var(--text); }
+
+.teaser { font-size: 15.5px; color: var(--ink); font-weight: 600; margin: 0; text-wrap: balance; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #fff; border: 0; border-radius: 9px;
+  font: 600 15px/1 var(--font); padding: 14px 20px; text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn.ghost { background: var(--surface); color: var(--navy); border: 1px solid var(--border); }
+.btn.ghost:hover { border-color: var(--navy); }
+.btn:focus-visible, .country button:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.small { font-size: 12.5px; color: var(--faint); margin: 0; }
+.soft { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 14px; color: var(--muted); }
+
+
+.offer {
+  display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 26px; align-items: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px;
+}
+.offer h3 { margin: 0 0 10px; font-size: 18px; color: var(--navy); letter-spacing: -0.01em; }
+.offer-text { min-width: 0; display: grid; gap: 14px; justify-items: start; }
+.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.checks li { position: relative; padding-left: 26px; font-size: 14.5px; color: var(--text); line-height: 1.45; }
+.checks li::before {
+  content: ""; position: absolute; left: 0; top: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1.5px solid var(--accent);
+}
+.checks li::after {
+  content: ""; position: absolute; left: 5px; top: 7px; width: 6px; height: 3.5px;
+  border-left: 1.8px solid var(--accent); border-bottom: 1.8px solid var(--accent); transform: rotate(-45deg);
+}
+.checks b { color: var(--ink); font-weight: 600; }
+.pdf { position: relative; height: 220px; }
+.page { position: absolute; width: 150px; height: 200px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 20px -12px rgba(15, 23, 42, 0.35); }
+.page.back { left: 18px; top: 16px; transform: rotate(5deg); }
+.page.mid { left: 10px; top: 8px; transform: rotate(2deg); }
+.page.front { left: 0; top: 0; padding: 14px 12px; display: grid; align-content: start; gap: 4px; }
+.pg-brand { font-size: 7px; font-weight: 700; letter-spacing: 0.06em; color: var(--navy); }
+.pg-brand span { color: var(--accent); }
+.pg-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-top: 8px; }
+.pg-for { font-size: 7.5px; color: var(--faint); }
+.pg-num { font-size: 17px; font-weight: 700; color: var(--negative); margin-top: 10px; font-variant-numeric: tabular-nums; }
+.pg-cap { font-size: 7px; color: var(--muted); }
+.pg-bar { display: flex; height: 8px; border-radius: 3px; overflow: hidden; margin-top: 8px; background: var(--bar); }
+.pg-bar .pg-rest { flex: 1; background: var(--bar); }
+.pg-bar .pg-peak { width: 19%; background: var(--negative); }
+.pg-lines { display: grid; gap: 4px; margin-top: 12px; }
+.pg-lines i { display: block; height: 4px; border-radius: 2px; background: var(--border); width: 100%; }
+.next { display: grid; gap: 12px; margin-top: 22px; }
+@media (max-width: 620px) {
+  .offer { grid-template-columns: 1fr; justify-items: center; }
+  .offer-text { justify-items: stretch; }
+  .offer-text .btn { justify-content: center; }
+}
+
+[hidden] { display: none !important; }
+
+@media (max-width: 720px) {
+  .fields { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 48px; }
+  .inputs, .result { padding: 18px 16px; }
+  .ctas .btn { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bill .rest, .bill .peak { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Schnellcheck</p>
+  <h2>Was kostet Sie Ihre Lastspitze?</h2>
+  <p class="intro">Drei Angaben, Ergebnis sofort. Ohne Anmeldung.</p>
+
+  <section class="card" aria-label="Schnellcheck">
+    <div class="inputs">
+      <div class="country" role="group" aria-label="Land">
+        <button type="button" id="cAT" aria-pressed="true">Österreich</button>
+        <button type="button" id="cDE" aria-pressed="false">Deutschland</button>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label for="kwh">Jahresverbrauch</label>
+          <div class="inp"><input id="kwh" inputmode="numeric" placeholder="z. B. 250.000" autocomplete="off"><span class="unit">kWh</span></div>
+          <span class="hint">steht auf Ihrer Jahresrechnung</span>
+        </div>
+        <div class="field">
+          <label for="kw">Höchste Leistung <span class="opt">(optional)</span></label>
+          <div class="inp"><input id="kw" inputmode="numeric" placeholder="z. B. 180" autocomplete="off"><span class="unit">kW</span></div>
+          <span class="hint">steht auf Ihrer Netzrechnung</span>
+        </div>
+        <div class="field">
+          <label for="bill">Stromrechnung pro Jahr <span class="opt">(optional)</span></label>
+          <div class="inp"><input id="bill" inputmode="numeric" placeholder="z. B. 65.000" autocomplete="off"><span class="unit">€</span></div>
+          <span class="hint">Strom und Netz zusammen, netto</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="result" aria-live="polite">
+      <p class="empty" id="empty">Geben Sie Ihren Jahresverbrauch ein, dann sehen Sie sofort Ihr Ergebnis.</p>
+
+      <div id="out" hidden>
+        <div class="soft" id="small" hidden>Bei unter 100.000 kWh Jahresverbrauch lohnt sich ein Speicher meist noch nicht. Wir sagen Ihnen gern, ab wann es sich rechnet.</div>
+
+        <div id="atResult">
+          <div class="headline">
+            <span class="big" id="big">rund 0 €</span>
+            <span class="big-sub" id="bigSub">kostet Sie Ihre Lastspitze pro Jahr.</span>
+          </div>
+
+          <div class="slider" id="sliderBox" hidden style="margin-top:18px">
+            <div class="slider-head"><span>Ihre höchste Leistung (Beispielwert, bitte anpassen)</span><b id="kwVal">150 kW</b></div>
+            <input type="range" id="kwRange" min="20" max="1000" step="5" value="150" aria-label="Höchste Leistung in kW">
+            <div class="scale"><span>20 kW</span><span>500 kW</span><span>1.000 kW</span></div>
+          </div>
+
+          <div class="viz" id="billViz" hidden style="margin-top:20px">
+            <span class="viz-title">Ihre Stromrechnung pro Jahr</span>
+            <div class="bill" role="img" id="billBar" aria-label="">
+              <div class="rest" id="barRest" style="width:100%"></div>
+              <div class="peak" id="barPeak" style="width:0%"></div>
+            </div>
+            <div class="bill-legend">
+              <span><i class="sw" style="background:var(--bar)"></i>Strommenge, Netz, Abgaben <b id="restEur"></b></span>
+              <span class="r"><i class="sw" style="background:var(--negative)"></i>Lastspitze <b id="peakEur"></b> · <b id="peakPct"></b></span>
+            </div>
+          </div>
+
+          <div class="perkw" id="perKw" style="margin-top:20px">
+            <span class="num">67 €</span>
+            <p>kostet jedes Kilowatt Ihrer Spitze pro Jahr. Jedes Kilowatt weniger spart genau diesen Betrag.</p>
+          </div>
+          <p class="note" style="margin-top:10px">Gerechnet mit dem durchschnittlichen Leistungspreis in Österreich (rund 67 € pro kW und Jahr, Mittel aller Netzgebiete laut Systemnutzungsentgelte-Verordnung, Stand 2026). Ihr Netzgebiet kann darüber oder darunter liegen.</p>
+        </div>
+
+        <div id="deResult" hidden>
+          <div class="headline">
+            <span class="big-sub">In Deutschland zahlen Betriebe ab 100.000 kWh einen Leistungspreis auf ihre höchste Viertelstunde im Jahr.</span>
+          </div>
+          <p class="note" style="margin-top:8px">Die Preise unterscheiden sich je Netzbetreiber stark. Ihre genaue Zahl berechnen wir im Profi-Report.</p>
+        </div>
+
+        <div class="offer" style="margin-top:24px">
+          <div class="pdf" aria-hidden="true">
+            <div class="page back"></div>
+            <div class="page mid"></div>
+            <div class="page front">
+              <div class="pg-brand">COOL<span>i</span>N ENERGY</div>
+              <div class="pg-title">Schnellreport</div>
+              <div class="pg-for">für Ihren Betrieb</div>
+              <div class="pg-num" id="pdfNum">12.100 €</div>
+              <div class="pg-cap">Kosten Ihrer Lastspitze pro Jahr</div>
+              <div class="pg-bar"><i class="pg-rest"></i><i class="pg-peak" id="pdfPeak"></i></div>
+              <div class="pg-lines"><i></i><i></i><i style="width:60%"></i></div>
+            </div>
+          </div>
+          <div class="offer-text">
+            <h3>Ihr persönlicher Schnellreport als PDF</h3>
+            <ul class="checks">
+              <li><b>Ihre Zahlen auf einen Blick</b>, sauber aufbereitet zum Weitergeben an Geschäftsführung oder Buchhaltung</li>
+              <li><b>Warum Spitzen entstehen</b>, erklärt für Ihre Branche</li>
+              <li><b>Neue Netztarife ab 2027</b>: was sich für Betriebe ändert</li>
+              <li><b>Drei Hebel ohne Investition</b>, mit denen Sie Spitzen schon morgen senken</li>
+              <li><b>Checkliste</b>: welche Unterlagen Sie für eine genaue Berechnung brauchen</li>
+            </ul>
+            <a class="btn" href="#">Schnellreport kostenlos per E-Mail
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <p class="small">Kostenlos. Kein Anruf ohne Ihre Zustimmung.</p>
+          </div>
+        </div>
+
+        <div class="next">
+          <p class="teaser">Wie viel davon Sie mit einem Speicher vermeiden können, rechnet der Profi-Report mit Ihren echten Daten.</p>
+          <div class="ctas">
+            <a class="btn ghost" href="#">Profi-Report ansehen</a>
+            <span class="small">oder kostenloses Erstgespräch, 15 Minuten am Telefon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const LP = 67; // €/kW·Jahr, österreichischer Mittelwert (SNE-V 2026, NE 5–7 gemessen, 13 Netzgebiete)
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Math.round(n).toLocaleString("de-DE");
+  const parse = (s) => { const v = parseFloat(String(s).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")); return isFinite(v) ? v : NaN; };
+  const round100 = (n) => Math.round(n / 100) * 100;
+  let country = "AT";
+
+  ["kwh", "kw", "bill"].forEach((id) => {
+    $(id).addEventListener("input", (e) => {
+      const caret = e.target.value;
+      const v = parse(caret);
+      e.target.value = isFinite(v) && v > 0 ? fmt(v) : caret.replace(/[^\d.]/g, "");
+      update();
+    });
+  });
+  $("kwRange").addEventListener("input", update);
+  $("cAT").addEventListener("click", () => setCountry("AT"));
+  $("cDE").addEventListener("click", () => setCountry("DE"));
+  function setCountry(c) {
+    country = c;
+    $("cAT").setAttribute("aria-pressed", String(c === "AT"));
+    $("cDE").setAttribute("aria-pressed", String(c === "DE"));
+    update();
+  }
+
+  function update() {
+    const kwh = parse($("kwh").value);
+    const kwIn = parse($("kw").value);
+    const bill = parse($("bill").value);
+    const has = isFinite(kwh) && kwh > 0;
+    $("empty").hidden = has;
+    $("out").hidden = !has;
+    if (!has) return;
+
+    $("small").hidden = kwh >= 90000;
+    $("atResult").hidden = country !== "AT";
+    $("deResult").hidden = country !== "DE";
+    if (country !== "AT") return;
+
+    const kwKnown = isFinite(kwIn) && kwIn > 0;
+    $("sliderBox").hidden = kwKnown;
+    const kw = kwKnown ? kwIn : +$("kwRange").value;
+    $("kwVal").textContent = fmt(kw) + " kW";
+    const peak = round100(kw * LP);
+    $("big").textContent = "rund " + fmt(peak) + " €";
+    $("bigSub").textContent = kwKnown ? "kostet Sie Ihre Lastspitze pro Jahr." : "kostet eine Lastspitze von " + fmt(kw) + " kW pro Jahr.";
+
+    $("pdfNum").textContent = fmt(peak) + " €";
+    const billOk = isFinite(bill) && bill > 0 && peak < bill;
+    $("pdfPeak").style.width = billOk ? (peak / bill * 100).toFixed(1) + "%" : "0%";
+    $("billViz").hidden = !billOk;
+    if (billOk) {
+      const pct = peak / bill * 100;
+      $("barPeak").style.width = pct.toFixed(1) + "%";
+      $("barRest").style.width = (100 - pct).toFixed(1) + "%";
+      $("peakEur").textContent = fmt(peak) + " €";
+      $("restEur").textContent = fmt(bill - peak) + " €";
+      $("peakPct").textContent = "rund " + Math.round(pct) + " %";
+      $("billBar").setAttribute("aria-label", "Von " + fmt(bill) + " € Stromkosten entfallen rund " + fmt(peak) + " € auf die Lastspitze.");
+    }
+  }
+
+  // Beispielzustand, damit die Seite ein fertiges Ergebnis zeigt
+  $("kwh").value = fmt(250000);
+  $("kw").value = fmt(180);
+  $("bill").value = fmt(65000);
+  update();
+})();
+</script>
