@@ -1,5 +1,3 @@
-import type { InvoiceMergeFieldKey } from 'shared'
-
 import {
   DRAFT_PROVENANCE_KEY,
   readDraftProvenance,
@@ -52,14 +50,13 @@ export function setInvoiceDraftField(
 }
 
 /**
- * (Erneutes) Lesen: die aus Rechnungen stammenden Felder werden durch das Ergebnis über ALLE
- * gelesenen Rechnungen ersetzt; sagt keine mehr etwas dazu, wird das Feld entfernt. Handeingaben
- * bleiben unberührt, ein widersprüchliches Feld behält seinen Wert (so sagt es die Station zu).
+ * Jeder Schreibweg der Rechnungswerte (Lesen, Entfernen, Preisbasis): die aus Rechnungen stammenden
+ * Felder werden durch das Ergebnis über ALLE gelesenen Rechnungen ersetzt; sagt keine mehr etwas
+ * dazu oder widersprechen sie sich, wird das Feld entfernt. Handeingaben bleiben unberührt.
  */
 export function replaceInvoiceDraftFields(
   draft: Record<string, unknown>,
   values: readonly InvoiceDraftValue[],
-  conflicts: readonly InvoiceMergeFieldKey[],
   now: Date,
   legacyInvoiceDraft: boolean,
 ): Record<string, unknown> {
@@ -74,9 +71,8 @@ export function replaceInvoiceDraftFields(
   }
 
   const provided = new Set(values.map(({ field }) => field))
-  const conflicting = new Set(conflicts.map(draftFieldFor))
   const stale = INVOICE_DRAFT_FIELD_KEYS.map(draftFieldFor).filter(
-    (field) => field in next && !provided.has(field) && !conflicting.has(field) && !byHand(field),
+    (field) => field in next && !provided.has(field) && !byHand(field),
   )
   if (stale.length === 0) return next
 
@@ -89,4 +85,21 @@ export function replaceInvoiceDraftFields(
   if (Object.keys(clearedProvenance).length > 0) cleared[DRAFT_PROVENANCE_KEY] = clearedProvenance
   else delete cleared[DRAFT_PROVENANCE_KEY]
   return cleared
+}
+
+/** Unterscheiden sich die Rechnungsfelder samt Herkunft (ohne Zeitstempel) zwischen zwei Entwürfen? */
+export function invoiceDraftFieldsDiffer(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): boolean {
+  const fieldState = (draft: Record<string, unknown>, field: string) => {
+    const entry = readDraftProvenance(draft)[field]
+    return JSON.stringify([
+      field in draft ? draft[field] : null,
+      entry ? [entry.source, entry.note ?? null, entry.origin ?? null] : null,
+    ])
+  }
+  return INVOICE_DRAFT_FIELD_KEYS.map(draftFieldFor).some(
+    (field) => fieldState(before, field) !== fieldState(after, field),
+  )
 }

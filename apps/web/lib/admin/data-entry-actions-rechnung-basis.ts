@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
+import { dropInapplicableBillingModel } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import {
   foldStoredInvoices,
@@ -10,6 +10,7 @@ import {
   withInvoicePriceBasis,
   withStoredInvoiceExtractions,
 } from './invoice-extractions'
+import { replaceInvoiceDraftFields } from './invoice-draft-fields'
 import { readKnownOperatorIdsForProject } from './grid-operators'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -66,11 +67,12 @@ export async function setInvoicePriceBasisAction(
   )
 
   const fold = foldStoredInvoices(next, await readKnownOperatorIdsForProject(supabase, projectId))
-  let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, next), fold)
-  const now = new Date()
-  for (const { field, value } of fold.values) {
-    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
-  }
+  const nextDraft = replaceInvoiceDraftFields(
+    withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, next), fold),
+    fold.values,
+    new Date(),
+    true,
+  )
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,

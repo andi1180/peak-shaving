@@ -27,6 +27,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 const { extractStoredInvoiceAction, finalizeInvoiceExtractionsAction, listInvoiceExtractionsAction } =
   await import('./data-entry-actions-rechnung-extract')
 const { removeMeteringPointInvoiceAction } = await import('./data-entry-actions-rechnung')
+const { setInvoicePriceBasisAction } = await import('./data-entry-actions-rechnung-basis')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_PROJECT_ID = '22222222-2222-4333-8444-555555555555'
@@ -359,6 +360,56 @@ describe('Rechnung je Dokument + Abschluss', () => {
     ).toEqual({ status: 'not_found' })
     expect(rpc.mock.calls.some(([fn]) => fn === 'start_document_extraction')).toBe(false)
     expect(getProjectDocumentBytes).not.toHaveBeenCalled()
+  })
+
+  it('Abschluss schreibt, wenn nur ein widersprüchliches Feld zu leeren ist', async () => {
+    outcomes.set('a.pdf', extraction({ energyPriceCtPerKwh: 24.5 }))
+    outcomes.set('b.pdf', extraction({ energyPriceCtPerKwh: 26.9 }))
+    await extractAndFinalize([file('a.pdf'), file('b.pdf')])
+    expect(draft).not.toHaveProperty('energyPriceCtPerKwh')
+
+    // Stand vor diesem Fix: der Widerspruch hatte den zuerst übernommenen Wert stehen lassen.
+    const provenance = draft._provenance as Record<string, unknown>
+    draft = {
+      ...draft,
+      energyPriceCtPerKwh: 24.5,
+      _provenance: { ...provenance, energyPriceCtPerKwh: { source: 'measured', origin: 'invoice', at: '2026-10-18T08:00:00.000Z' } },
+    }
+    const writes = draftWrites
+
+    const state = await finalizeInvoiceExtractionsAction(PROJECT_ID, POINT_ID)
+
+    expect(state.success).toContain('Keine neuen Leseergebnisse')
+    expect(draftWrites).toBe(writes + 1)
+    expect(draft).not.toHaveProperty('energyPriceCtPerKwh')
+    expect(draft._provenance).not.toHaveProperty('energyPriceCtPerKwh')
+  })
+
+  it('Preisbasis wählen: übernommene Werte tragen origin invoice, Handeingaben bleiben', async () => {
+    outcomes.set('c.pdf', extraction({ energyPriceCtPerKwh: 24.5 }, { supplierPriceBasis: null }))
+    const c = file('c.pdf')
+    await extractAndFinalize([c])
+    expect(draft).not.toHaveProperty('energyPriceCtPerKwh')
+
+    const hand = { source: 'assumed', note: 'laut Kunde', at: '2026-10-19T08:00:00.000Z' }
+    draft = {
+      ...draft,
+      netzebene: 'NE 6',
+      _provenance: { ...(draft._provenance as object), netzebene: hand },
+    }
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('documentId', c)
+    fd.set('basis', 'net')
+    expect((await setInvoicePriceBasisAction({}, fd)).formError).toBeUndefined()
+
+    const prov = draft._provenance as Record<string, { origin?: string }>
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(prov.energyPriceCtPerKwh?.origin).toBe('invoice')
+    expect(prov.netzbetreiber?.origin).toBe('invoice')
+    expect(draft.netzebene).toBe('NE 6')
+    expect(prov.netzebene).toEqual(hand)
   })
 
   describe('Entfernen und Abschluss ohne Kennungen', () => {

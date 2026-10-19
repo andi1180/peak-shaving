@@ -17,7 +17,7 @@ import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/
 import { discardDocumentExtraction } from '@/lib/project-documents/document-extractions'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
-import { setInvoiceDraftField } from './invoice-draft-fields'
+import { replaceInvoiceDraftFields } from './invoice-draft-fields'
 import {
   INVOICE_SKIPPED_KEY,
   MANUAL_PRICE_BASIS_FIELD,
@@ -172,14 +172,15 @@ export async function removeMeteringPointInvoiceAction(
    * Zeitstempel — er sagt „zuletzt so gesetzt", und das stimmt dann auch); für ein zuvor
    * widersprüchliches Feld ist es die eigentliche Wirkung dieses Aufrufs.
    *
-   * `measured` und ohne Notiz, wortgleich zum Upload: jeder dieser Werte steht übereinstimmend auf
-   * den verbliebenen Rechnungen, und eine Ablesung braucht keine Begründung.
+   * Derselbe Weg wie beim Lesen: Handeingaben bleiben, was keine verbliebene Rechnung mehr trägt
+   * oder sich widerspricht, wird geleert.
    */
-  let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, remaining), fold)
-  const now = new Date()
-  for (const { field, value } of fold.values) {
-    nextDraft = setInvoiceDraftField(nextDraft, field, value, now)
-  }
+  const nextDraft = replaceInvoiceDraftFields(
+    withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, remaining), fold),
+    fold.values,
+    new Date(),
+    true,
+  )
 
   /*
    * Erst die Auslese-Zeile auf 'removed', dann der Entwurf: sonst käme die Rechnung beim nächsten

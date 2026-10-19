@@ -806,8 +806,8 @@ function InvoiceSummary({
             Tarif-Schritt von Hand eintragen, welcher Wert gilt.
           </p>
           <p className="mt-2 max-w-prose text-caption text-text-muted">
-            Wurde vor dem Widerspruch bereits ein Wert übernommen, steht er weiterhin in den Angaben
-            dieses Zählpunkts — er wird nicht zurückgenommen.
+            Widersprüchliche Werte werden nicht übernommen. Das Feld bleibt leer, bis Sie einen Wert
+            wählen oder eintragen.
           </p>
         </div>
       )}
