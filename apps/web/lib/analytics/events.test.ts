@@ -21,6 +21,7 @@ function fireAll() {
   track('cta_ersparnis_click', { position: 'bottombar' })
   track('cta_profi_report_click', { position: 'header', variant: 'profi_report' })
   track('cta_profi_report_click', { position: 'bottombar', variant: 'jetzt_anfragen' })
+  track('cta_profi_report_click', { position: 'home_teaser', variant: 'beispiel_ansehen' })
   track('schnellcheck_started', { country: 'AT' })
   track('schnellcheck_result_shown', {
     country: 'DE',
@@ -45,6 +46,10 @@ describe('Funnel-Ereignisse', () => {
       ['cta_ersparnis_click', { ...common, position: 'bottombar' }],
       ['cta_profi_report_click', { ...common, position: 'header', variant: 'profi_report' }],
       ['cta_profi_report_click', { ...common, position: 'bottombar', variant: 'jetzt_anfragen' }],
+      [
+        'cta_profi_report_click',
+        { ...common, position: 'home_teaser', variant: 'beispiel_ansehen' },
+      ],
       ['schnellcheck_started', { ...common, country: 'AT' }],
       [
         'schnellcheck_result_shown',

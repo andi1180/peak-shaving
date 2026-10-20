@@ -78,9 +78,17 @@ export const VERTRAGSENDE_ERINNERUNG_HREF = '/vertragsende-erinnerung'
  */
 export const WARTELISTE_HREF = '/warteliste'
 
-/** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
 /** Leadgen 4b: Seite des Profi-Reports (Angebot, Beispiel-Report, Anfrage). */
 export const PROFI_REPORT_HREF = '/profi-report'
+
+/**
+ * Leadgen 7: öffentliche Verweise auf den Schnellcheck der Startseite (Menü, Fusszeile, Querverweise)
+ * statt auf den Kalkulator. Zweite Sprungmarke neben `schnellrechner`, die für Header und Hero bleibt.
+ */
+export const SCHNELLCHECK_ANCHOR_ID = 'schnellcheck'
+export const SCHNELLCHECK_HREF = `/#${SCHNELLCHECK_ANCHOR_ID}`
+
+/** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
 
 export const MAIN_NAV: NavItem[] = [
   {
@@ -123,7 +131,7 @@ export const MAIN_NAV: NavItem[] = [
     href: '/peak-shaving',
     items: [
       { labelKey: 'peakShavingWhat', href: '/peak-shaving' },
-      { labelKey: 'peakShavingCalculator', href: '/peak-shaving/kalkulator' },
+      { labelKey: 'schnellcheck', href: SCHNELLCHECK_HREF },
       { labelKey: 'profiReport', href: PROFI_REPORT_HREF },
     ],
   },

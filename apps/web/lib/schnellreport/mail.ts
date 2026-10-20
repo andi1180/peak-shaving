@@ -16,7 +16,7 @@ import { schnellreportProfiReportUrl } from '@/lib/profi-report/links'
 import { formatGrouped } from '@/lib/schnellcheck'
 import type { ReportMailStatus, TeamNotice } from './flow'
 import type { SchnellreportValues } from './request'
-import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from './settings'
+import { SCHNELLREPORT_SETTINGS, priceOffer, type SchnellreportSettings } from './settings'
 
 const t = createTranslator({ locale: 'de', messages, namespace: 'SchnellreportMail' })
 const tReport = createTranslator({ locale: 'de', messages, namespace: 'Schnellreport' })
@@ -44,7 +44,9 @@ export function buildReportMail(
 ): ReportMailParts {
   const greeting = t('greeting', { name: `${values.firstName} ${values.lastName}` })
   const amount = tReport('aroundEur', { amount: formatGrouped(values.result.peakCostEur) })
-  const profi = settings.price ? t('profiPrice', { price: settings.price }) : t('profi')
+  const profi = settings.price.trim()
+    ? t('profiPrice', { offer: priceOffer(settings) })
+    : t('profi')
   const followUp = settings.phone
     ? `${t('followUp')} ${t('followUpPhone', { phone: settings.phone })}`
     : t('followUp')

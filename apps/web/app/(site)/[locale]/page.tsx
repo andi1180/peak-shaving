@@ -9,6 +9,8 @@ import { WissenTeaser } from '@/components/home/wissen-teaser'
 import { Vorgehen } from '@/components/home/vorgehen'
 import { KontaktCta } from '@/components/home/kontakt-cta'
 import { PartnerBanner } from '@/components/home/partner-banner'
+import { ProfiReportTeaser } from '@/components/home/profi-report-teaser'
+import { HomeFaq } from '@/components/home/home-faq'
 import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
@@ -29,8 +31,8 @@ export async function generateMetadata({
 /**
  * Startseite (/) — Reihenfolge = Hierarchie (Leadgen-Umbau Schritt 1, Abweichung von §4.4).
  *
- * Hero → Schnellrechner → Vorgehen → Peak-Shaving-Block → Branchen → Wissen →
- * Portfolio → Partner-Banner → Kontakt-CTA. Jede Sektion ist eine eigene Komponente unter
+ * Hero → Schnellrechner → Profi-Report-Teaser → Vorgehen → Peak-Shaving-Block → Branchen → Wissen →
+ * Portfolio → Partner-Banner → FAQ → Kontakt-CTA (Teaser und FAQ seit Leadgen 7). Jede Sektion ist eine eigene Komponente unter
  * `components/home/`.
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
@@ -41,6 +43,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     <>
       <Hero />
       <Schnellrechner />
+      <ProfiReportTeaser />
       <Vorgehen />
       <PeakShavingBlock />
       <BranchenTeaser />
@@ -50,6 +53,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <WissenTeaser locale={locale} />
       <Portfolio />
       <PartnerBanner />
+      <HomeFaq />
       <KontaktCta />
     </>
   )

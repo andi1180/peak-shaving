@@ -25,8 +25,8 @@ type NoProps = Record<string, never>
 export type AnalyticsEvents = {
   cta_ersparnis_click: { position: 'header' | 'hero' | 'bottombar' }
   cta_profi_report_click: {
-    position: 'header' | 'bottombar'
-    variant: 'profi_report' | 'jetzt_anfragen'
+    position: 'header' | 'bottombar' | 'home_teaser'
+    variant: 'profi_report' | 'jetzt_anfragen' | 'beispiel_ansehen' | 'anfragen'
   }
   schnellcheck_started: { country: Country }
   schnellcheck_result_shown: {

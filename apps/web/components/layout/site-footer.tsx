@@ -132,11 +132,6 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/referenzen" className={footerLink}>
-                {t('referenzen')}
-              </Link>
-            </li>
-            <li>
               <Link href="/produkte" className={footerLink}>
                 {t('produkte')}
               </Link>

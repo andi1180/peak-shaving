@@ -57,14 +57,15 @@ export type SiteRoute = {
 /**
  * Routen, die in KEINEM Menü stehen und deshalb keinen anderen Fundort haben.
  *
- * Die Startseite ist keine Nav-Zeile (sie IST das Logo), Referenzen/Produkte
- * hängen nur im Footer, Impressum/Datenschutz nur in der Fußzeile. Alles andere
+ * Die Startseite ist keine Nav-Zeile (sie IST das Logo), Produkte
+ * hängt nur im Footer, Impressum/Datenschutz nur in der Fußzeile. Alles andere
  * kommt unten aus `MAIN_NAV`.
  */
 const UNLISTED_HREFS = [
   '/',
   '/produkte',
-  '/referenzen',
+  // Seit Leadgen 7 nicht mehr im Menü, die Seite bleibt erreichbar und in der sitemap.
+  '/peak-shaving/kalkulator',
   '/impressum',
   '/datenschutz',
   KONTAKT_HREF,
@@ -77,7 +78,7 @@ function navHrefs(): string[] {
     item.href,
     ...(item.groups ?? []).flatMap((group) => group.items.map((leaf) => leaf.href)),
     ...(item.items ?? []).map((leaf) => leaf.href),
-  ])
+  ]).filter((href) => !href.includes('#')) // Sprungmarken sind keine eigenen Seiten
 }
 
 /**
@@ -92,7 +93,7 @@ function navHrefs(): string[] {
  * die sitemap nimmt die Seite automatisch wieder auf, und ihr `robots`-Tag
  * (kommt aus `robotsFor`, s. u.) verschwindet mit. Kein zweiter Ort zum Ändern.
  */
-const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', LOGIN_HREF]
+const PLACEHOLDER_HREFS = ['/produkte', LOGIN_HREF]
 
 /**
  * Monitor-Gratis-Check (T3, `Pflichtenheft_Monitor_MVP.md` §6) — WIP-Datenpipe-

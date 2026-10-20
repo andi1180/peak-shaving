@@ -203,7 +203,7 @@ const HEBEL: Record<string, string[]> = {
  * (`Branchen.Pages.<key>.hebel.flagshipText`): In der Land- und Forstwirtschaft
  * steht dort bewusst, dass Peak Shaving hier selten der erste Hebel ist.
  */
-export const FLAGSHIP_LINKS: CrossLink[] = ['peakShaving', 'kalkulator'].map(resolveCrossLink)
+export const FLAGSHIP_LINKS: CrossLink[] = ['peakShaving', 'schnellcheck'].map(resolveCrossLink)
 
 /**
  * Ein Hebel trägt DAS Icon seiner Leistung — dieselbe Kachel zeigt auf

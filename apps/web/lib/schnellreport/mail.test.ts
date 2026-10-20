@@ -16,4 +16,9 @@ describe('Schnellreport-Mail (4b)', () => {
     expect(text).toContain('/profi-report?utm_source=schnellreport&utm_medium=email')
     expect(`${text}${html}`).not.toContain('/kontakt?thema=')
   })
+
+  it('nennt Preis und Zusatz wie Startseite, /profi-report und PDF (Leadgen 7)', () => {
+    const { text } = buildReportMail(SCHNELLREPORT_VALUES)
+    expect(text).toContain('495 €, Einführungspreis bis 31.12.2026, zzgl. USt.')
+  })
 })
