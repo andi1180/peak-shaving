@@ -19,6 +19,7 @@
  * Kopie ihrer Logik. Was sie mitschreiben, IST der Beweis.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_ATTRIBUTION } from '@/lib/attribution/attribution'
 
 const mocks = vi.hoisted(() => ({
   deliverKontakt: vi.fn(),
@@ -119,6 +120,7 @@ describe('POST /api/partner/<slug>/kontakt', () => {
 
     expect(mocks.deliverKontakt).toHaveBeenCalledTimes(1)
     expect(mocks.deliverKontakt.mock.calls[0]![2]).toEqual({
+      origin: EMPTY_ATTRIBUTION,
       partnerDisplayName: 'Raymann Elektrotechnik GmbH',
       partnerSlug: 'raymann',
       referredByText: null,
@@ -349,5 +351,23 @@ describe('B18-6 — die Freigabe an den Fachbetrieb', () => {
       partnerSlug: null,
       wantsPartnerDisclosure: false,
     })
+  })
+})
+
+describe('POST /api/kontakt — Herkunft (Leadgen 5)', () => {
+  it('reicht die geprüfte Herkunft an Benachrichtigung und Lead-Erfassung weiter', async () => {
+    const res = await kontaktPost(
+      request(
+        KONTAKT_URL,
+        payload({
+          herkunft: { utm_source: 'linkedin', utm_campaign: 'test', landing_path: '/kontakt' },
+        }),
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    const expected = { utmSource: 'linkedin', utmCampaign: 'test', landingPath: '/kontakt' }
+    expect(mocks.deliverKontakt.mock.calls[0]![2].origin).toMatchObject(expected)
+    expect(mocks.captureKontaktLead.mock.calls[0]![0].attribution).toMatchObject(expected)
   })
 })

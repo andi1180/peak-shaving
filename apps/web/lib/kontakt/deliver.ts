@@ -41,6 +41,11 @@ import 'server-only'
 import { COMPANY } from '@/lib/nav'
 import { serverEnv } from '@/lib/env.server'
 import { MAIL_FROM } from '@/lib/mail/send'
+import {
+  EMPTY_ATTRIBUTION,
+  formatAttributionLine,
+  type Attribution,
+} from '@/lib/attribution/attribution'
 import type { KontaktInput } from './schema'
 
 /**
@@ -117,6 +122,8 @@ export type KontaktAttribution = {
   partnerDisplayName?: string | null
   partnerSlug?: string | null
   referredByText?: string | null
+  /** Herkunft der Absendung (Leadgen 5) — UTM, Einstiegspfad, Referrer-Host. */
+  origin?: Attribution
 }
 
 function buildFields(
@@ -149,6 +156,11 @@ function buildFields(
 
   const referredBy = attribution.referredByText?.trim()
   if (referredBy) fields.push({ label: 'Empfohlen durch (Angabe)', value: referredBy })
+
+  fields.push({
+    label: 'Herkunft',
+    value: formatAttributionLine(attribution.origin ?? EMPTY_ATTRIBUTION),
+  })
 
   return fields
 }

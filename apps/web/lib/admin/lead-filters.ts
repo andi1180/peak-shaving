@@ -57,6 +57,8 @@ export const FILTER_PARAMS = [
   'thema-leer',
   'von',
   'bis',
+  // Leadgen 5: utm_source des first touch (Spalte „Herkunft (UTM)“).
+  'utm-quelle',
 ] as const
 
 export type FilterParam = (typeof FILTER_PARAMS)[number]
@@ -134,6 +136,8 @@ export type LeadFilters = {
   /** Anlagedatum, einschliessende Grenzen, „YYYY-MM-DD". */
   createdFrom: string
   createdTo: string
+  /** utm_source des first touch, Substring-Suche (Leadgen 5). */
+  utmSource: string
 }
 
 export const EMPTY_FILTERS: LeadFilters = {
@@ -162,6 +166,7 @@ export const EMPTY_FILTERS: LeadFilters = {
   consentStates: [],
   createdFrom: '',
   createdTo: '',
+  utmSource: '',
 }
 
 function one(query: RawQuery, name: FilterParam): string {
@@ -217,6 +222,7 @@ export function readFilters(query: RawQuery): LeadFilters {
     consentStates: many(query, 'einwilligung'),
     createdFrom: one(query, 'von'),
     createdTo: one(query, 'bis'),
+    utmSource: one(query, 'utm-quelle'),
   }
 }
 
@@ -248,6 +254,7 @@ export function filterSearchParams(filters: LeadFilters): URLSearchParams {
   for (const state of filters.consentStates) sp.append('einwilligung', state)
   if (filters.createdFrom) sp.set('von', filters.createdFrom)
   if (filters.createdTo) sp.set('bis', filters.createdTo)
+  if (filters.utmSource) sp.set('utm-quelle', filters.utmSource)
   return sp
 }
 
@@ -356,5 +363,6 @@ export function filterRpcArgs(filters: LeadFilters) {
     p_consent_states: filters.consentStates.length > 0 ? filters.consentStates : undefined,
     p_created_from: dateOrUndefined(filters.createdFrom),
     p_created_to: dateOrUndefined(filters.createdTo),
+    p_utm_source: filters.utmSource || undefined,
   }
 }

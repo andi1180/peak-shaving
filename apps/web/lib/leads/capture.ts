@@ -23,6 +23,7 @@
  */
 import 'server-only'
 import { getLocale } from 'next-intl/server'
+import type { Attribution } from '@/lib/attribution/attribution'
 import { absoluteUrl } from '@/lib/site'
 import {
   CONFIRM_TOKEN_PARAM,
@@ -31,7 +32,7 @@ import {
 } from './config'
 import { LEAD_SOURCE_PARTNER, normalizePartnerSlug } from './partner'
 import { sendConsentConfirmationMail } from './mail'
-import { captureLead, getActiveConsentText, getActivePartner } from './store'
+import { captureLead, getActiveConsentText, getActivePartner, recordLeadAttribution } from './store'
 import { createConfirmationToken } from './tokens'
 
 /**
@@ -150,6 +151,8 @@ export type KontaktLeadInput = {
    * Spalte null, und „kein Thema angegeben" ist deshalb eine eigene Aussage (kein Rückfallwert).
    */
   thema?: string | null
+  /** Herkunft der Absendung (Leadgen 5); abgelegt nach dem Lead, ein Fehler kostet nichts. */
+  attribution?: Attribution
 }
 
 /**
@@ -214,6 +217,14 @@ export async function captureKontaktLead(input: KontaktLeadInput): Promise<void>
      * Zu viel anzuzeigen wäre der einzige unumkehrbare Fehler; zu wenig ist ein Anruf.
      * ─────────────────────────────────────────────────────────────────────────
      */
+    if (input.attribution) {
+      try {
+        await recordLeadAttribution(result.leadId, 'kontakt', input.attribution)
+      } catch (cause) {
+        console.error(`[leads] Herkunft nicht gespeichert (Lead ${result.leadId}):`, cause)
+      }
+    }
+
     if (input.wantsPartnerDisclosure) {
       try {
         await captureLead({

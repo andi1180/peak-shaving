@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Attribution } from '@/lib/attribution/attribution'
 import type { CaptureOutcome } from '@/lib/leads/config'
 
 // Resend gemockt — keine echte Mail; Datenbank als Attrappe, PDF echt gerendert.
@@ -44,6 +45,7 @@ function pdfText(pdf: Buffer): { text: string; pages: number } {
 
 function fakeEffects(opts: { outcomes?: CaptureOutcome[]; duplicate?: boolean } = {}) {
   const calls: Call[] = []
+  const attributions: Attribution[] = []
   const confirmations: string[] = []
   const outcomes = opts.outcomes ?? ['consent_confirmed', 'consent_created']
   const effects: Effects = {
@@ -68,10 +70,13 @@ function fakeEffects(opts: { outcomes?: CaptureOutcome[]; duplicate?: boolean } 
     renderPdf: renderSchnellreportPdf,
     sendReportMail: mail.sendSchnellreportMail,
     sendTeamNotice: mail.sendSchnellreportTeamNotice,
+    recordAttribution: async (_leadId, attribution) => {
+      attributions.push(attribution)
+    },
     signCallbackTicket: (email) => createCallbackTicket('geheim', email),
     now: () => new Date('2026-10-20T10:00:00Z'),
   }
-  return { effects, calls, confirmations }
+  return { effects, calls, confirmations, attributions }
 }
 
 beforeEach(() => {
@@ -119,12 +124,34 @@ describe('Absenden', () => {
     expect(sent()[0]!.attachments).toHaveLength(1)
   })
 
-  it('Doppelabsendung: kein zweiter Report, keine Benachrichtigung', async () => {
-    const { effects } = fakeEffects({ duplicate: true })
+  it('Doppelabsendung: kein zweiter Report, keine Benachrichtigung, keine Herkunft', async () => {
+    const { effects, attributions } = fakeEffects({ duplicate: true })
     const response = await runSchnellreportSubmit(SCHNELLREPORT_SUBMISSION, effects)
 
     expect(response).toEqual({ ok: false, error: 'duplicate' })
     expect(sent()).toHaveLength(0)
+    expect(attributions).toHaveLength(0)
+  })
+
+  it('Herkunft: geprüft abgelegt und als Zeile in der Benachrichtigung; ohne UTM „direkt"', async () => {
+    const { effects, attributions } = fakeEffects()
+    await runSchnellreportSubmit(
+      {
+        ...SCHNELLREPORT_SUBMISSION,
+        herkunft: { utm_source: 'linkedin', utm_campaign: 'test', landing_path: '/?x=1' },
+      },
+      effects,
+    )
+    expect(attributions[0]).toMatchObject({
+      utmSource: 'linkedin',
+      utmCampaign: 'test',
+      landingPath: '/',
+    })
+    expect(sent()[1]!.text).toContain('Herkunft: linkedin/–/test, Einstieg /')
+
+    mocks.send.mockClear()
+    await runSchnellreportSubmit(SCHNELLREPORT_SUBMISSION, fakeEffects().effects)
+    expect(sent()[1]!.text).toContain('Herkunft: direkt')
   })
 
   it('manipulierte Client-Werte ändern die Zahl im PDF nicht', async () => {

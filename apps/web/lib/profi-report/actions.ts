@@ -7,7 +7,7 @@
 import { headers } from 'next/headers'
 import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 import { resolvePartnerAttribution } from '@/lib/leads/capture'
-import { captureLead, recordProfiReportRequest } from '@/lib/leads/store'
+import { captureLead, recordLeadAttribution, recordProfiReportRequest } from '@/lib/leads/store'
 import { requestMeta } from '@/lib/schnellreport/wiring'
 import {
   DUPLICATE_WINDOW_SECONDS,
@@ -44,5 +44,7 @@ export async function submitProfiReportAction(
       recordProfiReportRequest({ leadId, hasLoadProfile, windowSeconds: DUPLICATE_WINDOW_SECONDS }),
     sendConfirmation: sendProfiReportConfirmation,
     sendTeamNotice: sendProfiReportNotice,
+    recordAttribution: (leadId, attribution) =>
+      recordLeadAttribution(leadId, 'profi_report', attribution),
   })
 }

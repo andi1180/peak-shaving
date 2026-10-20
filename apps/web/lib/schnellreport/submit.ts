@@ -4,7 +4,11 @@ import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 import { CONFIRM_TOKEN_PARAM, EINWILLIGUNG_BESTAETIGEN_HREF } from '@/lib/leads/config'
 import { sendConsentConfirmationMail } from '@/lib/leads/mail'
 import { resolvePartnerAttribution } from '@/lib/leads/capture'
-import { getSourceConsentText, recordSchnellreportRequest } from '@/lib/leads/store'
+import {
+  getSourceConsentText,
+  recordLeadAttribution,
+  recordSchnellreportRequest,
+} from '@/lib/leads/store'
 import { createConfirmationToken } from '@/lib/leads/tokens'
 import { absoluteUrl } from '@/lib/site'
 import { createCallbackTicket } from './callback-ticket'
@@ -65,6 +69,8 @@ export async function handleSchnellreportSubmit(
     renderPdf: (input) => renderSchnellreportPdf(input),
     sendReportMail: sendSchnellreportMail,
     sendTeamNotice: sendSchnellreportTeamNotice,
+    recordAttribution: (leadId, attribution) =>
+      recordLeadAttribution(leadId, 'schnellreport', attribution),
     signCallbackTicket: (email) => createCallbackTicket(requireLeadTokenSecret(), email),
     now: () => new Date(),
   })

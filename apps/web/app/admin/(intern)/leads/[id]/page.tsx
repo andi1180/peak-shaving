@@ -20,7 +20,9 @@ import {
   WithdrawConsentButton,
 } from '@/components/admin/lead-actions'
 import { LeadEditForm } from '@/components/admin/lead-edit-form'
+import { LeadHerkunft, LeadProfiReport } from '@/components/admin/lead-herkunft'
 import { LeadSchnellcheck } from '@/components/admin/lead-schnellcheck'
+import { readLeadAttribution, readProfiReportRequests } from '@/lib/admin/lead-attribution'
 import { readSchnellreportRequests } from '@/lib/admin/schnellreport-requests'
 import {
   LEADS_HREF,
@@ -251,10 +253,12 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
   // Zwei unabhängige Aufrufe: das Zustellprotokoll gehört nicht in `admin_get_lead`, weil es
   // seitenweise begrenzt ist und der Lead selbst nicht — und ein Fehler beim Laden der Ereignisse
   // darf nicht die ganze Detailseite umwerfen (dieselbe Aufteilung wie auf `/admin/leads`).
-  const [res, eventsRes, schnellcheckRes] = await Promise.all([
+  const [res, eventsRes, schnellcheckRes, attributionRes, profiReportRes] = await Promise.all([
     supabase.rpc('admin_get_lead', { p_lead_id: id }),
     supabase.rpc('admin_list_email_events', { p_lead_id: id, p_limit: 50 }),
     supabase.rpc('admin_list_schnellreport_requests', { p_lead_id: id }),
+    supabase.rpc('admin_get_lead_attribution', { p_lead_id: id }),
+    supabase.rpc('admin_list_profi_report_requests', { p_lead_id: id }),
   ])
   if (res.error) console.error('[admin/leads] admin_get_lead:', res.error)
   if (eventsRes.error) console.error('[admin/leads] admin_list_email_events:', eventsRes.error)
@@ -263,6 +267,14 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
     console.error('[admin/leads] admin_list_schnellreport_requests:', schnellcheckRes.error)
   }
   const schnellcheckRows = readSchnellreportRequests(schnellcheckRes.data)
+  if (attributionRes.error) {
+    console.error('[admin/leads] admin_get_lead_attribution:', attributionRes.error)
+  }
+  if (profiReportRes.error) {
+    console.error('[admin/leads] admin_list_profi_report_requests:', profiReportRes.error)
+  }
+  const attribution = readLeadAttribution(attributionRes.data)
+  const profiReportRows = readProfiReportRequests(profiReportRes.data)
 
   // 'not_found' ist ein fachlicher Zustand (veralteter Link) → 404. Ein LADEFEHLER ist etwas
   // anderes und darf sich nicht als „gibt es nicht" ausgeben.
@@ -521,7 +533,11 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
         </AdminPanel>
       </AdminSection>
 
+      <LeadHerkunft attribution={attribution} />
+
       <LeadSchnellcheck rows={schnellcheckRows} />
+
+      <LeadProfiReport rows={profiReportRows} />
 
       {/* ── Vertragsablauf-Erinnerung ─────────────────────────────────────────────────────────── */}
       {/*

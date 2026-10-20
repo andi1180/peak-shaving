@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { SchnellreportForm } from '@/components/schnellreport-form'
+import { kwhBand, track } from '@/lib/analytics/events'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { PROFI_REPORT_HREF } from '@/lib/profi-report/links'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
@@ -38,6 +39,9 @@ const BAR_TRANSITION =
   '[transition:width_.6s_cubic-bezier(.2,.7,.2,1)] motion-reduce:[transition:none]'
 
 type FieldKey = 'kwh' | 'kw' | 'bill'
+
+/** So lange muss die Eingabe ruhen, bis `schnellcheck_result_shown` zählt. */
+const RESULT_SHOWN_DELAY_MS = 1500
 
 const FIELDS: { key: FieldKey; unit: 'unitKwh' | 'unitKw' | 'unitEur'; optional: boolean }[] = [
   { key: 'kwh', unit: 'unitKwh', optional: false },
@@ -77,6 +81,25 @@ export function Schnellcheck({
   const kw = parseGroupedNumber(raw.kw)
   const bill = parseGroupedNumber(raw.bill)
   const result = computeSchnellcheck({ country, kwh, kw, bill, sliderKw })
+
+  // Messung (Leadgen 5): erste Eingabe einmal, Ergebnis einmal je Seitenaufruf — erst wenn die
+  // Eingabe kurz ruht, sonst stünde im Band die erste getippte Ziffer.
+  const startedRef = React.useRef(false)
+  const resultShownRef = React.useRef(false)
+  const hasResult = result !== null
+  React.useEffect(() => {
+    if (!hasResult || resultShownRef.current || kwh === null) return
+    const timer = window.setTimeout(() => {
+      resultShownRef.current = true
+      track('schnellcheck_result_shown', {
+        country,
+        kwh_band: kwhBand(kwh),
+        has_kw: kw !== null,
+        has_bill: bill !== null,
+      })
+    }, RESULT_SHOWN_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [hasResult, country, kwh, kw, bill])
 
   // Die eingegebenen Werte reisen als vorbelegte Nachricht ins Kontaktformular.
   const prefill = [
@@ -150,9 +173,13 @@ export function Schnellcheck({
                       autoComplete="off"
                       placeholder={t(`${field.key}Placeholder`)}
                       value={raw[field.key]}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (!startedRef.current) {
+                          startedRef.current = true
+                          track('schnellcheck_started', { country })
+                        }
                         setRaw((prev) => ({ ...prev, [field.key]: formatTyped(e.target.value) }))
-                      }
+                      }}
                       className="w-full rounded-[10px] border border-line-input bg-surface py-[13px] pl-[14px] pr-[52px] text-[17px] font-medium leading-none tabular-nums text-ink focus:border-transparent focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-accent"
                     />
                     <span className="pointer-events-none absolute right-[14px] top-1/2 -translate-y-1/2 text-[13px] font-semibold text-text-faint">
@@ -310,7 +337,10 @@ export function Schnellcheck({
                   type="button"
                   aria-expanded={reportOpen}
                   aria-controls={`${uid}-report-form`}
-                  onClick={() => setReportOpen(true)}
+                  onClick={() => {
+                    if (!reportOpen) track('schnellreport_form_opened')
+                    setReportOpen(true)
+                  }}
                   className={cn(
                     BTN,
                     'cursor-pointer bg-accent text-accent-foreground hover:bg-accent-hover max-[620px]:justify-center',

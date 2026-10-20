@@ -9,6 +9,7 @@ import { createTranslator } from 'next-intl'
 import messages from '@/messages/de.json'
 import { COMPANY } from '@/lib/nav'
 import { escapeHtml, mailConfigured, sendMail, warnMailNotConfigured } from '@/lib/mail/send'
+import { formatAttributionLine } from '@/lib/attribution/attribution'
 import { absoluteUrl } from '@/lib/site'
 import { LEADS_HREF } from '@/lib/admin/leads'
 import { schnellreportProfiReportUrl } from '@/lib/profi-report/links'
@@ -178,6 +179,7 @@ export function buildTeamNotice(notice: TeamNotice) {
     ['Leistungspreis', `${formatGrouped(v.result.demandPrice)} €/kW·a`],
     ['Ergebnis', `${eur(v.result.peakCostEur)} Spitzenkosten pro Jahr`],
     ['Partner', notice.partner ? `${notice.partner.displayName} (${notice.partner.slug})` : DASH],
+    ['Herkunft', formatAttributionLine(notice.attribution)],
     ['Tipp-Mails', v.tips ? 'ja (Bestätigung angefordert)' : 'nein'],
     ['Report-Mail', REPORT_MAIL_LABEL[notice.reportMail]],
   ]

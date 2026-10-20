@@ -18,6 +18,8 @@ export type ProfiReportSubmission = {
   website?: string
   turnstileToken?: string
   partnerSlug?: string
+  /** Herkunft der Absendung (Leadgen 5), roh; geprüft in `parseAttribution`. */
+  herkunft?: unknown
 }
 
 export type ProfiReportField =

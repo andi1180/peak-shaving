@@ -5,6 +5,7 @@
  * Eine Anfrage ist eine erbetene Kontaktaufnahme: Lead auf Grundlage Vertragsanbahnung wie beim
  * Kontaktformular, ohne Einwilligungszeile und ohne Werbe-Einwilligung.
  */
+import { parseAttribution, type Attribution } from '@/lib/attribution/attribution'
 import type { CaptureResult } from '@/lib/leads/config'
 import {
   parseProfiReport,
@@ -46,6 +47,7 @@ export type ProfiReportNotice = {
   values: ProfiReportValues
   partner: ResolvedPartner | null
   confirmation: ConfirmationStatus
+  attribution: Attribution
 }
 
 export type ProfiReportEffects = {
@@ -57,6 +59,7 @@ export type ProfiReportEffects = {
   ) => Promise<{ status: 'created' | 'duplicate' }>
   sendConfirmation: (values: ProfiReportValues) => Promise<{ ok: boolean }>
   sendTeamNotice: (notice: ProfiReportNotice) => Promise<unknown>
+  recordAttribution: (leadId: string, attribution: Attribution) => Promise<unknown>
 }
 
 export async function runProfiReportRequest(
@@ -71,6 +74,7 @@ export async function runProfiReportRequest(
   const parsed = parseProfiReport(submission)
   if (!parsed.ok) return { ok: false, error: 'validation', fieldErrors: parsed.fieldErrors }
   const values = parsed.values
+  const attribution = parseAttribution(submission.herkunft)
 
   let partner: ResolvedPartner | null = null
   if (values.partnerSlug) {
@@ -116,7 +120,13 @@ export async function runProfiReportRequest(
   }
 
   try {
-    await effects.sendTeamNotice({ leadId, values, partner, confirmation })
+    await effects.recordAttribution(leadId, attribution)
+  } catch (cause) {
+    console.error(`[profi-report] Herkunft nicht gespeichert (Lead ${leadId}):`, cause)
+  }
+
+  try {
+    await effects.sendTeamNotice({ leadId, values, partner, confirmation, attribution })
   } catch (cause) {
     console.error(`[profi-report] Benachrichtigung fehlgeschlagen (Lead ${leadId}):`, cause)
   }

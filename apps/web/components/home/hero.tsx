@@ -1,9 +1,8 @@
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
 import { HeroAnimation } from '@/components/home/hero-animation'
-import { SCHNELLRECHNER_HREF } from '@/lib/nav'
+import { CtaErsparnisLink } from '@/components/analytics/cta-ersparnis-link'
 
 /**
  * Hero (§4.4 Nr. 1) — Problem/Lösung in einem Satz.
@@ -28,7 +27,7 @@ export function Hero() {
           {/* Genau EIN Button: der Weg zum Schnellrechner direkt darunter (Leadgen-Umbau Schritt 1). */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button asChild variant="primary" size="lg">
-              <Link href={SCHNELLRECHNER_HREF}>{t('ctaPrimary')}</Link>
+              <CtaErsparnisLink position="hero">{t('ctaPrimary')}</CtaErsparnisLink>
             </Button>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { createTranslator } from 'next-intl'
 import messages from '@/messages/de.json'
 import { COMPANY } from '@/lib/nav'
 import { escapeHtml, mailConfigured, sendMail, warnMailNotConfigured } from '@/lib/mail/send'
+import { formatAttributionLine } from '@/lib/attribution/attribution'
 import { absoluteUrl } from '@/lib/site'
 import { LEADS_HREF } from '@/lib/admin/leads'
 import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from '@/lib/schnellreport/settings'
@@ -85,6 +86,7 @@ export function buildProfiReportNotice(notice: ProfiReportNotice): MailParts {
     ['Telefon', v.phone ?? DASH],
     ['Lastgang vorhanden', LOAD_PROFILE_LABEL[v.hasLoadProfile]],
     ['Partner', notice.partner ? `${notice.partner.displayName} (${notice.partner.slug})` : DASH],
+    ['Herkunft', formatAttributionLine(notice.attribution)],
     ['Bestätigungsmail', CONFIRMATION_LABEL[notice.confirmation]],
   ]
   const title = 'Neue Anfrage zum Profi-Report über coolin.at'

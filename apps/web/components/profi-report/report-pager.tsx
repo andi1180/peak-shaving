@@ -13,6 +13,7 @@ import {
   type PagerPage,
   type PagerTocEntry,
 } from '@/lib/profi-report/beispiel'
+import { track } from '@/lib/analytics/events'
 import { BEISPIEL_REPORT_PDF_HREF } from '@/lib/profi-report/links'
 
 /*
@@ -36,12 +37,18 @@ export function ReportPager({
   const current = pages[index]!
   const chapter = chapterOf(toc, current.page)
 
+  // Nur Blättern durch den Besucher zählt, nicht die Startseite.
+  function show(next: number) {
+    setIndex(next)
+    track('profi_report_beispiel_page', { page: pages[next]!.page })
+  }
+
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
     if (step === 0) return
     event.preventDefault()
     const next = (index + step + pages.length) % pages.length
-    setIndex(next)
+    show(next)
     thumbsRef.current?.querySelectorAll('button')[next]?.focus()
   }
 
@@ -69,7 +76,7 @@ export function ReportPager({
             <button
               key={p.page}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => show(i)}
               aria-current={i === index ? 'true' : undefined}
               aria-label={t('thumb', { page: p.page, title: p.title })}
               className={cn(
@@ -125,6 +132,7 @@ export function ReportPager({
           href={BEISPIEL_REPORT_PDF_HREF}
           target="_blank"
           rel="noopener"
+          onClick={() => track('profi_report_pdf_opened')}
           className="mt-1 font-semibold text-accent underline underline-offset-4 hover:text-accent-hover"
         >
           {t('pdf')}
