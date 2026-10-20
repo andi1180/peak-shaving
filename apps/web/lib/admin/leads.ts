@@ -198,6 +198,10 @@ export type LeadListRow = LeadSegments & {
    * zulässiger Zustand: nur der Kontaktweg und das interne Aufnahmeformular befüllen die Spalte.
    */
   thema: string | null
+  /** First touch (Leadgen 5); `null` = keine UTM erfasst. */
+  first_utm_source: string | null
+  first_utm_medium: string | null
+  first_utm_campaign: string | null
   consents: LeadConsentSummary[]
 }
 

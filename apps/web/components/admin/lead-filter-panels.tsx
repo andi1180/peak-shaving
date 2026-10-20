@@ -237,6 +237,8 @@ export function ActiveFilterChips({
   if (filters.lastName) chips.push({ label: `Name: ${filters.lastName}`, clear: { lastName: '' } })
   if (filters.email) chips.push({ label: `E-Mail: ${filters.email}`, clear: { email: '' } })
   if (filters.phone) chips.push({ label: `Telefon: ${filters.phone}`, clear: { phone: '' } })
+  if (filters.utmSource)
+    chips.push({ label: `utm_source: ${filters.utmSource}`, clear: { utmSource: '' } })
   if (filters.assignment)
     chips.push({ label: `Zuordnung: ${filters.assignment}`, clear: { assignment: '' } })
 

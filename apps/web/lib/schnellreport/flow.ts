@@ -9,9 +9,11 @@
  *      ohne zweiten Report.
  *   3. PDF rendern, Report-Mail senden (nur bei bestätigter Einwilligung, nie bei Sperre).
  *   4. Tipp-Mails angehakt → `marketing_email` mit Double-Opt-in. Der Report hängt NICHT daran.
- *   5. Interne Benachrichtigung.
+ *   5. Herkunft dieser Absendung ablegen (Leadgen 5; Fehler kosten nichts) und interne
+ *      Benachrichtigung.
  * Logs tragen nur die Lead-ID, nie Name oder Adresse.
  */
+import { parseAttribution, type Attribution } from '@/lib/attribution/attribution'
 import type { CaptureResult, ConsentPurpose } from '@/lib/leads/config'
 import type { LeadIndustry } from '@/lib/leads/registry'
 import type { BrancheKey } from './branchen'
@@ -72,6 +74,7 @@ export type TeamNotice = {
   reportMail: ReportMailStatus
   /** Der bestätigte Fachbetrieb, falls die Absendung einen aktiven Partner-Slug trug. */
   partner: ResolvedPartner | null
+  attribution: Attribution
 }
 
 export type SchnellreportEffects = {
@@ -96,6 +99,7 @@ export type SchnellreportEffects = {
     pdf: Buffer
   }) => Promise<{ ok: boolean }>
   sendTeamNotice: (notice: TeamNotice) => Promise<unknown>
+  recordAttribution: (leadId: string, attribution: Attribution) => Promise<unknown>
   signCallbackTicket: (email: string) => string
   now: () => Date
 }
@@ -112,6 +116,7 @@ export async function runSchnellreportSubmit(
   const parsed = parseSchnellreport(submission)
   if (!parsed.ok) return { ok: false, error: 'validation', fieldErrors: parsed.fieldErrors }
   const values = parsed.values
+  const attribution = parseAttribution(submission.herkunft)
   const partner = values.partnerSlug ? await effects.resolvePartner(values.partnerSlug) : null
 
   let delivery: CaptureResult
@@ -164,7 +169,13 @@ export async function runSchnellreportSubmit(
   if (values.tips) await requestTips(values.email, leadId, effects)
 
   try {
-    await effects.sendTeamNotice({ leadId, values, reportMail, partner })
+    await effects.recordAttribution(leadId, attribution)
+  } catch (cause) {
+    console.error(`[schnellreport] Herkunft nicht gespeichert (Lead ${leadId}):`, cause)
+  }
+
+  try {
+    await effects.sendTeamNotice({ leadId, values, reportMail, partner, attribution })
   } catch (cause) {
     console.error(`[schnellreport] Benachrichtigung fehlgeschlagen (Lead ${leadId}):`, cause)
   }

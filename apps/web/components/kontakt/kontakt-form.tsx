@@ -16,6 +16,7 @@ import {
   type KontaktResponse,
 } from '@/lib/kontakt/schema'
 import { NACHRICHT_PARAM, THEMA_PARAM, THEMEN, isThemaKey, type Thema } from '@/lib/kontakt/themen'
+import { currentAttribution } from '@/lib/attribution/attribution'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 
 /**
@@ -256,6 +257,7 @@ export function KontaktForm({
       turnstileToken: turnstileToken ?? undefined,
       locale,
       partner: partnerFromQuery ?? undefined,
+      herkunft: currentAttribution(),
     }
     const parsed = kontaktSchema.safeParse(payload)
 

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { publicEnv } from '@/lib/env.public'
+import { registerAnalyticsClient } from '@/lib/analytics/events'
 
 /**
  * PostHog Product Analytics — COOKIELOS, deshalb OHNE Cookie-Banner (§9.3).
@@ -94,6 +95,9 @@ export function PostHogAnalytics() {
          */
         disable_session_recording: true,
       })
+
+      // Funnel-Ereignisse (Leadgen 5) laufen über diese eine, so konfigurierte Instanz.
+      registerAnalyticsClient(posthog)
     })
 
     return () => {

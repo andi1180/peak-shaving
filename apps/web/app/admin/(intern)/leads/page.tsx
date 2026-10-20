@@ -6,6 +6,7 @@ import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox, Label } from '@/components/ui/input'
+import { LeadUtmCell } from '@/components/admin/lead-herkunft'
 import {
   AdminError,
   AdminPanel,
@@ -123,7 +124,7 @@ export const metadata: Metadata = {
 const PAGE_SIZE = 50
 
 /** Zahl der Spalten — steht an EINER Stelle, damit der Leerzustand nicht daneben liegt. */
-const COLUMN_COUNT = 10
+const COLUMN_COUNT = 11
 
 /**
  * Baut eine URL mit denselben Filtern und einer geänderten Seite.
@@ -559,6 +560,9 @@ function LeadRow({
       <Td className="whitespace-nowrap">{lead.phone ?? <Empty />}</Td>
       <Td>{sourceCategoryLabel(lead.first_source_key)}</Td>
       <Td>
+        <LeadUtmCell source={lead.first_utm_source} campaign={lead.first_utm_campaign} />
+      </Td>
+      <Td>
         <AssignmentCell lead={lead} partners={partners} />
       </Td>
       <Td>
@@ -822,6 +826,15 @@ export default async function AdminLeadsPage({
                             value: category,
                             label: LEAD_SOURCE_CATEGORY_LABELS[category],
                           }))}
+                        />
+                      </FilterTh>
+                      <FilterTh label="Herkunft (UTM)" active={!!filters.utmSource}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="utm-quelle"
+                          value={filters.utmSource}
+                          clear={{ utmSource: '' }}
+                          placeholder="utm_source, z. B. linkedin"
                         />
                       </FilterTh>
                       <FilterTh

@@ -57,6 +57,7 @@ const SAMPLE: Record<FilterParam, string> = {
   'thema-leer': '1',
   von: '2026-08-01',
   bis: '2026-08-05',
+  'utm-quelle': 'linkedin',
 }
 
 describe('das Vokabular ist vollständig — jeder Filter überlebt den Rundlauf', () => {

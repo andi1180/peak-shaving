@@ -21,6 +21,7 @@
  * anpassen.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_ATTRIBUTION } from '@/lib/attribution/attribution'
 import type { KontaktInput } from '@/lib/kontakt/schema'
 
 const LEAD_ID = '44444444-4444-4444-8444-444444444444'
@@ -139,6 +140,7 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         values: SCHNELLREPORT_VALUES,
         reportMail: 'sent',
         partner: null,
+        attribution: EMPTY_ATTRIBUTION,
       }),
   },
   {
@@ -165,6 +167,7 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         values: PROFI_REPORT_VALUES,
         partner: null,
         confirmation: 'sent',
+        attribution: EMPTY_ATTRIBUTION,
       }),
   },
   {

@@ -34,6 +34,7 @@ import {
   type KontaktResponse,
 } from '@/lib/kontakt/schema'
 import { findThema } from '@/lib/kontakt/themen'
+import { parseAttribution } from '@/lib/attribution/attribution'
 import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 
 /*
@@ -122,11 +123,13 @@ export async function handleKontaktSubmission(
   })
 
   const referredByText = data.empfehlung?.trim() || null
+  const origin = parseAttribution(data.herkunft)
 
   const outcome = await deliverKontakt(data, themaLabel, {
     partnerDisplayName: attribution.partnerDisplayName,
     partnerSlug: attribution.partnerSlug,
     referredByText,
+    origin,
   })
   if (!outcome.ok) {
     /*
@@ -219,6 +222,7 @@ export async function handleKontaktSubmission(
      * nichts und lassen sie null.
      */
     thema: thema.key,
+    attribution: origin,
   })
 
   return NextResponse.json<KontaktResponse>({ ok: true })

@@ -21,6 +21,7 @@
  * unterscheidbar, wenn schon hier alles zu `null` würde.
  */
 import 'server-only'
+import type { Attribution, AttributionChannel } from '@/lib/attribution/attribution'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import type { CaptureOutcome, CaptureResult, ConsentPurpose } from './config'
 import type { PublicPartner } from './partner'
@@ -288,6 +289,27 @@ export async function recordProfiReportRequest(row: {
     throw new Error('record_profi_report_request: unerwartete Rückgabe')
   }
   return { status }
+}
+
+/** Herkunft einer Absendung ablegen; setzt am Lead den first touch, solange keiner erfasst ist. */
+export async function recordLeadAttribution(
+  leadId: string,
+  channel: AttributionChannel,
+  attribution: Attribution,
+): Promise<void> {
+  const service = createServiceRoleClient()
+  const { error } = await service.rpc('record_lead_attribution', {
+    p_lead_id: leadId,
+    p_channel: channel,
+    p_utm_source: attribution.utmSource ?? undefined,
+    p_utm_medium: attribution.utmMedium ?? undefined,
+    p_utm_campaign: attribution.utmCampaign ?? undefined,
+    p_utm_content: attribution.utmContent ?? undefined,
+    p_utm_term: attribution.utmTerm ?? undefined,
+    p_landing_path: attribution.landingPath ?? undefined,
+    p_referrer_host: attribution.referrerHost ?? undefined,
+  })
+  if (error) throw new Error(`record_lead_attribution: ${error.message}`)
 }
 
 /**

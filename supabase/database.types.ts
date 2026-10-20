@@ -837,6 +837,56 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_attributions: {
+        Row: {
+          channel: string
+          created_at: string
+          id: string
+          landing_path: string | null
+          lead_id: string
+          referrer_host: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          id?: string
+          landing_path?: string | null
+          lead_id: string
+          referrer_host?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: string
+          landing_path?: string | null
+          lead_id?: string
+          referrer_host?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_attributions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_sources: {
         Row: {
           created_at: string
@@ -869,8 +919,16 @@ export type Database = {
           created_at: string
           deletion_due_at: string
           email: string
+          first_landing_path: string | null
           first_name: string | null
+          first_referrer_host: string | null
           first_source_key: string
+          first_touch_at: string | null
+          first_utm_campaign: string | null
+          first_utm_content: string | null
+          first_utm_medium: string | null
+          first_utm_source: string | null
+          first_utm_term: string | null
           id: string
           industry: Database["platform"]["Enums"]["industry"] | null
           last_edited_by: string | null
@@ -898,8 +956,16 @@ export type Database = {
           created_at?: string
           deletion_due_at: string
           email: string
+          first_landing_path?: string | null
           first_name?: string | null
+          first_referrer_host?: string | null
           first_source_key: string
+          first_touch_at?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
           last_edited_by?: string | null
@@ -927,8 +993,16 @@ export type Database = {
           created_at?: string
           deletion_due_at?: string
           email?: string
+          first_landing_path?: string | null
           first_name?: string | null
+          first_referrer_host?: string | null
           first_source_key?: string
+          first_touch_at?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
           last_edited_by?: string | null
@@ -1133,6 +1207,35 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "partner_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profi_report_requests: {
+        Row: {
+          created_at: string
+          has_load_profile: string
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          created_at?: string
+          has_load_profile: string
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          created_at?: string
+          has_load_profile?: string
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profi_report_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -1720,6 +1823,7 @@ export type Database = {
           p_status?: string
           p_thema_keys?: string[]
           p_thema_none?: boolean
+          p_utm_source?: string
         }
         Returns: string
       }
@@ -1770,6 +1874,7 @@ export type Database = {
           p_status?: string
           p_thema_keys?: string[]
           p_thema_none?: boolean
+          p_utm_source?: string
         }
         Returns: {
           annual_consumption_kwh: number | null
@@ -1781,8 +1886,16 @@ export type Database = {
           created_at: string
           deletion_due_at: string
           email: string
+          first_landing_path: string | null
           first_name: string | null
+          first_referrer_host: string | null
           first_source_key: string
+          first_touch_at: string | null
+          first_utm_campaign: string | null
+          first_utm_content: string | null
+          first_utm_medium: string | null
+          first_utm_source: string | null
+          first_utm_term: string | null
           id: string
           industry: Database["platform"]["Enums"]["industry"] | null
           last_edited_by: string | null
@@ -2383,6 +2496,7 @@ export type Database = {
           p_status?: string
           p_thema_keys?: string[]
           p_thema_none?: boolean
+          p_utm_source?: string
         }
         Returns: Json
       }
@@ -2392,6 +2506,7 @@ export type Database = {
       admin_get_chat_rate_limit: { Args: never; Returns: Json }
       admin_get_cost_component: { Args: { p_id: string }; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_get_lead_attribution: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_get_project: { Args: { p_id: string }; Returns: Json }
       admin_get_system_prompt_extension: {
@@ -2475,6 +2590,7 @@ export type Database = {
           p_status?: string
           p_thema_keys?: string[]
           p_thema_none?: boolean
+          p_utm_source?: string
         }
         Returns: Json
       }
@@ -2488,6 +2604,10 @@ export type Database = {
         Returns: Json
       }
       admin_list_partners: { Args: never; Returns: Json }
+      admin_list_profi_report_requests: {
+        Args: { p_lead_id: string }
+        Returns: Json
+      }
       admin_list_projects: {
         Args: { p_account_id?: string; p_limit?: number; p_offset?: number }
         Returns: Json
@@ -2924,6 +3044,20 @@ export type Database = {
           p_event_type: string
           p_occurred_at?: string
           p_reason?: string
+        }
+        Returns: Json
+      }
+      record_lead_attribution: {
+        Args: {
+          p_channel: string
+          p_landing_path?: string
+          p_lead_id: string
+          p_referrer_host?: string
+          p_utm_campaign?: string
+          p_utm_content?: string
+          p_utm_medium?: string
+          p_utm_source?: string
+          p_utm_term?: string
         }
         Returns: Json
       }

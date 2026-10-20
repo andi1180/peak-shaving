@@ -3,9 +3,10 @@ import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
+import { CtaErsparnisLink } from '@/components/analytics/cta-ersparnis-link'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { MAIN_NAV, KONTAKT_HREF, SCHNELLRECHNER_HREF } from '@/lib/nav'
+import { MAIN_NAV, KONTAKT_HREF } from '@/lib/nav'
 import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
@@ -273,7 +274,7 @@ export async function SiteHeader() {
 
           {/* Auf allen Breiten sichtbar: der primäre Weg zum Schnellrechner (Startseite + Sprungmarke). */}
           <Button asChild variant="primary" size="sm">
-            <Link href={SCHNELLRECHNER_HREF}>{t('ersparnisBerechnen')}</Link>
+            <CtaErsparnisLink position="header">{t('ersparnisBerechnen')}</CtaErsparnisLink>
           </Button>
 
           {/* Mobile */}

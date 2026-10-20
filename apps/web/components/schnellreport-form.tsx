@@ -6,6 +6,8 @@ import { Loader2 } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { TurnstileWidget, turnstileEnabled } from '@/components/kontakt/turnstile-widget'
 import { cn } from '@/lib/utils'
+import { track } from '@/lib/analytics/events'
+import { currentAttribution } from '@/lib/attribution/attribution'
 import {
   loadSchnellreportTextsAction,
   requestSchnellreportCallbackAction,
@@ -125,6 +127,7 @@ export function SchnellreportForm({
       website,
       turnstileToken: turnstileToken ?? undefined,
       partnerSlug,
+      herkunft: currentAttribution(),
     }
     const parsed = parseSchnellreport(submission)
     if (!parsed.ok) {
@@ -145,6 +148,10 @@ export function SchnellreportForm({
       })
       const result = (await response.json()) as SchnellreportResponse
       if (result.ok) {
+        track('schnellreport_submitted', {
+          country: check.country === 'DE' ? 'DE' : 'AT',
+          tips_optin: tips,
+        })
         setDone({
           email: result.email,
           ticket: result.callbackTicket,
@@ -366,6 +373,7 @@ function SchnellreportDone({
     try {
       const result = await requestSchnellreportCallbackAction({ email, ticket, phone: number })
       if (result.ok) {
+        track('callback_requested')
         setState('thanks')
         return
       }

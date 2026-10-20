@@ -188,6 +188,10 @@ export const kontaktSchema = z.object({
    * Ungültige Werte fallen in der Route auf die Default-Locale zurück.
    */
   locale: z.string().optional(),
+
+  /* Herkunft der Absendung (Leadgen 5), roh — lax, damit sie nie eine Anfrage kostet; geprüft und
+     gekürzt in `parseAttribution`. */
+  herkunft: z.unknown().optional(),
 })
 
 export type KontaktInput = z.infer<typeof kontaktSchema>

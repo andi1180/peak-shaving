@@ -7,6 +7,8 @@ import { Link } from '@/i18n/navigation'
 import { TurnstileWidget, turnstileEnabled } from '@/components/kontakt/turnstile-widget'
 import { cn } from '@/lib/utils'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
+import { track } from '@/lib/analytics/events'
+import { currentAttribution } from '@/lib/attribution/attribution'
 import { submitProfiReportAction } from '@/lib/profi-report/actions'
 import type { ProfiReportResponse } from '@/lib/profi-report/flow'
 import {
@@ -108,6 +110,7 @@ export function ProfiReportForm({ fallbackEmail }: { fallbackEmail: string }) {
       website,
       turnstileToken: turnstileToken ?? undefined,
       partnerSlug,
+      herkunft: currentAttribution(),
     }
     const parsed = parseProfiReport(submission)
     if (!parsed.ok) {
@@ -123,6 +126,7 @@ export function ProfiReportForm({ fallbackEmail }: { fallbackEmail: string }) {
     try {
       const result = await submitProfiReportAction(submission)
       if (result.ok) {
+        track('profi_report_request_submitted', { lastgang: parsed.values.hasLoadProfile })
         setDone(true)
         return
       }
