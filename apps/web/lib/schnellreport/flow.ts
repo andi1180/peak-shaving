@@ -64,13 +64,19 @@ export type SchnellreportCaptureCall = {
 
 export type ReportMailStatus = 'sent' | 'failed' | 'suppressed'
 
+export type ResolvedPartner = { slug: string; displayName: string }
+
 export type TeamNotice = {
   leadId: string
   values: SchnellreportValues
   reportMail: ReportMailStatus
+  /** Der bestätigte Fachbetrieb, falls die Absendung einen aktiven Partner-Slug trug. */
+  partner: ResolvedPartner | null
 }
 
 export type SchnellreportEffects = {
+  /** Unbekannter/inaktiver Slug oder Lesefehler → `null`; der Lead entsteht trotzdem. */
+  resolvePartner: (slug: string) => Promise<ResolvedPartner | null>
   captureLead: (call: SchnellreportCaptureCall) => Promise<CaptureResult>
   recordRequest: (
     leadId: string,
@@ -106,6 +112,7 @@ export async function runSchnellreportSubmit(
   const parsed = parseSchnellreport(submission)
   if (!parsed.ok) return { ok: false, error: 'validation', fieldErrors: parsed.fieldErrors }
   const values = parsed.values
+  const partner = values.partnerSlug ? await effects.resolvePartner(values.partnerSlug) : null
 
   let delivery: CaptureResult
   try {
@@ -118,7 +125,7 @@ export async function runSchnellreportSubmit(
       phone: values.phone,
       industry: LEAD_INDUSTRY_FOR_BRANCHE[values.branche],
       annualConsumptionKwh: Math.round(values.kwh),
-      partnerSlug: values.partnerSlug,
+      partnerSlug: partner?.slug ?? null,
     })
     const recorded = await effects.recordRequest(delivery.leadId, values)
     if (recorded.status === 'duplicate') {
@@ -157,7 +164,7 @@ export async function runSchnellreportSubmit(
   if (values.tips) await requestTips(values.email, leadId, effects)
 
   try {
-    await effects.sendTeamNotice({ leadId, values, reportMail })
+    await effects.sendTeamNotice({ leadId, values, reportMail, partner })
   } catch (cause) {
     console.error(`[schnellreport] Benachrichtigung fehlgeschlagen (Lead ${leadId}):`, cause)
   }

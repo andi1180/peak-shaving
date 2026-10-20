@@ -2496,6 +2496,10 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_segment?: string }
         Returns: Json
       }
+      admin_list_schnellreport_requests: {
+        Args: { p_lead_id: string }
+        Returns: Json
+      }
       admin_list_scrape_targets: { Args: never; Returns: Json }
       admin_mark_calculator_request_notified: {
         Args: { p_id: string }

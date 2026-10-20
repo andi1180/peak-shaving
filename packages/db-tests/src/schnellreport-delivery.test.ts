@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { PoolClient } from 'pg'
 
-import { assertStackReachable, pool, runAs, sql } from './client'
+import { assertStackReachable, createUser, deleteUser, pool, runAs, sql } from './client'
 import {
   LEAD_SOURCE_KEYS_WITHOUT_FORM,
   isLeadCaptureFormKey,
@@ -66,7 +66,7 @@ describe('herkunftsgebundene Einwilligungstexte', () => {
 
       const tips = await capture(client, 'sr-gate-1@example.invalid', SOURCE, 'marketing_email')
       expect(tips.outcome).toBe('consent_created')
-      expect(await archivedBody(client, tips.consent_id)).toMatch(/^Ja, schicken Sie mir/)
+      expect(await archivedBody(client, tips.consent_id)).toMatch(/^Ja, COOLiN ENERGY darf mir/)
 
       const call = await capture(client, 'sr-gate-1@example.invalid', SOURCE, 'offer_contact')
       expect(await archivedBody(client, call.consent_id)).toBe(
@@ -144,5 +144,81 @@ describe('record_schnellreport_request', () => {
       { role: 'authenticated', exec: false, tbl: false },
       { role: 'service_role', exec: true, tbl: false },
     ])
+  })
+})
+
+describe('3b-3: Tipp-Einwilligung in neuer Fassung', () => {
+  it('die neue Fassung ist aktiv, die alte bleibt als Nachweis erhalten', async () => {
+    const rows = await sql<{ version: number; body: string }>(
+      `select version, body from platform.consent_texts
+        where purpose = 'marketing_email' and locale = 'de' and source_key = $1
+        order by version desc`,
+      [SOURCE],
+    )
+    expect(rows.map((r) => r.body.slice(0, 26))).toEqual([
+      'Ja, COOLiN ENERGY darf mir',
+      'Ja, schicken Sie mir in de',
+    ])
+    const active = await sql<{ body: string }>(
+      `select public.get_source_consent_text('marketing_email', $1, 'de') ->> 'body' as body`,
+      [SOURCE],
+    )
+    expect(active[0]!.body).toBe(rows[0]!.body)
+  })
+})
+
+describe('3b-3: admin_list_schnellreport_requests', () => {
+  it('liefert dem Admin die Werte samt Rückruf- und Tipp-Stand; Nicht-Admin bekommt 42501', async () => {
+    const admin = await createUser()
+    const plain = await createUser()
+    await sql(`insert into platform.user_roles (user_id, role) values ($1, 'admin')`, [admin.id])
+    try {
+      const leadId = await runAs({ role: 'service_role', commit: true }, async (client) => {
+        const { lead_id } = await capture(
+          client,
+          'sr-gate-admin@example.invalid',
+          SOURCE,
+          'result_delivery',
+        )
+        await client.query(
+          `select public.record_schnellreport_request(
+                    p_lead_id => $1, p_country => 'DE', p_branche => 'handel', p_annual_kwh => 90000,
+                    p_peak_kw => 150, p_peak_kw_entered => false, p_demand_price_eur_per_kw => 34,
+                    p_peak_cost_eur => 5100, p_tips_requested => true, p_window_seconds => 900)`,
+          [lead_id],
+        )
+        await capture(client, 'sr-gate-admin@example.invalid', SOURCE, 'offer_contact')
+        return lead_id
+      })
+
+      const rows = await runAs({ role: 'authenticated', userId: admin.id }, async (client) => {
+        const { rows } = await client.query<{ r: Record<string, unknown>[] }>(
+          `select public.admin_list_schnellreport_requests($1) as r`,
+          [leadId],
+        )
+        return rows[0]!.r
+      })
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({
+        country: 'DE',
+        branche: 'handel',
+        peak_kw_entered: false,
+        bill_eur: null,
+        tips_requested: true,
+        tips_confirmed: false,
+        callback_requested: true,
+      })
+
+      await expect(
+        runAs({ role: 'authenticated', userId: plain.id }, (client) =>
+          client.query(`select public.admin_list_schnellreport_requests($1)`, [leadId]),
+        ),
+      ).rejects.toMatchObject({ code: '42501' })
+
+      await sql(`delete from platform.leads where id = $1`, [leadId])
+    } finally {
+      await deleteUser(admin.id)
+      await deleteUser(plain.id)
+    }
   })
 })

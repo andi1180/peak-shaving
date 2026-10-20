@@ -3,6 +3,7 @@ import { requireLeadTokenSecret } from '@/lib/env.server'
 import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 import { CONFIRM_TOKEN_PARAM, EINWILLIGUNG_BESTAETIGEN_HREF } from '@/lib/leads/config'
 import { sendConsentConfirmationMail } from '@/lib/leads/mail'
+import { resolvePartnerAttribution } from '@/lib/leads/capture'
 import { getSourceConsentText, recordSchnellreportRequest } from '@/lib/leads/store'
 import { createConfirmationToken } from '@/lib/leads/tokens'
 import { absoluteUrl } from '@/lib/site'
@@ -28,6 +29,13 @@ export async function handleSchnellreportSubmit(
   if (!turnstile.ok) return { ok: false, error: 'turnstile' }
 
   return runSchnellreportSubmit(submission, {
+    // Dieselbe Auflösung wie beim Kontaktformular (`?partner=`); die Herkunft bleibt 'schnellreport'.
+    resolvePartner: async (slug) => {
+      const attribution = await resolvePartnerAttribution({ querySlug: slug })
+      return attribution.partnerSlug && attribution.partnerDisplayName
+        ? { slug: attribution.partnerSlug, displayName: attribution.partnerDisplayName }
+        : null
+    },
     captureLead: captureWith(meta),
     recordRequest: (leadId, values) =>
       recordSchnellreportRequest({

@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { KontaktForm } from '@/components/kontakt/kontakt-form'
+import { Schnellcheck } from '@/components/schnellcheck'
 
 /**
  * Die Partner-Landingpage `/partner/<slug>` (B16-2, Modell A).
@@ -120,6 +121,15 @@ export function PartnerLandingPage({
 
               <p className="text-caption text-text-muted">{t('note')}</p>
             </div>
+          </div>
+        </Container>
+      </Section>
+
+      {/* Schnellcheck wie auf der Startseite; der Slug aus dem Pfad reist mit dem Schnellreport. */}
+      <Section>
+        <Container>
+          <div className="mx-auto max-w-[55rem]">
+            <Schnellcheck showHeading partnerSlug={partnerSlug} />
           </div>
         </Container>
       </Section>

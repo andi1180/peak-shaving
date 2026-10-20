@@ -49,6 +49,7 @@ export default defineConfig({
       'app/api/**/*.test.ts',
       'app/admin/**/*.test.ts',
       'components/admin/**/*.test.{ts,tsx}',
+      'components/partner/**/*.test.tsx',
     ],
   },
   // tsconfig steht für Next auf `jsx: preserve`; die Tests brauchen fertig übersetztes JSX.

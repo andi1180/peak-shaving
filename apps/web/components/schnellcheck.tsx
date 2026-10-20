@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { SchnellreportForm } from '@/components/schnellreport-form'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
+import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 import { cn } from '@/lib/utils'
 import {
   KW_SLIDER,
@@ -48,7 +49,7 @@ export function Schnellcheck({
   partnerSlug,
 }: {
   showHeading?: boolean
-  /** Partnerzuordnung für den Schnellreport-Lead, falls die einbettende Seite eine kennt. */
+  /** Partner aus dem Pfad (`/partner/<slug>`); sonst gilt `?partner=` der Adresse. */
   partnerSlug?: string
 }) {
   const t = useTranslations('Schnellcheck')
@@ -57,6 +58,14 @@ export function Schnellcheck({
   const [raw, setRaw] = React.useState<Record<FieldKey, string>>({ kwh: '', kw: '', bill: '' })
   const [sliderKw, setSliderKw] = React.useState<number>(KW_SLIDER.initial)
   const [reportOpen, setReportOpen] = React.useState(false)
+  const [partnerFromQuery, setPartnerFromQuery] = React.useState<string | undefined>(undefined)
+
+  // `?partner=<slug>` wie im Kontaktformular: nur aus der Adresse gelesen, nichts gespeichert;
+  // ob der Slug gilt, entscheidet der Server.
+  React.useEffect(() => {
+    const partner = new URLSearchParams(window.location.search).get(PARTNER_QUERY_PARAM)
+    if (partner) setPartnerFromQuery(partner)
+  }, [])
   const reportFormRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -325,7 +334,7 @@ export function Schnellcheck({
               <div id={`${uid}-report-form`} ref={reportFormRef} className="mt-4 scroll-mt-6">
                 <SchnellreportForm
                   check={{ country, kwh, kw, bill, sliderKw }}
-                  partnerSlug={partnerSlug}
+                  partnerSlug={partnerSlug ?? partnerFromQuery}
                 />
               </div>
             )}

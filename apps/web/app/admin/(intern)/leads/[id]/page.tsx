@@ -20,6 +20,8 @@ import {
   WithdrawConsentButton,
 } from '@/components/admin/lead-actions'
 import { LeadEditForm } from '@/components/admin/lead-edit-form'
+import { LeadSchnellcheck } from '@/components/admin/lead-schnellcheck'
+import { readSchnellreportRequests } from '@/lib/admin/schnellreport-requests'
 import {
   LEADS_HREF,
   consentStatusLabel,
@@ -249,13 +251,18 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
   // Zwei unabhängige Aufrufe: das Zustellprotokoll gehört nicht in `admin_get_lead`, weil es
   // seitenweise begrenzt ist und der Lead selbst nicht — und ein Fehler beim Laden der Ereignisse
   // darf nicht die ganze Detailseite umwerfen (dieselbe Aufteilung wie auf `/admin/leads`).
-  const [res, eventsRes] = await Promise.all([
+  const [res, eventsRes, schnellcheckRes] = await Promise.all([
     supabase.rpc('admin_get_lead', { p_lead_id: id }),
     supabase.rpc('admin_list_email_events', { p_lead_id: id, p_limit: 50 }),
+    supabase.rpc('admin_list_schnellreport_requests', { p_lead_id: id }),
   ])
   if (res.error) console.error('[admin/leads] admin_get_lead:', res.error)
   if (eventsRes.error) console.error('[admin/leads] admin_list_email_events:', eventsRes.error)
   const emailEvents = readEmailEvents(eventsRes.data)
+  if (schnellcheckRes.error) {
+    console.error('[admin/leads] admin_list_schnellreport_requests:', schnellcheckRes.error)
+  }
+  const schnellcheckRows = readSchnellreportRequests(schnellcheckRes.data)
 
   // 'not_found' ist ein fachlicher Zustand (veralteter Link) → 404. Ein LADEFEHLER ist etwas
   // anderes und darf sich nicht als „gibt es nicht" ausgeben.
@@ -513,6 +520,8 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
           </p>
         </AdminPanel>
       </AdminSection>
+
+      <LeadSchnellcheck rows={schnellcheckRows} />
 
       {/* ── Vertragsablauf-Erinnerung ─────────────────────────────────────────────────────────── */}
       {/*
