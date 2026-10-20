@@ -2,14 +2,12 @@ import * as React from 'react'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
-import { Button } from '@/components/ui/button'
-import { CtaErsparnisLink } from '@/components/analytics/cta-ersparnis-link'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { MAIN_NAV, KONTAKT_HREF } from '@/lib/nav'
-import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
+import { MAIN_NAV } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
+import { HeaderActions } from './quick-access'
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -86,7 +84,7 @@ export async function SiteHeader() {
      * Deckende Fläche ist Pflicht — der Inhalt läuft darunter durch.
      */
     <header className="sticky top-0 z-40 border-b border-line bg-surface">
-      <Container className="grid h-[var(--header-h)] grid-cols-[auto_1fr_auto] items-center gap-4">
+      <Container className="grid h-[var(--header-h)] grid-cols-[auto_1fr_auto] items-center gap-3">
         {/* Lockup → Startseite */}
         <Link
           href="/"
@@ -125,11 +123,11 @@ export async function SiteHeader() {
          * Spalte, die Box selbst bleibt exakt content-breit) — das Dropdown
          * bleibt exakt unter seinem Trigger.
          *
-         * Bei 1024–1280px eng geprüft (Playwright): die Mittelspalte hat bei
-         * 1024px noch reichlich Luft (kein Umbruch, kein Overflow, Nav bleibt
-         * einzeilig). Kein Fallback nötig.
+         * Erst ab `xl` (Leadgen 6): mit dem dritten Header-Button brach die Nav
+         * bei 1024–1180 px zweizeilig um (gemessen, Nav braucht 529 px); darunter
+         * liegt sie im Menü.
          */}
-        <NavigationMenu className="hidden justify-self-center lg:flex" aria-label={t('mainLabel')}>
+        <NavigationMenu className="hidden justify-self-center xl:flex" aria-label={t('mainLabel')}>
           <NavigationMenuList>
             {MAIN_NAV.map((item) => {
               const hasMenu = Boolean(item.groups || item.items)
@@ -256,26 +254,11 @@ export async function SiteHeader() {
 
         {/* Rechte Spalte: Aktionen (Desktop) + Hamburger (Mobile) im selben Grid-Slot */}
         <div className="flex shrink-0 items-center justify-self-end gap-2">
-          <div className="hidden items-center gap-2 lg:flex">
-            {/* Hier stand bis B18-2 der Login-/Konto-Platz — Begründung oben im Rumpf. */}
-            <Button asChild variant="secondary" size="sm">
-              <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
-            </Button>
-            {/*
-             * Partner-Einstieg (B16-Einstieg), seit dem Leadgen-Umbau sekundär: primär ist
-             * „Ersparnis berechnen" daneben. „Partner", nicht „Partnerportal" — fast jeder
-             * Aufruf kommt von jemandem ohne Konto. Erst ab `xl`: bei 1024 px bräche die Nav sonst
-             * zweizeilig um (gemessen); darunter bleiben Fusszeile und Startseiten-Banner.
-             */}
-            <Button asChild variant="secondary" size="sm" className="hidden xl:inline-flex">
-              <Link href={PARTNER_BEWERBUNG_HREF}>{t('partner')}</Link>
-            </Button>
-          </div>
-
-          {/* Auf allen Breiten sichtbar: der primäre Weg zum Schnellrechner (Startseite + Sprungmarke). */}
-          <Button asChild variant="primary" size="sm">
-            <CtaErsparnisLink position="header">{t('ersparnisBerechnen')}</CtaErsparnisLink>
-          </Button>
+          {/*
+           * Kontakt, Partner, Profi-Report, Ersparnis berechnen — pfadabhängig, s. quick-access.tsx.
+           * Hier stand bis B18-2 der Login-/Konto-Platz — Begründung oben im Rumpf.
+           */}
+          <HeaderActions />
 
           {/* Mobile */}
           <MobileNav />

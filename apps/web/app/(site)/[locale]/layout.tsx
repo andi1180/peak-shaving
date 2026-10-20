@@ -10,6 +10,7 @@ import { organizationLd } from '@/lib/json-ld'
 import { JsonLd } from '@/components/json-ld'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
+import { QuickAccessBar } from '@/components/layout/quick-access'
 import { PostHogAnalytics } from '@/components/analytics/posthog'
 import '../../globals.css'
 /*
@@ -137,6 +138,7 @@ export default async function LocaleLayout({
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          <QuickAccessBar />
         </NextIntlClientProvider>
       </body>
     </html>
