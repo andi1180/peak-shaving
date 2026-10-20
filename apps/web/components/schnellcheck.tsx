@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { SchnellreportForm } from '@/components/schnellreport-form'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
+import { PROFI_REPORT_HREF } from '@/lib/profi-report/links'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 import { cn } from '@/lib/utils'
 import {
@@ -343,7 +344,7 @@ export function Schnellcheck({
               <p className="m-0 text-balance text-[15.5px] font-semibold text-ink">{t('teaser')}</p>
               <div className="flex flex-wrap items-center gap-3">
                 <Link
-                  href={hrefFor('profiReport')}
+                  href={PROFI_REPORT_HREF}
                   className={cn(BTN, 'border border-line bg-surface text-navy hover:border-navy')}
                 >
                   {t('ctaProfi')}

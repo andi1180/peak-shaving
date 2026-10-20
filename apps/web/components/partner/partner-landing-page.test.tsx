@@ -33,5 +33,9 @@ describe('Partner-Landingpage (3b-3)', () => {
     expect(html).toContain('Raymann Elektrotechnik GmbH empfiehlt Ihnen')
     expect(html).toContain(messages.Schnellcheck.title)
     expect(html).toContain(messages.Schnellcheck.ctaReport)
+    // 4b: der Schnellcheck steht VOR dem Kontaktformular.
+    expect(html.indexOf(messages.Schnellcheck.title)).toBeLessThan(
+      html.indexOf('name="unternehmen"'),
+    )
   })
 })

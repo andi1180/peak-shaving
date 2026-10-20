@@ -2927,6 +2927,14 @@ export type Database = {
         }
         Returns: Json
       }
+      record_profi_report_request: {
+        Args: {
+          p_has_load_profile: string
+          p_lead_id: string
+          p_window_seconds: number
+        }
+        Returns: Json
+      }
       record_schnellreport_request: {
         Args: {
           p_annual_kwh: number

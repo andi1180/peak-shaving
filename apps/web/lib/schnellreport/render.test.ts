@@ -107,3 +107,18 @@ describe('renderSchnellreportPdf', () => {
     )
   })
 })
+
+describe('Links zur Profi-Report-Seite (4b)', () => {
+  it('die Seite „Profi-Report" verlinkt #anfrage und #beispiel mit UTM, Text bleibt', async () => {
+    const pdf = await renderSchnellreportPdf(example())
+    // Linkannotationen stehen unkomprimiert als /URI im PDF.
+    const uris = [...pdf.toString('latin1').matchAll(/\/URI \(([^)]*)\)/g)].map((m) => m[1])
+    const query = 'utm_source=schnellreport&utm_medium=pdf&utm_campaign=profi-report'
+    const anchors = uris
+      .filter((u) => u?.includes(`/profi-report?${query}#`))
+      .map((u) => u!.split('#')[1])
+    expect(anchors).toContain('anfrage')
+    expect(anchors).toContain('beispiel')
+    expect(flat(pdfText(pdf).text)).toContain('coolin.at/profi-report')
+  })
+})

@@ -67,6 +67,18 @@ export function PartnerLandingPage({
         <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
       </Container>
 
+      {/*
+        Schnellcheck VOR dem Kontaktformular (4b): erst die eigene Zahl, dann die Anfrage. Der Slug
+        aus dem Pfad reist mit dem Schnellreport.
+      */}
+      <Section className="border-t border-line">
+        <Container>
+          <div className="mx-auto max-w-[55rem]">
+            <Schnellcheck showHeading partnerSlug={partnerSlug} />
+          </div>
+        </Container>
+      </Section>
+
       <Section tone="alt" className="border-t border-line">
         <Container>
           <div className="grid gap-8 lg:grid-cols-5 lg:gap-12">
@@ -125,14 +137,6 @@ export function PartnerLandingPage({
         </Container>
       </Section>
 
-      {/* Schnellcheck wie auf der Startseite; der Slug aus dem Pfad reist mit dem Schnellreport. */}
-      <Section>
-        <Container>
-          <div className="mx-auto max-w-[55rem]">
-            <Schnellcheck showHeading partnerSlug={partnerSlug} />
-          </div>
-        </Container>
-      </Section>
     </>
   )
 }

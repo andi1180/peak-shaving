@@ -372,6 +372,10 @@ Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
   `docs/prototypes/schnellcheck-prototyp.html`, `components/schnellcheck.tsx`): Radius 16px, weicher
   Schatten, Prototyp-Slate auf die neutralen Tokens abgebildet (`--bar` → `line-strong`). Abweichend
   vom Prototyp tragen die Eingabefelder `line-input` statt `line` (1.4.11, 3:1).
+- **Dieselbe Ausnahme gilt für die Profi-Report-Seite (Leadgen-Umbau Schritt 4b,**
+  `docs/prototypes/profi-report-prototyp.html`, `components/profi-report/`): Preisbox, Anfrage-Karte
+  und die Seitenbilder des Beispiel-Reports (Hero-Stapel, Blätterleiste) tragen Radius und weichen
+  Schatten wie im Prototyp; der Bildhintergrund der Blätterleiste ist `surface-sunken`.
 - **Responsive:** Mobile/Tablet/Desktop gleichwertig (§7.5). `html`/`body` haben eine globale
   `overflow-x`-Bremse — als **`clip`**, nicht `hidden`, s. nächste Regel.
 - **Header-Höhe ist ein Token:** `--header-h: 4rem`. Sie steuert drei Dinge, die sonst

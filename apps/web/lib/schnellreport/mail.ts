@@ -11,14 +11,13 @@ import { COMPANY } from '@/lib/nav'
 import { escapeHtml, mailConfigured, sendMail, warnMailNotConfigured } from '@/lib/mail/send'
 import { absoluteUrl } from '@/lib/site'
 import { LEADS_HREF } from '@/lib/admin/leads'
-import { kontaktHrefFor } from '@/lib/kontakt/themen'
+import { schnellreportProfiReportUrl } from '@/lib/profi-report/links'
 import { formatGrouped } from '@/lib/schnellcheck'
 import type { ReportMailStatus, TeamNotice } from './flow'
 import type { SchnellreportValues } from './request'
 import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from './settings'
 
 const t = createTranslator({ locale: 'de', messages, namespace: 'SchnellreportMail' })
-const tCheck = createTranslator({ locale: 'de', messages, namespace: 'Schnellcheck' })
 const tReport = createTranslator({ locale: 'de', messages, namespace: 'Schnellreport' })
 
 const FONT = 'font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif'
@@ -33,20 +32,6 @@ export function reportFilename(firma: string): string {
     .replace(/\s+/g, ' ')
     .trim()
   return `Schnellreport_${safe || tReport('firmaFallback')}.pdf`
-}
-
-function profiReportUrl(values: SchnellreportValues): string {
-  const country = values.country === 'AT' ? tCheck('countryAT') : tCheck('countryDE')
-  const message = [
-    tCheck('prefillIntro'),
-    tCheck('prefillCountry', { country }),
-    tCheck('prefillKwh', { kwh: formatGrouped(values.kwh) }),
-    values.kw !== null && tCheck('prefillKw', { kw: formatGrouped(values.kw) }),
-    values.bill !== null && tCheck('prefillBill', { bill: formatGrouped(values.bill) }),
-  ]
-    .filter(Boolean)
-    .join('\n')
-  return absoluteUrl(kontaktHrefFor('profiReport', message))
 }
 
 export type ReportMailParts = { subject: string; text: string; html: string }
@@ -68,7 +53,8 @@ export function buildReportMail(
     settings.contactRole ? `${settings.contactRole}, ${t('company')}` : t('company'),
     settings.phone && t('signaturePhone', { phone: settings.phone }),
   ].filter(Boolean) as string[]
-  const url = profiReportUrl(values)
+  const url = schnellreportProfiReportUrl('anfrage', 'email')
+  const exampleUrl = schnellreportProfiReportUrl('beispiel', 'email')
 
   const text = [
     greeting,
@@ -78,6 +64,7 @@ export function buildReportMail(
     t('outro'),
     '',
     profi,
+    `${t('example')}: ${exampleUrl}`,
     `${t('button')}: ${url}`,
     '',
     followUp,
@@ -92,6 +79,7 @@ export function buildReportMail(
     `<p style="margin:0 0 6px;font-size:28px;font-weight:700;color:#b91c1c;font-variant-numeric:tabular-nums">${escapeHtml(amount)}</p>`,
     `<p style="${P}">${escapeHtml(t('outro'))}</p>`,
     `<p style="${P}">${escapeHtml(profi)}</p>`,
+    `<p style="margin:0 0 14px"><a href="${escapeHtml(exampleUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(t('example'))}</a></p>`,
     `<p style="margin:0 0 20px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#0f766e;color:#ffffff;font-weight:600;text-decoration:none;padding:12px 20px;border-radius:8px">${escapeHtml(t('button'))}</a></p>`,
     `<p style="${P};font-size:14px;${MUTED}">${escapeHtml(followUp)}</p>`,
     `<p style="margin:0">${signature.map(escapeHtml).join('<br>')}</p>`,

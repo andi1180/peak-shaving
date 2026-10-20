@@ -270,6 +270,26 @@ export async function recordSchnellreportRequest(
 
 /* ─── Partner-Attribution (B16-2) ─────────────────────────────────────────────────────────────── */
 
+/** Leadgen 4b: Lastgang-Angabe der Profi-Report-Anfrage samt Sperre gegen Doppelabsendung. */
+export async function recordProfiReportRequest(row: {
+  leadId: string
+  hasLoadProfile: 'ja' | 'nein' | 'unsicher'
+  windowSeconds: number
+}): Promise<{ status: 'created' | 'duplicate' }> {
+  const service = createServiceRoleClient()
+  const { data, error } = await service.rpc('record_profi_report_request', {
+    p_lead_id: row.leadId,
+    p_has_load_profile: row.hasLoadProfile,
+    p_window_seconds: row.windowSeconds,
+  })
+  if (error) throw new Error(`record_profi_report_request: ${error.message}`)
+  const status = asRecord(data, 'record_profi_report_request').status
+  if (status !== 'created' && status !== 'duplicate') {
+    throw new Error('record_profi_report_request: unerwartete Rückgabe')
+  }
+  return { status }
+}
+
 /**
  * Ein AKTIVER Fachbetrieb — oder `null` (unbekannt, formatverletzend ODER stillgelegt).
  *

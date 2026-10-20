@@ -155,6 +155,8 @@ export const LEAD_SOURCE_KEYS_WITHOUT_FORM = [
    */
   'rechnerergebnis',
   'schnellreport',
+  // Leadgen 4b: eigene Server Action auf /profi-report (`lib/profi-report/actions.ts`).
+  'profi-report-anfrage',
   'registrierung',
   'kalkulator-registrierung',
   'partner-empfehlung',

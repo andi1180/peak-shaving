@@ -56,7 +56,18 @@ const portalMail = await import('@/lib/partner-portal/mail')
 const calculatorRequestMail = await import('@/lib/partner-portal/calculator-request-mail')
 const kontakt = await import('@/lib/kontakt/deliver')
 const schnellreportMail = await import('@/lib/schnellreport/mail')
+const profiReportMail = await import('@/lib/profi-report/mail')
 const { SCHNELLREPORT_VALUES } = await import('@/lib/test-support/schnellreport')
+const PROFI_REPORT_VALUES = {
+  firma: 'Muster Gastro GmbH',
+  firstName: 'Anna',
+  lastName: 'Beispiel',
+  email: 'anna@test.local',
+  phone: null,
+  hasLoadProfile: 'ja' as const,
+  message: null,
+  partnerSlug: null,
+}
 
 type SentMail = {
   from: string
@@ -138,6 +149,22 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         leadId: LEAD_ID,
         email: 'max@test.local',
         phone: '+43 1 234 567',
+      }),
+  },
+  {
+    name: 'Profi-Report-Anfrage (Bestätigung)',
+    userFacing: false,
+    send: () => profiReportMail.sendProfiReportConfirmation(PROFI_REPORT_VALUES),
+  },
+  {
+    name: 'Profi-Report-Anfrage (intern)',
+    userFacing: false,
+    send: () =>
+      profiReportMail.sendProfiReportNotice({
+        leadId: LEAD_ID,
+        values: PROFI_REPORT_VALUES,
+        partner: null,
+        confirmation: 'sent',
       }),
   },
   {
@@ -250,6 +277,7 @@ describe('Absender — eine Definition für alle Mails', () => {
       ...Object.keys(portalMail),
       ...Object.keys(calculatorRequestMail),
       ...Object.keys(schnellreportMail),
+      ...Object.keys(profiReportMail),
     ].filter((name) => name.startsWith('send'))
 
     expect(exported.length + 1).toBe(MAILS.length)

@@ -104,6 +104,20 @@ const nextConfig = {
    *   /favicon.png, /logo-coolin-energy.png — Bilder, keine Seiten. §6.4 will
    *     Ranking und Backlinks retten; die hängen an Dokumenten, nicht an Assets.
    */
+  /*
+   * Leadgen 4b: der Beispiel-Report (PDF + Seitenbilder) ist öffentlich abrufbar, soll aber nicht
+   * als eigenes Suchergebnis erscheinen — gefunden werden soll /profi-report. Ein X-Robots-Tag
+   * statt `robots.txt`-Disallow: ein gesperrter Pfad wird nicht gelesen und kann trotzdem indexiert
+   * werden.
+   */
+  async headers() {
+    return [
+      {
+        source: '/beispiel-report/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      },
+    ]
+  },
   async redirects() {
     return [
       { source: '/impressum.html', destination: '/impressum', statusCode: 301 },
