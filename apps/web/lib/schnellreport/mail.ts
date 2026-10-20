@@ -189,6 +189,7 @@ export function buildTeamNotice(notice: TeamNotice) {
     ['Stromrechnung', v.bill !== null ? `${eur(v.bill)} pro Jahr` : DASH],
     ['Leistungspreis', `${formatGrouped(v.result.demandPrice)} €/kW·a`],
     ['Ergebnis', `${eur(v.result.peakCostEur)} Spitzenkosten pro Jahr`],
+    ['Partner', notice.partner ? `${notice.partner.displayName} (${notice.partner.slug})` : DASH],
     ['Tipp-Mails', v.tips ? 'ja (Bestätigung angefordert)' : 'nein'],
     ['Report-Mail', REPORT_MAIL_LABEL[notice.reportMail]],
   ]

@@ -47,6 +47,9 @@ function fakeEffects(opts: { outcomes?: CaptureOutcome[]; duplicate?: boolean } 
   const confirmations: string[] = []
   const outcomes = opts.outcomes ?? ['consent_confirmed', 'consent_created']
   const effects: Effects = {
+    // Ein aktiver Fachbetrieb; jeder andere Slug ist unbekannt oder inaktiv.
+    resolvePartner: async (slug) =>
+      slug === 'raymann' ? { slug, displayName: 'Raymann Elektrotechnik GmbH' } : null,
     captureLead: async (call) => {
       const outcome = outcomes[Math.min(calls.length, outcomes.length - 1)]!
       calls.push(call)
@@ -145,6 +148,36 @@ describe('Absenden', () => {
 
     expect(sent().map((m) => m.to)).toEqual(['energy@coolin.at'])
     expect(sent()[0]!.text).toContain('Adresse gesperrt')
+  })
+})
+
+describe('Partnerzuordnung', () => {
+  it('gültiger Partner: partner_slug am Lead und Partner in der Benachrichtigung', async () => {
+    const { effects, calls } = fakeEffects()
+    await runSchnellreportSubmit({ ...SCHNELLREPORT_SUBMISSION, partnerSlug: 'raymann' }, effects)
+
+    expect(calls[0]!.partnerSlug).toBe('raymann')
+    expect(sent()[1]!.text).toContain('Partner: Raymann Elektrotechnik GmbH (raymann)')
+  })
+
+  it('unbekannter Slug: der Lead entsteht trotzdem, ohne Partner', async () => {
+    const { effects, calls } = fakeEffects()
+    const response = await runSchnellreportSubmit(
+      { ...SCHNELLREPORT_SUBMISSION, partnerSlug: 'gibt-es-nicht' },
+      effects,
+    )
+
+    expect(response.ok).toBe(true)
+    expect(calls[0]!.partnerSlug).toBeNull()
+    expect(sent()[1]!.text).toContain('Partner: —')
+  })
+
+  it('ohne Partner: unverändert wie 3b-2', async () => {
+    const { effects, calls } = fakeEffects()
+    await runSchnellreportSubmit(SCHNELLREPORT_SUBMISSION, effects)
+
+    expect(calls[0]!.partnerSlug).toBeNull()
+    expect(sent()).toHaveLength(2)
   })
 })
 

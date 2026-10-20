@@ -127,6 +127,7 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         leadId: LEAD_ID,
         values: SCHNELLREPORT_VALUES,
         reportMail: 'sent',
+        partner: null,
       }),
   },
   {
