@@ -376,6 +376,13 @@ Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
   `docs/prototypes/profi-report-prototyp.html`, `components/profi-report/`): Preisbox, Anfrage-Karte
   und die Seitenbilder des Beispiel-Reports (Hero-Stapel, Blätterleiste) tragen Radius und weichen
   Schatten wie im Prototyp; der Bildhintergrund der Blätterleiste ist `surface-sunken`.
+- **Profi-Report-Teaser der Startseite (Leadgen-Umbau Schritt 7,** `docs/prototypes/startseite-profi-teaser-faq.html`,
+  `components/home/profi-report-teaser.tsx`): Navy-Vollfläche, Seitenbilder mit Radius und Schatten wie
+  im Prototyp. Eigene Farbwerte für Text auf Navy, nur für diese Fläche: `--color-on-navy-muted`
+  `#c3cde3` (Fliesstext, 7,56:1), `--color-accent-on-navy` `#7ee0d4` (Überzeile, Nummern, Fokusrahmen,
+  7,75:1; Teal 700 erreicht auf Navy kein AA), `--color-line-on-navy` Weiss 18 % (Trennlinien, Umriss).
+  Tailwind: `text-navy-foreground-muted`, `text-navy-accent`, `border-navy-line`. Etikett-Grund ist
+  `navy-hover` statt des Prototyp-Werts `#142b5e`, Hover des hellen Buttons `navy-subtle` statt `#e8eef9`.
 - **Responsive:** Mobile/Tablet/Desktop gleichwertig (§7.5). `html`/`body` haben eine globale
   `overflow-x`-Bremse — als **`clip`**, nicht `hidden`, s. nächste Regel.
 - **Header-Höhe ist ein Token:** `--header-h: 4rem`. Sie steuert drei Dinge, die sonst

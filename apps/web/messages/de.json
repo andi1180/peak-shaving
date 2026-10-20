@@ -24,7 +24,7 @@
     "esg": "ESG / CSRD",
     "peakShaving": "Peak Shaving",
     "peakShavingWhat": "Was ist Peak Shaving",
-    "peakShavingCalculator": "Der Kalkulator",
+    "schnellcheck": "Schnellcheck",
     "profiReport": "Profi-Report",
     "branchen": "Branchen",
     "branchenAll": "Alle Branchen",
@@ -48,7 +48,6 @@
     "colPeakShaving": "Peak Shaving",
     "colBranchen": "Branchen",
     "colUnternehmen": "Unternehmen",
-    "referenzen": "Referenzen",
     "produkte": "Produkte",
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
@@ -463,7 +462,7 @@
         "related": {
           "title": "Passt dazu",
           "pvSpeicher": "Die Investition, um die es meistens geht: Anlage und Speicher — Auslegung und Finanzierung gehören zusammen gedacht.",
-          "kalkulator": "Wie Förderung und Investitionsfreibetrag auf die Amortisation eines Speichers wirken, rechnet der Kalkulator direkt mit.",
+          "schnellcheck": "Der Schnellcheck sagt, was Ihre Spitze heute kostet.",
           "esg": "Geförderte Maßnahmen und ihre Wirkung tauchen später im Bericht wieder auf — einmal sauber dokumentiert reicht."
         },
         "cta": {
@@ -1362,6 +1361,63 @@
       "title": "Sie sind Elektro- oder PV-Betrieb?",
       "text": "Empfehlen Sie Ihren Bestandskunden eine unabhängige Lastspitzen-Analyse — und übernehmen Sie die Montage.",
       "cta": "Partner werden"
+    },
+    "ProfiTeaser": {
+      "eyebrow": "Profi-Report",
+      "title": "Die genaue Antwort für Ihren Betrieb",
+      "lead": "Wir rechnen mit Ihrem echten Lastgang, Viertelstunde für Viertelstunde, mit Ihren Netztarifen und mit echten Speichern.",
+      "questions": [
+        {
+          "title": "Wie viel kann ich sparen?",
+          "text": "Jeder Weg mit eigener Zahl: Tarif, Börsenpreis, Speicher mit Ladesteuerung, Kappung der Spitzen."
+        },
+        {
+          "title": "Welcher Speicher passt?",
+          "text": "Echte Geräte an Ihrem Lastgang verglichen. Größer ist nicht automatisch besser."
+        },
+        {
+          "title": "Wann rechnet es sich?",
+          "text": "Investition, Ersparnis pro Jahr, Amortisation vor und nach Steuern."
+        }
+      ],
+      "ctaBeispiel": "Beispiel-Report ansehen",
+      "ctaAnfragen": "Profi-Report anfragen",
+      "stackTag": "Echter Bericht, anonymisiert · 23 Seiten"
+    },
+    "Faq": {
+      "eyebrow": "Häufige Fragen",
+      "title": "Gut zu wissen",
+      "hint": "Ihre Frage ist nicht dabei? Schreiben Sie uns an <email>{address}</email>.",
+      "items": [
+        {
+          "q": "Warum zahle ich für Lastspitzen, wenn ich gleich viel Strom verbrauche?",
+          "a": "Betriebe mit Leistungsmessung zahlen dem Netzbetreiber neben der Strommenge einen Leistungspreis. Er richtet sich nach den Viertelstunden mit dem höchsten Bezug, in Österreich Monat für Monat, in Deutschland meist über das ganze Jahr. Eine einzige kurze Spitze kann so die Netzkosten eines ganzen Monats oder Jahres bestimmen."
+        },
+        {
+          "q": "Lohnt sich das für meinen Betrieb?",
+          "a": "Am ehesten ab rund 100.000 kWh Jahresverbrauch und wenn auf Ihrer Netzrechnung ein Leistungspreis steht. Der Schnellcheck oben zeigt sofort, was Ihre Lastspitze im Jahr kostet. Die genaue Antwort gibt der Profi-Report. Rechnet sich ein Speicher bei Ihnen nicht, steht genau das drin."
+        },
+        {
+          "q": "Was ist ein Lastgang und woher bekomme ich ihn?",
+          "a": "Der Lastgang zeigt Ihren Stromverbrauch in Viertelstundenwerten. Betriebe mit Leistungsmessung bekommen ihn bei ihrem Netzbetreiber, meist als Datei im Kundenportal. Wenn Sie nicht wissen, wo, helfen wir Ihnen."
+        },
+        {
+          "q": "Was ändert sich 2027 in Österreich?",
+          "a": "Ab 1. Jänner 2027 gilt die neue Verordnung über die Netzentgelte (BGBl. II Nr. 299/2026). Auf Netzebene 7 wird die Leistung künftig nach dem Monatshöchstwert verrechnet, umgestellt wird bis spätestens 30. Juni 2028. Damit wird die Lastspitze auch für viele kleinere Betriebe zum Kostenfaktor.",
+          "link": {
+            "label": "Mehr im Wissen-Artikel",
+            "href": "/wissen/leistungstarif-2027"
+          }
+        },
+        {
+          "q": "Gilt das auch in Deutschland?",
+          "a": "Ja. Der Schnellcheck rechnet mit deutschen Netzentgelten, und den Profi-Report erstellen wir auch für Betriebe in Deutschland. Wie hoch der Leistungspreis ist, hängt dort stark von der Benutzungsdauer ab: unter 2.500 Stunden im Jahr niedrig, darüber deutlich höher."
+        },
+        {
+          "q": "Muss ich nach dem Report einen Speicher kaufen?",
+          "a": "Nein. Der Profi-Report ist eine unabhängige Auswertung. Wir besprechen ihn mit Ihnen, danach entscheiden Sie in Ruhe. Die Umsetzung übernehmen auf Wunsch Fachbetriebe aus unserem Partnernetz."
+        }
+      ]
     }
   },
   "PeakShaving": {
@@ -1438,7 +1494,7 @@
       "eyebrow": "Ihr Potenzial",
       "title": "Einsparpotenzial in zwei Minuten schätzen",
       "lead": "Der Schnellcheck gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Peak-Shaving Kalkulator.",
-      "cta": "Zum Peak-Shaving Kalkulator"
+      "cta": "Zum Schnellcheck"
     }
   },
   "PeakShavingCalculator": {
@@ -1712,7 +1768,6 @@
     "ueberUns": "Über uns",
     "kontakt": "Kontakt",
     "produkte": "Produkte",
-    "referenzen": "Referenzen",
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
     "login": "Login",
@@ -2090,7 +2145,7 @@
     "change": {
       "title": "Was sich zum 1. Jänner 2027 ändert",
       "body1": "Die Systemnutzungsentgelte werden neu geordnet. Der Leistungstarif — der Teil der Netzkosten, der sich nicht am Verbrauch bemisst, sondern an der höchsten bezogenen Leistung — erreicht dabei die Netzebene 7. Das ist die Ebene, an der die meisten Gewerbebetriebe hängen, die heute keine Leistungsmessung haben.",
-      "body2": "Wie hoch die Beträge ausfallen, steht noch nicht fest: Die Verordnung, die die Grundsätze regelt, liegt im Entwurf vor, und die Tarifverordnung mit den Sätzen ist noch nicht veröffentlicht. Solange das so ist, wäre jede Zahl an dieser Stelle erfunden — deshalb steht hier keine."
+      "body2": "Wie hoch die Beträge ausfallen, steht noch nicht fest: Die Verordnung, die die Grundsätze regelt, ist kundgemacht (am 12.10.2026, BGBl. II Nr. 299/2026), die Tarifverordnung mit den Sätzen ist noch nicht veröffentlicht. Solange das so ist, wäre jede Zahl an dieser Stelle erfunden — deshalb steht hier keine."
     },
     "effect": {
       "title": "Was die Eintragung bewirkt",
@@ -2503,7 +2558,7 @@
       },
       "artikel-inline": {
         "heading": "Wenn es Neues zum Leistungstarif 2027 gibt",
-        "body": "Die Verordnung ist Entwurf, die Tarife stehen noch aus. Wir schreiben Ihnen, sobald sich daran etwas ändert — sachlich, selten und ohne Werbebrief.",
+        "body": "Die Verordnung ist kundgemacht (am 12.10.2026, BGBl. II Nr. 299/2026), die Tarife stehen noch aus. Wir schreiben Ihnen, sobald sich daran etwas ändert — sachlich, selten und ohne Werbebrief.",
         "submit": "Auf dem Laufenden bleiben",
         "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Vorher senden wir Ihnen nichts."
       },
@@ -2719,7 +2774,7 @@
     "greeting": "Guten Tag {name},",
     "intro": "hier ist Ihr Schnellreport. Nach Ihren Angaben kostet Ihre Lastspitze",
     "outro": "pro Jahr. Im PDF finden Sie, warum diese Spitze in Ihrer Branche entsteht, drei Hebel ohne Investition und was sich mit den Netztarifen 2027 ändert.",
-    "profiPrice": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten, zum Einführungspreis von {price} bis 31.12.2026.",
+    "profiPrice": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten: {offer}.",
     "profi": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten.",
     "example": "So sieht ein Profi-Report aus",
     "button": "Profi-Report anfragen",
@@ -2915,7 +2970,7 @@
       "title": "Gut zu wissen",
       "price": {
         "q": "Was kostet der Profi-Report?",
-        "a": "{price} zuzüglich Umsatzsteuer, als Einführungspreis für Anfragen bis 31.12.2026."
+        "a": "{offer}."
       },
       "items": [
         {

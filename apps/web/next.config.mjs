@@ -129,6 +129,8 @@ const nextConfig = {
        * Redirect auf „/" würde den Besucher mit seinem Anliegen allein lassen.
        */
       { source: '/danke.html', destination: '/kontakt', statusCode: 301 },
+      // Leadgen 7: die Platzhalterseite „Referenzen“ ist entfernt.
+      { source: '/referenzen', destination: '/', statusCode: 301 },
 
       /*
        * BRANCHEN-NEUORDNUNG (Prompt 25). Dieselbe Konvention wie oben:

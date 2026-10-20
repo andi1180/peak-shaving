@@ -30,3 +30,8 @@ export const SCHNELLREPORT_SETTINGS: SchnellreportSettings = {
   priceNote: 'Einführungspreis bis 31.12.2026, zzgl. USt.',
   tariffsAsOf: 'Stand Oktober 2026',
 }
+
+/** Preis mit Zusatz als eine Zeile („495 €, Einführungspreis …, zzgl. USt.“) für Fliesstexte in Mail und FAQ. */
+export function priceOffer(settings: SchnellreportSettings): string {
+  return [settings.price.trim(), settings.priceNote.trim()].filter(Boolean).join(', ')
+}

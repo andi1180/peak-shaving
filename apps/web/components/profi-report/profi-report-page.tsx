@@ -3,7 +3,11 @@ import { useTranslations } from 'next-intl'
 import { Container } from '@/components/ui/layout'
 import { cn } from '@/lib/utils'
 import { PROFI_REPORT_ANFRAGE_ID, PROFI_REPORT_BEISPIEL_ID } from '@/lib/profi-report/links'
-import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from '@/lib/schnellreport/settings'
+import {
+  SCHNELLREPORT_SETTINGS,
+  priceOffer,
+  type SchnellreportSettings,
+} from '@/lib/schnellreport/settings'
 import { ProfiReportForm } from './profi-report-form'
 import {
   PAGE_SIZE,
@@ -52,7 +56,7 @@ export function ProfiReportPage({
   const steps = t.raw('ablauf.steps') as { title: string; text: string }[]
   const unterlagen = t.raw('unterlagen.items') as string[]
   const faq = [
-    ...(price ? [{ q: t('faq.price.q'), a: t('faq.price.a', { price }) }] : []),
+    ...(price ? [{ q: t('faq.price.q'), a: t('faq.price.a', { offer: priceOffer(settings) }) }] : []),
     ...(t.raw('faq.items') as { q: string; a: string }[]),
   ]
   const contact = [settings.contactName, settings.phone].filter(Boolean).join(', ')

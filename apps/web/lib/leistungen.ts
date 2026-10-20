@@ -14,7 +14,7 @@
 
 import { ClipboardCheck, Coins, Gauge, ScrollText, Sun, Thermometer } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { MAIN_NAV, LEISTUNGEN_FLAT, type NavLeaf } from './nav'
+import { MAIN_NAV, LEISTUNGEN_FLAT, SCHNELLCHECK_HREF, type NavLeaf } from './nav'
 
 /**
  * ICONS je Leistung — schlichte, einfarbige lucide-Line-Icons. KEINE Emoji
@@ -65,10 +65,10 @@ const CROSS_TARGETS: Record<string, CrossTarget> = {
       { href: leaf.href, navKey: leaf.labelKey },
     ]),
   ),
-  // Das Flaggschiff: Erklärseite (Methode) und Produktseite (Kalkulator) sind
-  // zwei Intents und zwei Ziele (§6.2) — hier bewusst einzeln adressierbar.
+  // Das Flaggschiff: Erklärseite (Methode) und Werkzeug sind zwei Intents und zwei Ziele (§6.2).
+  // Das Werkzeug ist seit Leadgen 7 der Schnellcheck der Startseite statt des Kalkulators.
   peakShaving: { href: '/peak-shaving', navKey: 'peakShavingWhat' },
-  kalkulator: { href: '/peak-shaving/kalkulator', navKey: 'peakShavingCalculator' },
+  schnellcheck: { href: SCHNELLCHECK_HREF, navKey: 'schnellcheck' },
 }
 
 /** Ein aufgelöster Cross-Link: Ziel (href) + Nav-Label-Key + der Key der Quellseite. */
@@ -99,7 +99,7 @@ const CROSS_LINKS: Record<string, string[]> = {
   energiemanagement: ['peakShaving', 'pvSpeicher', 'esg'],
   smartHeating: ['peakShaving', 'energiemanagement'],
   ppa: ['pvSpeicher', 'energiemanagement', 'esg'],
-  finanzierung: ['pvSpeicher', 'kalkulator', 'esg'],
+  finanzierung: ['pvSpeicher', 'schnellcheck', 'esg'],
   esg: ['energiemanagement', 'ppa'],
 }
 

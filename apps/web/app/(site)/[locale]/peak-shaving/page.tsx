@@ -9,7 +9,7 @@ import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
 import { Schnellcheck } from '@/components/schnellcheck'
 import { LoadCurveChart } from '@/components/peak-shaving/load-curve-chart'
-import { CTA_HREF } from '@/lib/nav'
+import { SCHNELLCHECK_HREF } from '@/lib/nav'
 import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
@@ -35,7 +35,7 @@ export async function generateMetadata({
  *
  * Aufbau folgt §5.2a: Was es ist → Leistungspreis vs. Arbeitspreis → RLM →
  * Diagramm → physikalische vs. RLM-Kappung → Speicher/Steuerung/Strategie →
- * Cross-Links → Schnellcheck + CTA zum Kalkulator.
+ * Cross-Links → Schnellcheck; der CTA führt seit Leadgen 7 zum Schnellcheck der Startseite statt zum Kalkulator.
  *
  * KEIN SIGNATURE-MOTIV: kanonischer Ort ist der Footer (DESIGN.md), der auf
  * dieser Seite bereits läuft. Ein Auftritt hier wäre der zweite.
@@ -305,7 +305,7 @@ function CtaSection() {
           <p className="mt-5 text-body text-white/80">{t('lead')}</p>
 
           <Button asChild variant="secondary" size="md" className="mt-8">
-            <Link href={CTA_HREF}>{t('cta')}</Link>
+            <Link href={SCHNELLCHECK_HREF}>{t('cta')}</Link>
           </Button>
         </div>
 

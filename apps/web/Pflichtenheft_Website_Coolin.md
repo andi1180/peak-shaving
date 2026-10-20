@@ -147,6 +147,8 @@ Deutsch, sprechend, keyword-orientiert (final gegen §6-Keywords gegenprüfen). 
 
 > **Revision 19.10.2026 (Leadgen-Umbau Schritt 1):** Reihenfolge jetzt Hero → Schnellrechner → Vorgehen → Peak-Shaving-Block → Branchen → Wissen → Leistungsportfolio → Partner-Banner → Kontakt-CTA. Hero mit genau einem Primär-CTA „Ersparnis berechnen" (→ Schnellrechner), Zielgruppe Betriebe ab ca. 100.000 kWh in AT/DE. Der Schnellrechner steht nicht mehr im Peak-Shaving-Block. Details: `CLAUDE.md`, Stand-Eintrag „Leadgen-Umbau Schritt 1".
 
+> **Revision 20.10.2026 (Leadgen-Umbau Schritt 7):** Profi-Report-Teaser nach dem Schnellrechner, FAQ „Gut zu wissen" vor dem Kontakt-CTA. Öffentliche Verweise führen auf den Schnellcheck (`/#schnellcheck`) statt auf den Kalkulator. Details: `CLAUDE.md`, Stand-Eintrag „Leadgen-Umbau Schritt 7".
+
 ---
 
 ## 5. Seiten & Content je Typ
@@ -202,6 +204,8 @@ Neugestaltung des bestehenden Formulars (siehe `coolin.html`-Modal / Screenshot)
 ### 5.6 Über uns / Referenzen
 
 **Über uns:** Team (Andreas, Martin), Mission, Track Record. Reale Bios/Fotos `[OP#8 — Owner: Andreas/Martin]`; bis dahin Platzhalter. **Referenzen:** Struktur jetzt anlegen, Inhalt bleibt dünn bis zum ersten echten Referenzkunden `[OP#9 — Owner: Martin]` (koppelt an Kalkulator-OP#1: Gerhard/Martins Kunde). Bestehende generische Projektbeispiele durch echte anonymisierte Fälle ersetzen, sobald belastbar. **Keine erfundenen Kennzahlen.**
+
+> **Revision 20.10.2026 (Leadgen-Umbau Schritt 7):** Die Platzhalterseite `/referenzen` ist entfernt (301 auf `/`), der Fusszeilen-Link ebenso. Eine Referenzseite entsteht neu, sobald OP#9 erfüllt ist.
 
 ### 5.7 Produkte & Roadmap-Teaser
 

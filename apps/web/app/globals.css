@@ -105,6 +105,10 @@
   /* Kontrast-Paarung (kein Branding, reine Lesbarkeit auf Akzent-/Signalflächen) */
   --color-on-accent: #ffffff;
   --color-on-navy: #ffffff;
+  /* Text und Linien auf Navy-Vollfläche (Profi-Report-Teaser, Leadgen 7, DESIGN.md-Ausnahme) */
+  --color-on-navy-muted: #c3cde3; /* Fliesstext, 7,56:1 */
+  --color-accent-on-navy: #7ee0d4; /* Überzeile, Nummern, Fokusrahmen, 7,75:1 */
+  --color-line-on-navy: rgba(255, 255, 255, 0.18); /* Trennlinien, Umriss */
 
   /*
    * shadcn/ui-Bridge — mappt die shadcn-Konvention (bg-primary, text-muted-foreground …)
