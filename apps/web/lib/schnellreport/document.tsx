@@ -4,7 +4,18 @@
  * Überschriften dem Profi-Report (`frame.tsx`). Alle Texte kommen fertig aus
  * `buildSchnellreportContent`; hier steht keine Zeichenkette für den Leser.
  */
-import { Document, Line, Page, Path, Rect, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
+import {
+  Document,
+  Line,
+  Link,
+  Page,
+  Path,
+  Rect,
+  StyleSheet,
+  Svg,
+  Text,
+  View,
+} from '@react-pdf/renderer'
 import type { ReactNode } from 'react'
 import { DAY_LOAD, DAY_PEAK_THRESHOLD, type SchnellreportContent } from './content'
 import {
@@ -172,7 +183,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 7,
   },
-  ctaNote: { flex: 1, fontSize: 9, color: C.faint },
+  ctaNote: { fontSize: 9, color: C.faint },
+  link: { textDecoration: 'none' },
   talk: { fontSize: 11.5, fontWeight: 600, color: C.ink },
   modules: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   module: {
@@ -437,10 +449,16 @@ export function SchnellreportDocument({
             </View>
           )}
           <View style={s.ctaRow}>
-            <Text style={s.ctaBadge}>{page4.cta}</Text>
-            <Text style={s.ctaNote}>{page4.ctaNote}</Text>
+            <Link src={page4.anfrageUrl} style={s.link}>
+              <Text style={s.ctaBadge}>{page4.cta}</Text>
+            </Link>
+            <Link src={page4.anfrageUrl} style={[s.link, { flex: 1 }]}>
+              <Text style={s.ctaNote}>{page4.ctaNote}</Text>
+            </Link>
           </View>
-          <Text style={[s.small, { fontSize: 9 }]}>{page4.example}</Text>
+          <Link src={page4.beispielUrl} style={s.link}>
+            <Text style={[s.small, { fontSize: 9 }]}>{page4.example}</Text>
+          </Link>
         </View>
         <Text style={s.talk}>{page4.talk}</Text>
       </PageFrame>

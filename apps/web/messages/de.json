@@ -25,6 +25,7 @@
     "peakShaving": "Peak Shaving",
     "peakShavingWhat": "Was ist Peak Shaving",
     "peakShavingCalculator": "Der Kalkulator",
+    "profiReport": "Profi-Report",
     "branchen": "Branchen",
     "branchenAll": "Alle Branchen",
     "wissen": "Wissen",
@@ -2718,12 +2719,265 @@
     "outro": "pro Jahr. Im PDF finden Sie, warum diese Spitze in Ihrer Branche entsteht, drei Hebel ohne Investition und was sich mit den Netztarifen 2027 ändert.",
     "profiPrice": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten, zum Einführungspreis von {price} bis 31.12.2026.",
     "profi": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten.",
+    "example": "So sieht ein Profi-Report aus",
     "button": "Profi-Report anfragen",
     "followUp": "Wir melden uns innerhalb eines Werktags per E-Mail.",
     "followUpPhone": "Lieber gleich telefonieren? Rufen Sie uns an: {phone}",
     "closing": "Freundliche Grüße",
     "company": "COOLiN ENERGY GmbH",
     "signaturePhone": "Tel. {phone}"
+  },
+  "ProfiReport": {
+    "//": "Leadgen 4b. Texte wörtlich aus docs/prototypes/profi-report-prototyp.html; Seitentexte 1/6/8/9/13/14/15/17 aus dem Auftrag. Preis und Kontakt kommen aus lib/schnellreport/settings.ts. Keine Aussage zu Anrechnung des Betrags oder Lieferzeit (offen, Martin).",
+    "metaTitle": "Profi-Report: Ihre genaue Peak-Shaving-Analyse",
+    "metaDescription": "Der Profi-Report rechnet mit Ihrem echten Lastgang, Ihren Netztarifen und echten Speichern: wie viel Sie sparen, welcher Speicher passt und wann er sich bezahlt macht.",
+    "hero": {
+      "eyebrow": "Profi-Report",
+      "title": "Die genaue Antwort für Ihren Betrieb",
+      "lead": "Wir rechnen mit Ihrem echten Lastgang, Viertelstunde für Viertelstunde, mit Ihren Netztarifen und mit echten Speichern. Sie erfahren, wie viel Sie sparen, welcher Speicher passt und wann er sich bezahlt macht.",
+      "cta": "Profi-Report anfragen",
+      "note": "Wir melden uns innerhalb eines Werktags per E-Mail.",
+      "tag": "Echter Bericht, anonymisiert · 23 Seiten"
+    },
+    "gets": {
+      "eyebrow": "Was Sie bekommen",
+      "title": "Drei Fragen, klar beantwortet",
+      "items": [
+        {
+          "title": "Wie viel kann ich sparen?",
+          "text": "Ihre Stromkosten heute und mit jedem möglichen Weg: Tarifwechsel, Börsenpreis, Speicher mit intelligenter Ladesteuerung und Kappung der Spitzen. Jeder Weg mit eigener Zahl."
+        },
+        {
+          "title": "Welcher Speicher passt?",
+          "text": "Wir vergleichen echte Geräte an Ihrem Lastgang und empfehlen das, das sich über zehn Jahre am besten rechnet. Größer ist nicht automatisch besser."
+        },
+        {
+          "title": "Wann rechnet es sich?",
+          "text": "Investition, Ersparnis pro Jahr, Amortisation vor und nach Steuern, inklusive Investitionsfreibetrag. Mit allen Annahmen offen dargelegt."
+        }
+      ]
+    },
+    "beispiel": {
+      "eyebrow": "Blättern Sie selbst",
+      "title": "So sieht ein Profi-Report aus",
+      "lead": "Ein echter Bericht für einen Gastronomiebetrieb in Wien, mit Freigabe des Kunden und ohne Namen. Ihre Zahlen werden andere sein.",
+      "pageOf": "Seite {page} von 23",
+      "thumb": "Seite {page}: {title}",
+      "imageAlt": "Beispiel-Report, Seite {page}: {title}",
+      "thumbsLabel": "Seiten des Beispiel-Reports",
+      "tocLabel": "Inhalt des Reports",
+      "pdf": "Ganzen Beispiel-Report als PDF ansehen (23 Seiten)",
+      "pages": [
+        {
+          "page": 1,
+          "title": "Deckblatt",
+          "text": "Für Ihren Betrieb erstellt, mit ausgewertetem Zeitraum und Datum."
+        },
+        {
+          "page": 2,
+          "title": "Auf einen Blick",
+          "text": "Die wichtigsten Zahlen auf einer Seite: Ersparnis pro Jahr, Amortisation, Ihr Lastgang mit den Spitzen, die der Speicher abfängt, und woher die Ersparnis kommt."
+        },
+        {
+          "page": 6,
+          "title": "Ihr Lastgang",
+          "text": "Ihr Stromverbrauch über den ganzen Zeitraum, Viertelstunde für Viertelstunde. Die Grundlage für alle Zahlen im Report."
+        },
+        {
+          "page": 7,
+          "title": "Fünf Wege zu weniger Stromkosten",
+          "text": "Ihr heutiger Tarif, ein Vergleichstarif, Börsenpreis ohne und mit Ladesteuerung: jeder Weg mit demselben Lastgang gerechnet, damit Sie fair vergleichen können."
+        },
+        {
+          "page": 8,
+          "title": "Kappung der Lastspitzen",
+          "text": "Jeder rote Punkt ist eine Viertelstunde über der Schwelle. Der Speicher fängt sie ab, und Sie sehen, was das pro Jahr beim Leistungspreis bringt."
+        },
+        {
+          "page": 9,
+          "title": "Woher die Ersparnis kommt",
+          "text": "Die Ersparnis auf ein ganzes Jahr hochgerechnet und aufgeteilt: Tarifwechsel, Ladesteuerung und Spitzenkappung."
+        },
+        {
+          "page": 11,
+          "title": "Empfehlung und Wirtschaftlichkeit",
+          "text": "Das empfohlene Gerät, Investition, Ersparnis, Amortisation vor und nach Steuern, inklusive Investitionsfreibetrag. Mit allen Annahmen offen erklärt."
+        },
+        {
+          "page": 13,
+          "title": "Kostenverlauf und ein Tag im Detail",
+          "text": "Wann sich der Speicher bezahlt macht, als Verlauf über zehn Jahre. Dazu ein einzelner Tag: wann der Speicher lädt und wann er entlädt."
+        },
+        {
+          "page": 14,
+          "title": "Ihr Stromtarif im Monatsvergleich",
+          "text": "Ihre Stromkosten Monat für Monat: heutiger Tarif, Börsenpreis ohne und mit Ladesteuerung."
+        },
+        {
+          "page": 15,
+          "title": "Das Ladeverhalten Ihres Speichers",
+          "text": "Zu welcher Stunde in welchem Monat Ihr Speicher lädt und entlädt. So sehen Sie, dass die Steuerung die günstigen Stunden trifft."
+        },
+        {
+          "page": 17,
+          "title": "Speichergröße und Gerätewahl",
+          "text": "Alle geprüften Speicher im Vergleich. Der beste ist nicht der größte, sondern der, der sich über zehn Jahre am besten rechnet."
+        }
+      ],
+      "toc": [
+        {
+          "title": "Auf einen Blick",
+          "page": 2
+        },
+        {
+          "title": "Zusammenfassung",
+          "page": 4
+        },
+        {
+          "title": "Ihr Lastgang",
+          "page": 6
+        },
+        {
+          "title": "Fünf Wege zu weniger Stromkosten",
+          "page": 7
+        },
+        {
+          "title": "Hochrechnung auf ein ganzes Jahr",
+          "page": 9
+        },
+        {
+          "title": "Empfehlung und Wirtschaftlichkeit",
+          "page": 11
+        },
+        {
+          "title": "Kostenverlauf und ein Tag im Detail",
+          "page": 13
+        },
+        {
+          "title": "Ihr Stromtarif im Monatsvergleich",
+          "page": 14
+        },
+        {
+          "title": "Das Ladeverhalten Ihres Speichers",
+          "page": 15
+        },
+        {
+          "title": "Speichergröße und Gerätewahl",
+          "page": 17
+        },
+        {
+          "title": "Unser Vorschlag",
+          "page": 18
+        },
+        {
+          "title": "Methodik und Vorbehalte",
+          "page": 19
+        }
+      ]
+    },
+    "ablauf": {
+      "eyebrow": "Ablauf",
+      "title": "In vier Schritten zu Ihrem Report",
+      "steps": [
+        {
+          "title": "Anfragen",
+          "text": "Sie schicken uns das kurze Formular. Kein Risiko, noch keine Bestellung."
+        },
+        {
+          "title": "Wir melden uns",
+          "text": "Innerhalb eines Werktags per E-Mail, mit Angebot und einer Liste, was wir von Ihnen brauchen."
+        },
+        {
+          "title": "Wir rechnen",
+          "text": "Mit Ihrem Lastgang und Ihren Rechnungen. Fehlt etwas, klären wir das direkt mit Ihnen."
+        },
+        {
+          "title": "Wir besprechen",
+          "text": "Wir gehen den Report gemeinsam durch und beantworten Ihre Fragen. Erst dann entscheiden Sie."
+        }
+      ]
+    },
+    "unterlagen": {
+      "eyebrow": "Was wir brauchen",
+      "title": "Ihre Unterlagen",
+      "items": [
+        "Lastgang der letzten 12 Monate in Viertelstundenwerten. Den bekommen Sie bei Ihrem Netzbetreiber, meist als Datei im Kundenportal. Wir helfen Ihnen dabei.",
+        "Letzte Netzrechnung und Stromrechnung.",
+        "Laufzeit Ihres Stromliefervertrags.",
+        "Falls vorhanden: Leistung Ihrer Photovoltaikanlage in kWp."
+      ],
+      "note": "Sie haben noch keinen Lastgang? Kein Problem. Fragen Sie trotzdem an, wir sagen Ihnen, wie Sie ihn bekommen."
+    },
+    "faq": {
+      "eyebrow": "Häufige Fragen",
+      "title": "Gut zu wissen",
+      "price": {
+        "q": "Was kostet der Profi-Report?",
+        "a": "{price} zuzüglich Umsatzsteuer, als Einführungspreis für Anfragen bis 31.12.2026."
+      },
+      "items": [
+        {
+          "q": "Muss ich danach einen Speicher kaufen?",
+          "a": "Nein. Der Report ist eine unabhängige Auswertung. Rechnet sich ein Speicher bei Ihnen nicht, steht das genau so drin."
+        },
+        {
+          "q": "Was passiert mit meinen Daten?",
+          "a": "Wir verwenden Ihren Lastgang und Ihre Rechnungen ausschließlich für Ihren Report. Die Daten liegen auf Servern in der EU."
+        },
+        {
+          "q": "Wer setzt die Empfehlung um?",
+          "a": "Auf Wunsch unsere Partnerbetriebe in Ihrer Region. Sie entscheiden das in Ruhe nach der Besprechung."
+        }
+      ]
+    },
+    "anfrage": {
+      "eyebrow": "Anfrage",
+      "title": "Profi-Report anfragen",
+      "lead": "Unverbindlich. Wir melden uns innerhalb eines Werktags per E-Mail mit Angebot und den nächsten Schritten.",
+      "contactIntro": "Lieber gleich sprechen?"
+    },
+    "form": {
+      "firma": "Firma",
+      "vorname": "Vorname",
+      "nachname": "Nachname",
+      "email": "E-Mail",
+      "telefon": "Telefon",
+      "nachricht": "Nachricht",
+      "optional": "(optional)",
+      "lastgang": "Haben Sie Ihren Lastgang schon?",
+      "lastgangOptions": {
+        "ja": "Ja",
+        "nein": "Nein",
+        "unsicher": "Weiß ich nicht"
+      },
+      "privacy": "Wir verwenden Ihre Angaben nur, um Ihre Anfrage zu beantworten.",
+      "privacyLink": "Datenschutz",
+      "submit": "Anfrage senden",
+      "sending": "Wird gesendet …",
+      "doneTitle": "Danke für Ihre Anfrage.",
+      "doneText": "Wir melden uns innerhalb eines Werktags per E-Mail bei Ihnen.",
+      "honeypot": "Website",
+      "errors": {
+        "required": "Bitte ausfüllen.",
+        "tooLong": "Dieser Text ist zu lang.",
+        "emailInvalid": "Bitte eine gültige E-Mail-Adresse eingeben.",
+        "phoneInvalid": "Bitte eine gültige Telefonnummer eingeben.",
+        "lastgangRequired": "Bitte wählen Sie eine Antwort."
+      },
+      "formError": {
+        "validation": "Bitte prüfen Sie die markierten Felder.",
+        "duplicate": "Ihre Anfrage ist bereits bei uns. Wir melden uns innerhalb eines Werktags.",
+        "spam": "Ihre Anfrage konnte nicht gesendet werden.",
+        "turnstile": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte versuchen Sie es noch einmal.",
+        "unavailable": "Ihre Anfrage konnte gerade nicht gesendet werden. Bitte versuchen Sie es noch einmal oder schreiben Sie an {email}.",
+        "network": "Keine Verbindung. Bitte versuchen Sie es noch einmal."
+      }
+    }
+  },
+  "ProfiReportMail": {
+    "subject": "Ihre Anfrage zum Profi-Report",
+    "greeting": "Guten Tag {name},",
+    "body": "Danke für Ihre Anfrage, wir melden uns innerhalb eines Werktags per E-Mail."
   },
   "SchnellreportForm": {
     "title": "Ihr Schnellreport als PDF",

@@ -7,6 +7,7 @@
 import { createTranslator } from 'next-intl'
 import messages from '@/messages/de.json'
 import { COMPANY } from '@/lib/nav'
+import { schnellreportProfiReportUrl } from '@/lib/profi-report/links'
 import { computeSchnellcheck, formatGrouped, type Country } from '@/lib/schnellcheck'
 import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from './settings'
 import type { BrancheKey } from './branchen'
@@ -111,6 +112,9 @@ export type SchnellreportContent = {
     ctaNote: string
     example: string
     talk: string
+    /** Linkziele der Profi-Report-Seite (4b): Anfrage und Blätterleiste, mit UTM. */
+    anfrageUrl: string
+    beispielUrl: string
   }
   software: { kicker: string; title: string; intro: string; modules: SoftwareModule[] }
   closing: {
@@ -262,6 +266,8 @@ export function buildSchnellreportContent(
       ctaNote: t('page4.ctaNote'),
       example: t('page4.example'),
       talk: t('page4.talk'),
+      anfrageUrl: schnellreportProfiReportUrl('anfrage', 'pdf'),
+      beispielUrl: schnellreportProfiReportUrl('beispiel', 'pdf'),
     },
     software: {
       kicker: t('software.kicker'),
