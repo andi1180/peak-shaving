@@ -1,13 +1,21 @@
 /*
- * PDF-Schnellreport: das Layout der vier A4-Seiten, Masse und Farben aus dem Prototyp
- * (`docs/prototypes/schnellreport-prototyp.html`, CSS `.page`, `.p-*`, `.tiles` …). Alle Texte
- * kommen fertig aus `buildSchnellreportContent`; hier steht keine Zeichenkette für den Leser.
+ * PDF-Schnellreport: sieben A4-Seiten. Die Inhaltsseiten folgen dem Prototyp
+ * (`docs/prototypes/schnellreport-prototyp.html`, CSS `.p-*`, `.tiles` …), Rahmen und
+ * Überschriften dem Profi-Report (`frame.tsx`). Alle Texte kommen fertig aus
+ * `buildSchnellreportContent`; hier steht keine Zeichenkette für den Leser.
  */
 import { Document, Line, Page, Path, Rect, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
 import type { ReactNode } from 'react'
 import { DAY_LOAD, DAY_PEAK_THRESHOLD, type SchnellreportContent } from './content'
-
-export const SCHNELLREPORT_FONT = 'Inter'
+import {
+  ClosingPage,
+  CoverPage,
+  FRAME_COLORS,
+  FRAME_LAYOUT,
+  PageFurniture,
+  SCHNELLREPORT_FONT,
+  type EmblemSource,
+} from './frame'
 
 // Wörtlich aus dem Prototyp (`:root`), deckungsgleich mit DESIGN.md.
 const C = {
@@ -33,34 +41,12 @@ const s = StyleSheet.create({
     fontSize: 10.5,
     lineHeight: 1.55,
     color: C.text,
-    paddingTop: 46,
-    paddingHorizontal: 52,
-    paddingBottom: 40,
+    paddingTop: FRAME_LAYOUT.pageTop,
+    paddingHorizontal: FRAME_LAYOUT.pageHorizontal,
+    paddingBottom: FRAME_LAYOUT.pageBottom,
     flexDirection: 'column',
   },
-  head: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    marginBottom: 22,
-  },
-  brand: { fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: C.navy },
-  brandI: { color: C.accent },
-  meta: { fontSize: 8.5, color: C.faint },
   body: { flexGrow: 1, flexDirection: 'column', gap: 16 },
-  foot: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    fontSize: 8,
-    color: C.faint,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 10,
-    marginTop: 18,
-  },
   kicker: {
     fontSize: 8.5,
     fontWeight: 700,
@@ -68,9 +54,9 @@ const s = StyleSheet.create({
     textTransform: 'uppercase',
     color: C.accent,
   },
-  h1: { fontSize: 24, fontWeight: 700, color: C.navy, lineHeight: 1.12, marginTop: 2 },
-  h1Small: { fontSize: 20, fontWeight: 700, color: C.navy, lineHeight: 1.12, marginTop: 2 },
-  h2: { fontSize: 12, fontWeight: 700, color: C.navy },
+  // Kapitel- und Zwischenüberschrift wie `h2`/`h3` des Profi-Reports (14 / 11,5 pt, ink).
+  h1: { fontSize: 14, fontWeight: 700, color: FRAME_COLORS.ink, lineHeight: 1.25, marginTop: 3 },
+  h2: { fontSize: 11.5, fontWeight: 700, color: FRAME_COLORS.ink },
   lead: { fontSize: 11.5, color: C.muted, marginTop: 6 },
   bold: { fontWeight: 700 },
   hero: {
@@ -188,47 +174,49 @@ const s = StyleSheet.create({
   },
   ctaNote: { flex: 1, fontSize: 9, color: C.faint },
   talk: { fontSize: 11.5, fontWeight: 600, color: C.ink },
-  contact: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: C.surfaceAlt,
-    borderRadius: 10,
-    paddingTop: 14,
-    paddingHorizontal: 16,
-    paddingBottom: 2,
+  modules: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  module: {
+    width: '48.5%',
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 6,
   },
-  contactCell: { width: '50%', marginBottom: 12 },
-  contactValue: { fontSize: 11, fontWeight: 600, color: C.ink },
+  status: {
+    alignSelf: 'flex-start',
+    fontSize: 7.5,
+    fontWeight: 600,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    lineHeight: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    color: C.muted,
+    backgroundColor: C.surfaceAlt,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  statusAccent: { color: C.accent, backgroundColor: C.accentSubtle, borderColor: C.accent },
 })
 
 function PageFrame({
   content,
-  meta,
-  footer,
+  emblem,
   page,
   children,
 }: {
   content: SchnellreportContent
-  meta: string
-  footer: string
+  emblem: EmblemSource
   page: number
   children: ReactNode
 }) {
   return (
     <Page size="A4" style={s.page}>
-      <View style={s.head}>
-        <Text style={s.brand}>
-          {content.brand.prefix}
-          <Text style={s.brandI}>{content.brand.i}</Text>
-          {content.brand.suffix}
-        </Text>
-        <Text style={s.meta}>{meta}</Text>
-      </View>
+      <PageFurniture content={content} emblem={emblem} page={page} />
       <View style={s.body}>{children}</View>
-      <View style={s.foot}>
-        <Text>{footer}</Text>
-        <Text>{content.pageOf(page)}</Text>
-      </View>
     </Page>
   )
 }
@@ -290,12 +278,20 @@ function Tick() {
   )
 }
 
-export function SchnellreportDocument({ content }: { content: SchnellreportContent }) {
-  const { page1, page2, page3, page4 } = content
+export function SchnellreportDocument({
+  content,
+  emblem,
+}: {
+  content: SchnellreportContent
+  emblem: EmblemSource
+}) {
+  const { page1, page2, page3, page4, software } = content
+  const frame = { content, emblem }
   return (
-    <Document title={`${page1.kicker} · ${page1.firma}`} author="COOLiN ENERGY">
-      {/* Seite 1 */}
-      <PageFrame content={content} meta={page1.createdOn} footer={page1.footer} page={1}>
+    <Document title={`${page1.kicker} · ${page1.firma}`} author={content.brand.name}>
+      <CoverPage {...frame} />
+
+      <PageFrame {...frame} page={2}>
         <View>
           <Text style={s.kicker}>{page1.kicker}</Text>
           <Text style={s.h1}>{page1.title}</Text>
@@ -347,11 +343,10 @@ export function SchnellreportDocument({ content }: { content: SchnellreportConte
         <Text style={s.small}>{page1.source}</Text>
       </PageFrame>
 
-      {/* Seite 2 */}
-      <PageFrame content={content} meta={content.headMeta} footer={page2.footer} page={2}>
+      <PageFrame {...frame} page={3}>
         <View>
           <Text style={s.kicker}>{page2.kicker}</Text>
-          <Text style={s.h1Small}>{page2.title}</Text>
+          <Text style={s.h1}>{page2.title}</Text>
         </View>
         <DayCurve label={page2.chartLabel} />
         <Text>{page2.branchText}</Text>
@@ -374,11 +369,10 @@ export function SchnellreportDocument({ content }: { content: SchnellreportConte
         </View>
       </PageFrame>
 
-      {/* Seite 3 */}
-      <PageFrame content={content} meta={content.headMeta} footer={page3.footer} page={3}>
+      <PageFrame {...frame} page={4}>
         <View>
           <Text style={s.kicker}>{page3.kicker}</Text>
-          <Text style={s.h1Small}>{page3.title}</Text>
+          <Text style={s.h1}>{page3.title}</Text>
         </View>
         <View>
           {page3.facts.map((fact, i) => (
@@ -401,11 +395,29 @@ export function SchnellreportDocument({ content }: { content: SchnellreportConte
         </View>
       </PageFrame>
 
-      {/* Seite 4 */}
-      <PageFrame content={content} meta={content.headMeta} footer={page4.footer} page={4}>
+      <PageFrame {...frame} page={5}>
+        <View>
+          <Text style={s.kicker}>{software.kicker}</Text>
+          <Text style={s.h1}>{software.title}</Text>
+          <Text style={s.lead}>{software.intro}</Text>
+        </View>
+        <View style={s.modules}>
+          {software.modules.map((item) => (
+            <View key={item.title} style={s.module}>
+              <Text style={s.h2}>{item.title}</Text>
+              <Text style={item.accent ? [s.status, s.statusAccent] : s.status}>
+                {item.status}
+              </Text>
+              <Text>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+      </PageFrame>
+
+      <PageFrame {...frame} page={6}>
         <View>
           <Text style={s.kicker}>{page4.kicker}</Text>
-          <Text style={s.h1Small}>{page4.title}</Text>
+          <Text style={s.h1}>{page4.title}</Text>
           <Text style={s.lead}>{page4.lead}</Text>
         </View>
         <View style={s.offer}>
@@ -430,15 +442,9 @@ export function SchnellreportDocument({ content }: { content: SchnellreportConte
           <Text style={[s.small, { fontSize: 9 }]}>{page4.example}</Text>
         </View>
         <Text style={s.talk}>{page4.talk}</Text>
-        <View style={s.contact}>
-          {page4.contact.map((field) => (
-            <View key={field.label} style={s.contactCell}>
-              <Text style={s.tileLabel}>{field.label}</Text>
-              <Text style={s.contactValue}>{field.value}</Text>
-            </View>
-          ))}
-        </View>
       </PageFrame>
+
+      <ClosingPage {...frame} />
     </Document>
   )
 }

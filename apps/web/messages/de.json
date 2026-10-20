@@ -1081,13 +1081,17 @@
     "prefillBill": "Stromrechnung pro Jahr: {bill} €"
   },
   "Schnellreport": {
-    "brandPrefix": "COOL",
-    "brandI": "i",
-    "brandSuffix": "N ENERGY",
-    "createdOn": "Erstellt am {date}",
-    "headMeta": "Schnellreport · {firma}",
     "firmaFallback": "Ihren Betrieb",
     "pageOf": "Seite {page} von {total}",
+    "brandSub": "Peak Shaving & Speicher-Wirtschaftlichkeit",
+    "cover": {
+      "titleLine1": "Schnellreport",
+      "titleLine2": "Was Ihre Lastspitze kostet",
+      "subtitle": "Auf Basis Ihrer Angaben im Schnellcheck",
+      "customerLabel": "ERSTELLT FÜR",
+      "country": "Land",
+      "createdAt": "Erstellt am"
+    },
     "eur": "{amount} €",
     "aroundEur": "rund {amount} €",
     "aroundPercent": "rund {pct} %",
@@ -1113,8 +1117,7 @@
       "meaningAfter": "Jedes Kilowatt, um das diese Spitze sinkt, senkt Ihre Kosten, ohne dass Sie weniger arbeiten.",
       "billingAT": "In Österreich zählt dabei jeden Monat der höchste Viertelstundenwert.",
       "billingDE": "In Deutschland zählt dabei die höchste Viertelstunde des ganzen Jahres.",
-      "net": "Alle Beträge netto.",
-      "footer": "Schnellreport · Prinzipberechnung mit Durchschnittswerten"
+      "net": "Alle Beträge netto."
     },
     "page2": {
       "kicker": "Warum Spitzen entstehen",
@@ -1135,8 +1138,7 @@
           "title": "Die eigene Spitze kennen",
           "text": "Auf der Netzrechnung steht Ihr Höchstwert. Im Kundenportal Ihres Netzbetreibers sehen Sie im Lastgang, wann er entsteht. Oft ist es ein einziger, vermeidbarer Vorgang."
         }
-      ],
-      "footer": "Schnellreport"
+      ]
     },
     "branchen": {
       "produktion": {
@@ -1220,8 +1222,7 @@
         "Laufzeit Ihres Stromliefervertrags.",
         "Falls vorhanden: Leistung Ihrer Photovoltaikanlage in kWp.",
         "Optional: Ihre größten Stromverbraucher, z. B. Maschinen, Kühlung, Ladestationen."
-      ],
-      "footer": "Schnellreport · Stand Oktober 2026"
+      ]
     },
     "page4": {
       "kicker": "Der nächste Schritt",
@@ -1238,12 +1239,45 @@
       "cta": "Profi-Report anfragen",
       "ctaNote": "coolin.at/profi-report · Wir melden uns innerhalb eines Werktags per E-Mail.",
       "example": "Ein Beispiel-Report auf derselben Seite zeigt Ihnen vorab, was Sie bekommen.",
-      "talk": "Lieber zuerst reden? Wir bieten ein kostenloses Erstgespräch von 15 Minuten.",
-      "contactName": "Ihr Ansprechpartner",
-      "contactPhone": "Telefon",
-      "contactEmail": "E-Mail",
-      "contactWeb": "Web",
-      "footer": "COOLiN ENERGY GmbH · coolin.at"
+      "talk": "Lieber zuerst reden? Wir bieten ein kostenloses Erstgespräch von 15 Minuten."
+    },
+    "software": {
+      "kicker": "Unsere Software",
+      "title": "Mehr aus Ihrem Speicher herausholen",
+      "intro": "Der Speicher ist die Hardware. Unsere Software sorgt dafür, dass er jeden Tag das Maximum herausholt, und zeigt Ihnen, dass es wirkt.",
+      "statuses": {
+        "available": "verfügbar",
+        "from2027": "ab 2027",
+        "projectCustomers": "für Projektkunden"
+      },
+      "modules": [
+        {
+          "title": "Intelligente Speichersteuerung",
+          "status": "available",
+          "text": "Der Speicher weiß vorher, wann Spitzen kommen und wann Strom günstig ist. Er lädt im richtigen Moment und hält Reserve für die Spitze."
+        },
+        {
+          "title": "Rechnungs-Wächter",
+          "status": "from2027",
+          "text": "Wir prüfen Ihre Netzrechnungen automatisch auf Fehler und verschenktes Geld, etwa nicht gewährte Preisnachlässe oder Kosten für Blindstrom."
+        },
+        {
+          "title": "Peak-Wächter",
+          "status": "from2027",
+          "text": "Ihr Stromverbrauch als übersichtliches Dashboard: Sie sehen, wann und warum Spitzen entstehen, und werden gewarnt, bevor es teuer wird."
+        },
+        {
+          "title": "Wirkungsnachweis",
+          "status": "projectCustomers",
+          "text": "Schwarz auf weiß, was Ihr Speicher Monat für Monat tatsächlich spart. Im ersten Jahr inklusive."
+        }
+      ]
+    },
+    "closing": {
+      "title": "Sprechen wir über Ihre Zahlen.",
+      "text": "Dieser Schnellreport rechnet mit Durchschnittswerten. Im Profi-Report rechnen wir mit Ihrem echten Lastgang und Ihren tatsächlichen Netztarifen und gehen das Ergebnis mit Ihnen durch.",
+      "contactLabel": "IHR ANSPRECHPARTNER",
+      "footerDoc": "Schnellreport · Erstellt am {date} · {pageOf}"
     }
   },
   "Home": {

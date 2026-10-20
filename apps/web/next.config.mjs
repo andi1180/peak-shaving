@@ -50,6 +50,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/schnellreport/vorschau': [
       './assets/schnellreport-fonts/**',
+      './public/brand/coolin-emblem.png',
       '../../node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**',
     ],
   },
