@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   monitor: {
     Tables: {
       scrape_runs: {
@@ -457,6 +452,7 @@ export type Database = {
           id: string
           locale: string
           purpose: Database["platform"]["Enums"]["consent_purpose"]
+          source_key: string | null
           valid_from: string
           version: number
         }
@@ -466,6 +462,7 @@ export type Database = {
           id?: string
           locale?: string
           purpose: Database["platform"]["Enums"]["consent_purpose"]
+          source_key?: string | null
           valid_from?: string
           version: number
         }
@@ -475,10 +472,19 @@ export type Database = {
           id?: string
           locale?: string
           purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          source_key?: string | null
           valid_from?: string
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "consent_texts_source_key_fkey"
+            columns: ["source_key"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       consents: {
         Row: {
@@ -1281,6 +1287,7 @@ export type Database = {
       projects: {
         Row: {
           account_id: string | null
+          country: string
           created_at: string
           created_by: string | null
           customer_label: string
@@ -1292,6 +1299,7 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          country?: string
           created_at?: string
           created_by?: string | null
           customer_label: string
@@ -1303,6 +1311,7 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          country?: string
           created_at?: string
           created_by?: string | null
           customer_label?: string
@@ -1457,6 +1466,59 @@ export type Database = {
         }
         Relationships: []
       }
+      schnellreport_requests: {
+        Row: {
+          annual_kwh: number
+          bill_eur: number | null
+          branche: string
+          country: string
+          created_at: string
+          demand_price_eur_per_kw: number
+          id: string
+          lead_id: string
+          peak_cost_eur: number
+          peak_kw: number
+          peak_kw_entered: boolean
+          tips_requested: boolean
+        }
+        Insert: {
+          annual_kwh: number
+          bill_eur?: number | null
+          branche: string
+          country: string
+          created_at?: string
+          demand_price_eur_per_kw: number
+          id?: string
+          lead_id: string
+          peak_cost_eur: number
+          peak_kw: number
+          peak_kw_entered: boolean
+          tips_requested: boolean
+        }
+        Update: {
+          annual_kwh?: number
+          bill_eur?: number | null
+          branche?: string
+          country?: string
+          created_at?: string
+          demand_price_eur_per_kw?: number
+          id?: string
+          lead_id?: string
+          peak_cost_eur?: number
+          peak_kw?: number
+          peak_kw_entered?: boolean
+          tips_requested?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schnellreport_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_events: {
         Row: {
           payload: Json | null
@@ -1573,6 +1635,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      active_consent_text_id: {
+        Args: {
+          p_locale: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+          p_source_key: string
+        }
+        Returns: string
+      }
       anonymize_lead: {
         Args: { p_actor: string; p_by_system?: boolean; p_lead_id: string }
         Returns: Json
@@ -2006,9 +2076,9 @@ export type Database = {
           operator_id: string
           operator_name: string
           price_basis: string
+          tier_threshold_hours: number | null
           tier2_arbeitspreis_ct_per_kwh: number | null
           tier2_leistungspreis_eur_per_kw_year: number | null
-          tier_threshold_hours: number | null
           valid_from: string
           valid_until: string | null
         }
@@ -2028,9 +2098,9 @@ export type Database = {
           operator_id: string
           operator_name: string
           price_basis: string
+          tier_threshold_hours?: number | null
           tier2_arbeitspreis_ct_per_kwh?: number | null
           tier2_leistungspreis_eur_per_kw_year?: number | null
-          tier_threshold_hours?: number | null
           valid_from: string
           valid_until?: string | null
         }
@@ -2050,9 +2120,9 @@ export type Database = {
           operator_id?: string
           operator_name?: string
           price_basis?: string
+          tier_threshold_hours?: number | null
           tier2_arbeitspreis_ct_per_kwh?: number | null
           tier2_leistungspreis_eur_per_kw_year?: number | null
-          tier_threshold_hours?: number | null
           valid_from?: string
           valid_until?: string | null
         }
@@ -2610,9 +2680,9 @@ export type Database = {
           p_netzverlust_ct_per_kwh: number
           p_operator_id: string
           p_price_basis: string
+          p_tier_threshold_hours?: number
           p_tier2_arbeitspreis_ct_per_kwh?: number
           p_tier2_leistungspreis_eur_per_kw_year?: number
-          p_tier_threshold_hours?: number
           p_valid_from: string
           p_windows: Json
         }
@@ -2665,9 +2735,9 @@ export type Database = {
           p_operator_id: string
           p_operator_name: string
           p_price_basis: string
+          p_tier_threshold_hours?: number
           p_tier2_arbeitspreis_ct_per_kwh?: number
           p_tier2_leistungspreis_eur_per_kw_year?: number
-          p_tier_threshold_hours?: number
           p_valid_from: string
           p_windows: Json
         }
@@ -2770,6 +2840,14 @@ export type Database = {
           report_input_meta: Json
         }[]
       }
+      get_source_consent_text: {
+        Args: {
+          p_locale?: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+          p_source_key: string
+        }
+        Returns: Json
+      }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       get_system_prompt_extension: { Args: { p_kind?: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
@@ -2842,6 +2920,22 @@ export type Database = {
           p_event_type: string
           p_occurred_at?: string
           p_reason?: string
+        }
+        Returns: Json
+      }
+      record_schnellreport_request: {
+        Args: {
+          p_annual_kwh: number
+          p_bill_eur?: number
+          p_branche: string
+          p_country: string
+          p_demand_price_eur_per_kw: number
+          p_lead_id: string
+          p_peak_cost_eur: number
+          p_peak_kw: number
+          p_peak_kw_entered: boolean
+          p_tips_requested: boolean
+          p_window_seconds: number
         }
         Returns: Json
       }
@@ -2921,9 +3015,9 @@ export type Database = {
           p_price_basis: string
           p_reason: string
           p_tariff_id: string
+          p_tier_threshold_hours?: number
           p_tier2_arbeitspreis_ct_per_kwh?: number
           p_tier2_leistungspreis_eur_per_kw_year?: number
-          p_tier_threshold_hours?: number
           p_valid_from: string
           p_valid_until: string
           p_windows: Json
@@ -2935,7 +3029,7 @@ export type Database = {
         Returns: Json
       }
       update_project_postal_code: {
-        Args: { p_id: string; p_postal_code?: string }
+        Args: { p_country?: string; p_id: string; p_postal_code?: string }
         Returns: Json
       }
       update_project_segment_industry: {
@@ -2971,12 +3065,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3000,11 +3094,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3025,11 +3119,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3050,11 +3144,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3067,11 +3161,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3115,3 +3209,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

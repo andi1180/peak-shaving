@@ -33,8 +33,6 @@
 
 import type { CaptureResult } from './config'
 import type { LeadConsentPurpose, LeadIndustry, LeadSourceKey } from './registry'
-import type { QuickCalculatorInputs, QuickCalculatorResult } from '@/lib/schnellrechner'
-import { computeQuickSaving } from '@/lib/schnellrechner'
 import {
   parseLeadCapture,
   type LeadCaptureSubmission,
@@ -88,12 +86,6 @@ export type LeadCaptureEffects = {
     consentText: string
     token: string
     locale: string
-  }) => Promise<unknown>
-  sendResultMail: (input: {
-    to: string
-    locale: string
-    inputs: QuickCalculatorInputs
-    result: QuickCalculatorResult
   }) => Promise<unknown>
 }
 
@@ -177,11 +169,11 @@ export async function runLeadCapture(
       marketing && primaryPurpose !== null && primaryPurpose !== 'marketing_email'
 
     const primary = await capture(effects, entry.key, email, primaryPurpose, values, context)
-    await deliver(effects, primary, primaryPurpose, email, context, submission)
+    await deliver(effects, primary, primaryPurpose, email, context)
 
     if (needsSeparateMarketing) {
       const secondary = await capture(effects, entry.key, email, 'marketing_email', {}, context)
-      await deliver(effects, secondary, 'marketing_email', email, context, submission)
+      await deliver(effects, secondary, 'marketing_email', email, context)
     }
   } catch (cause) {
     console.error('[leads] Erfassung fehlgeschlagen:', cause)
@@ -236,7 +228,6 @@ async function deliver(
   purpose: LeadConsentPurpose | null,
   email: string,
   context: LeadCaptureContext,
-  submission: LeadCaptureSubmission,
 ): Promise<void> {
   if (!purpose) return
 
@@ -269,35 +260,9 @@ async function deliver(
     return
   }
 
-  if (captured.outcome !== 'consent_confirmed') return
-
   /*
-   * Sofort wirksame Einwilligung. Die angeforderte Leistung geht jetzt raus — bislang gibt es
-   * genau eine: die Zusendung des Schnellrechner-Ergebnisses.
+   * 'consent_confirmed' (sofort wirksamer Zweck): Formulare dieser Registry liefern nichts mehr
+   * aus — die Zusendung des alten Schnellrechner-Ergebnisses ist mit Leadgen 3b-2 entfallen, der
+   * Schnellreport hat einen eigenen Ablauf (`lib/schnellreport/flow.ts`).
    */
-  if (purpose !== 'result_delivery' || !submission.calculator) return
-
-  const result = computeQuickSaving(submission.calculator)
-  if (!result) {
-    // Kein endliches Ergebnis (Eingaben ausserhalb des darstellbaren Bereichs). Eine Mail mit
-    // „Infinity" wäre schlimmer als keine; der Lead und die Einwilligung bleiben bestehen.
-    console.warn('[leads] Rechenergebnis nicht darstellbar — keine Ergebnis-Mail versendet.')
-    return
-  }
-
-  /*
-   * Ein Fehlversand wird laut geloggt und bricht den Vorgang NICHT ab; der Nutzer sieht dieselbe
-   * Erfolgsmeldung. Ein verlorenes Ergebnis wiegt leichter als ein verlorener Lead — die Adresse
-   * und die Einwilligung stehen bereits in der Datenbank, die Zusendung lässt sich nachholen.
-   */
-  try {
-    await effects.sendResultMail({
-      to: email,
-      locale: context.locale,
-      inputs: submission.calculator,
-      result,
-    })
-  } catch (cause) {
-    console.error('[leads] Ergebnis-Mail konnte nicht versendet werden:', cause)
-  }
 }

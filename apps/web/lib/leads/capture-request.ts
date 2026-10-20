@@ -25,15 +25,6 @@ import {
 
 export type LeadCaptureValues = Partial<Record<LeadFieldKey, string>>
 
-/** Die drei Rohwerte des Schnellrechners. Der Server rechnet daraus selbst nach. */
-export const calculatorInputSchema = z.object({
-  peakKw: z.number().finite().min(0),
-  reductionKw: z.number().finite().min(0),
-  pricePerKwYear: z.number().finite().min(0),
-})
-
-export type CalculatorInput = z.infer<typeof calculatorInputSchema>
-
 /**
  * Der Contract zwischen Formular und Server Action.
  *
@@ -48,7 +39,6 @@ export type LeadCaptureSubmission = {
   /** Honeypot (s. `components/leads/lead-capture-form.tsx`). */
   website?: string
   turnstileToken?: string
-  calculator?: CalculatorInput
 }
 
 /* ─── Feldregeln ──────────────────────────────────────────────────────────────────────────────── */

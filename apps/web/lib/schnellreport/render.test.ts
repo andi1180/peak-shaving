@@ -97,4 +97,13 @@ describe('renderSchnellreportPdf', () => {
     expect(t).not.toContain('Stromrechnung gesamt')
     expect(t).toContain('rund 12.100 €')
   })
+
+  it('Netztarife-Seite trägt die Stand-Zeile aus den Einstellungen', async () => {
+    const t = flat(pdfText(await renderSchnellreportPdf(example())).text)
+    expect(t).toContain('Stand Oktober 2026')
+    const ohne = { ...SCHNELLREPORT_SETTINGS, tariffsAsOf: '' }
+    expect(flat(pdfText(await renderSchnellreportPdf(example(), ohne)).text)).not.toContain(
+      'Stand Oktober',
+    )
+  })
 })

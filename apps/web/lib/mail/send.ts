@@ -95,6 +95,8 @@ export type OutgoingMail = {
    * (SPF/DKIM) — eine fremde Adresse gehört hierher, nicht dorthin.
    */
   replyTo?: string
+  /** Anhänge, z. B. das PDF des Schnellreports. */
+  attachments?: { filename: string; content: Buffer }[]
 }
 
 export async function sendMail(message: OutgoingMail, label: string): Promise<MailOutcome> {
@@ -115,6 +117,7 @@ export async function sendMail(message: OutgoingMail, label: string): Promise<Ma
       html: message.html,
       ...(message.headers ? { headers: message.headers } : {}),
       ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+      ...(message.attachments ? { attachments: message.attachments } : {}),
     })
 
     if (error) {

@@ -18,7 +18,6 @@ import {
   type LeadFieldKey,
   type LeadCaptureFormKey,
 } from '@/lib/leads/registry'
-import type { QuickCalculatorInputs } from '@/lib/schnellrechner'
 
 /**
  * DIE EINBETTBARE ERFASSUNGSKOMPONENTE (B3-2, Fahrplan_2026.md B3).
@@ -53,18 +52,12 @@ export type LeadCaptureFormProps = {
   sourceKey: LeadCaptureFormKey
   /** Serverseitig geladen (`lib/leads/capture-texts.ts`) — nie im Client zusammengesetzt. */
   consentTexts: LeadCaptureConsentTexts
-  /**
-   * Die aktuellen Eingaben des Schnellrechners. Nur für Einträge mit `carriesCalculatorResult`;
-   * der Server rechnet daraus selbst nach und übernimmt keine fertige Zahl vom Client.
-   */
-  calculator?: QuickCalculatorInputs | null
   className?: string
 }
 
 export function LeadCaptureForm({
   sourceKey,
   consentTexts,
-  calculator = null,
   className,
 }: LeadCaptureFormProps) {
   const entry = LEAD_CAPTURE_REGISTRY[sourceKey]
@@ -117,7 +110,6 @@ export function LeadCaptureForm({
       marketing,
       website,
       turnstileToken: turnstileToken ?? undefined,
-      calculator: entry.carriesCalculatorResult && calculator ? calculator : undefined,
     }
 
     /*

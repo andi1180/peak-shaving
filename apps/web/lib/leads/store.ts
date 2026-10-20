@@ -206,6 +206,68 @@ export async function getActiveConsentText(
   }
 }
 
+/**
+ * Der Wortlaut, den `capture_lead` für diese Herkunft archiviert — herkunftsgebundene Fassung vor
+ * allgemeiner (Leadgen 3b-2, `public.get_source_consent_text`). `null`, wenn keine existiert.
+ */
+export async function getSourceConsentText(
+  purpose: ConsentPurpose,
+  sourceKey: string,
+  locale = 'de',
+): Promise<string | null> {
+  const service = createServiceRoleClient()
+  const { data, error } = await service.rpc('get_source_consent_text', {
+    p_purpose: purpose,
+    p_source_key: sourceKey,
+    p_locale: locale,
+  })
+  if (error) throw new Error(`get_source_consent_text: ${error.message}`)
+  const row = asRecord(data, 'get_source_consent_text')
+  return row.status === 'ok' ? stringOrNull(row.body) : null
+}
+
+/* ─── Schnellreport (Leadgen 3b-2) ─────────────────────────────────────────────────────────────── */
+
+export type SchnellreportRequestRow = {
+  leadId: string
+  country: 'AT' | 'DE'
+  branche: string
+  annualKwh: number
+  peakKw: number
+  peakKwEntered: boolean
+  billEur: number | null
+  demandPriceEurPerKw: number
+  peakCostEur: number
+  tipsRequested: boolean
+  windowSeconds: number
+}
+
+/** Legt die Schnellcheck-Werte ab — oder meldet `duplicate`, wenn im Fenster schon ein Report ging. */
+export async function recordSchnellreportRequest(
+  row: SchnellreportRequestRow,
+): Promise<{ status: 'created' | 'duplicate' }> {
+  const service = createServiceRoleClient()
+  const { data, error } = await service.rpc('record_schnellreport_request', {
+    p_lead_id: row.leadId,
+    p_country: row.country,
+    p_branche: row.branche,
+    p_annual_kwh: Math.round(row.annualKwh),
+    p_peak_kw: row.peakKw,
+    p_peak_kw_entered: row.peakKwEntered,
+    p_bill_eur: row.billEur === null ? undefined : Math.round(row.billEur),
+    p_demand_price_eur_per_kw: row.demandPriceEurPerKw,
+    p_peak_cost_eur: row.peakCostEur,
+    p_tips_requested: row.tipsRequested,
+    p_window_seconds: row.windowSeconds,
+  })
+  if (error) throw new Error(`record_schnellreport_request: ${error.message}`)
+  const status = asRecord(data, 'record_schnellreport_request').status
+  if (status !== 'created' && status !== 'duplicate') {
+    throw new Error('record_schnellreport_request: unerwartete Rückgabe')
+  }
+  return { status }
+}
+
 /* ─── Partner-Attribution (B16-2) ─────────────────────────────────────────────────────────────── */
 
 /**

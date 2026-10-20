@@ -1,8 +1,7 @@
 /**
  * Die ausgehenden Lead-Mails — alle über denselben Resend-Pfad wie `lib/kontakt/deliver.ts`.
  *
- * Bestätigungsmail des Double-Opt-in (B1-2) · Zusendung des Rechenergebnisses (B3-2) ·
- * Vertragsablauf-Erinnerung (B4-2, die erste automatisch ausgelöste Mail des Systems).
+ * Bestätigungsmail des Double-Opt-in (B1-2) · Vertragsablauf-Erinnerung (B4-2, die erste automatisch ausgelöste Mail des Systems).
  *
  * ── WAS DIE BESTÄTIGUNGSMAIL IST UND WAS SIE NICHT IST ───────────────────────────────────────────
  * Sie BESTÄTIGT eine Einwilligung, sie NUTZT sie nicht bereits aus: kein Angebot, kein Produkt, kein
@@ -19,7 +18,7 @@
  */
 import 'server-only'
 import { getTranslations } from 'next-intl/server'
-import { COMPANY, CTA_HREF } from '@/lib/nav'
+import { COMPANY } from '@/lib/nav'
 import {
   escapeHtml,
   mailConfigured,
@@ -27,13 +26,6 @@ import {
   warnMailNotConfigured,
   type MailOutcome,
 } from '@/lib/mail/send'
-import { absoluteUrl } from '@/lib/site'
-import {
-  QUICK_DECIMAL,
-  QUICK_EUR,
-  type QuickCalculatorInputs,
-  type QuickCalculatorResult,
-} from '@/lib/schnellrechner'
 import { unsubscribeHeaders, unsubscribeUrls } from './tokens'
 
 /**
@@ -115,118 +107,6 @@ export async function sendConsentConfirmationMail(
   ].join('')
 
   return sendMail({ to: input.to, subject: t('subject'), text, html }, 'Bestätigungsmail')
-}
-
-/* ─── Zusendung des Rechenergebnisses (B3-2, 'rechnerergebnis') ───────────────────────────────── */
-
-export type CalculatorResultMail = {
-  to: string
-  locale: string
-  /** Die drei Eingaben — so, wie sie im Schnellrechner heissen. */
-  inputs: QuickCalculatorInputs
-  /** Das SERVERSEITIG nachgerechnete Ergebnis (s. `lib/schnellrechner.ts`). */
-  result: QuickCalculatorResult
-}
-
-/**
- * Schickt das Ergebnis des Schnellrechners zu.
- *
- * ── WAS DIESE MAIL BEWUSST NICHT IST ─────────────────────────────────────────────────────────────
- * KEIN PDF, KEINE ANLAGE. Das Versprechen am Formular lautet „Ergebnis per E-Mail" — und genau das
- * wird eingelöst: die drei eingegebenen Werte, die daraus gerechnete Zahl und die Formel, die sie
- * ergibt. Ein Dokument wäre mehr Bau (Rendering, Speicher, Zustellbarkeit von Anhängen) für
- * weniger Nutzen; der Empfänger will die Zahl, nicht eine Datei.
- *
- * KEINE WERBUNG. Die Grundlage ist 'result_delivery' — die Zusendung des angeforderten Ergebnisses.
- * Ein Angebot in derselben Mail wäre eine werbliche Aussendung ohne die dafür nötige Einwilligung.
- * Der einzige Link zeigt auf den Kalkulator, also auf die Fortsetzung derselben Rechnung, und er
- * steht als das, was er ist.
- *
- * Zahlen und Formel sind bit-identisch zur Bildschirmanzeige (`QUICK_EUR`/`QUICK_DECIMAL` und
- * dieselben Beschriftungen aus `QuickCalculator.*`) — eine Mail, die andere Beträge zeigt als das
- * Formular, ist schlimmer als gar keine.
- */
-export async function sendCalculatorResultMail(
-  input: CalculatorResultMail,
-): Promise<ConsentMailOutcome> {
-  if (!mailConfigured()) {
-    warnMailNotConfigured(
-      'Ergebnis-Mail',
-      'Lead und Einwilligung stehen; die Zusendung lässt sich nachholen.',
-    )
-    return { ok: false, reason: 'not_configured' }
-  }
-
-  const t = await getTranslations({ locale: input.locale, namespace: 'LeadMail.result' })
-  // Dieselben Feldbeschriftungen wie im Formular — der Empfänger soll seine Eingaben wiedererkennen.
-  const tCalc = await getTranslations({ locale: input.locale, namespace: 'QuickCalculator' })
-
-  const rows: Array<[string, string]> = [
-    [tCalc('peakLabel'), QUICK_DECIMAL.format(input.inputs.peakKw)],
-    [tCalc('reductionLabel'), QUICK_DECIMAL.format(input.inputs.reductionKw)],
-    [tCalc('priceLabel'), QUICK_DECIMAL.format(input.inputs.pricePerKwYear)],
-  ]
-
-  const formula = tCalc('formula', {
-    reduction: QUICK_DECIMAL.format(input.result.effectiveReductionKw),
-    price: QUICK_DECIMAL.format(input.inputs.pricePerKwYear),
-  })
-  const saving = QUICK_EUR.format(input.result.savingEur)
-  const calculatorUrl = absoluteUrl(CTA_HREF)
-
-  const text = [
-    t('greeting'),
-    '',
-    t('intro'),
-    '',
-    ...rows.map(([label, value]) => `${label}: ${value}`),
-    '',
-    `${tCalc('resultLabel')}: ${saving}`,
-    formula,
-    // Wurde die Zielreduktion auf die Spitze geklemmt, MUSS das mit — sonst steht in der Mail eine
-    // Zahl, die aus den daneben gezeigten Eingaben nicht folgt.
-    ...(input.result.capped
-      ? [tCalc('hintCapped', { value: QUICK_DECIMAL.format(input.inputs.peakKw) })]
-      : []),
-    '',
-    tCalc('disclaimer'),
-    '',
-    t('cta'),
-    calculatorUrl,
-    '',
-    '—',
-    COMPANY.name,
-    COMPANY.email,
-  ].join('\n')
-
-  const html = [
-    `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626">`,
-    `<p style="margin:0 0 16px">${escapeHtml(t('greeting'))}</p>`,
-    `<p style="margin:0 0 16px">${escapeHtml(t('intro'))}</p>`,
-    `<table style="border-collapse:collapse;margin:0 0 20px">`,
-    ...rows.map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 16px 4px 0;color:#525252">${escapeHtml(label)}</td>` +
-        `<td style="padding:4px 0;font-variant-numeric:tabular-nums;color:#171717">${escapeHtml(value)}</td></tr>`,
-    ),
-    `</table>`,
-    `<p style="margin:0 0 4px;color:#525252">${escapeHtml(tCalc('resultLabel'))}</p>`,
-    `<p style="margin:0 0 4px;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;color:#0f766e">${escapeHtml(saving)}</p>`,
-    `<p style="margin:0 0 20px;font-size:13px;color:#525252">${escapeHtml(formula)}</p>`,
-    ...(input.result.capped
-      ? [
-          `<p style="margin:0 0 20px;font-size:13px;color:#525252">${escapeHtml(
-            tCalc('hintCapped', { value: QUICK_DECIMAL.format(input.inputs.peakKw) }),
-          )}</p>`,
-        ]
-      : []),
-    `<p style="margin:0 0 16px;font-size:13px;color:#525252">${escapeHtml(tCalc('disclaimer'))}</p>`,
-    `<p style="margin:0 0 20px"><a href="${escapeHtml(calculatorUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(t('cta'))}</a></p>`,
-    `<p style="margin:0;font-size:13px;color:#525252">${escapeHtml(COMPANY.name)} · <a href="mailto:${escapeHtml(COMPANY.email)}" style="color:#525252">${escapeHtml(COMPANY.email)}</a></p>`,
-    `</div>`,
-  ].join('')
-
-  return sendMail({ to: input.to, subject: t('subject'), text, html }, 'Ergebnis-Mail')
 }
 
 /* ─── Vertragsablauf-Erinnerung (B4-2, 'contract_expiry_reminder') ────────────────────────────── */

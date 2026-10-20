@@ -373,6 +373,7 @@ export function SchnellreportDocument({
         <View>
           <Text style={s.kicker}>{page3.kicker}</Text>
           <Text style={s.h1}>{page3.title}</Text>
+          {page3.asOf ? <Text style={s.lead}>{page3.asOf}</Text> : null}
         </View>
         <View>
           {page3.facts.map((fact, i) => (

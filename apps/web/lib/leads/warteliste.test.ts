@@ -23,14 +23,14 @@ import type { CaptureOutcome, CaptureResult } from './config'
 import { LEAD_CAPTURE_REGISTRY } from './registry'
 import { resolveWartelisteSource, wartelisteSegments } from './warteliste'
 
-type Recorded = { calls: CaptureLeadCall[]; confirmationMails: number; resultMails: number }
+type Recorded = { calls: CaptureLeadCall[]; confirmationMails: number }
 
 /** Attrappen für Datenbank und Versand — dieselbe Form wie in `capture-flow.test.ts`. */
 function fakeEffects(outcomes: CaptureOutcome[] = ['consent_created']): {
   effects: LeadCaptureEffects
   recorded: Recorded
 } {
-  const recorded: Recorded = { calls: [], confirmationMails: 0, resultMails: 0 }
+  const recorded: Recorded = { calls: [], confirmationMails: 0 }
   let index = 0
 
   const effects: LeadCaptureEffects = {
@@ -48,9 +48,6 @@ function fakeEffects(outcomes: CaptureOutcome[] = ['consent_created']): {
     }),
     sendConfirmationMail: async () => {
       recorded.confirmationMails += 1
-    },
-    sendResultMail: async () => {
-      recorded.resultMails += 1
     },
   }
 
@@ -252,8 +249,6 @@ describe('(9) der Double-Opt-in aus B1-2 greift unverändert', () => {
     expect(call.tokenHash).toBe('hash')
     expect(call.tokenExpiresAt).toBeInstanceOf(Date)
     expect(recorded.confirmationMails).toBe(1)
-    // Nichts Werbliches und keine Leistung, solange unbestätigt — 'pending' ist rechtlich wertlos.
-    expect(recorded.resultMails).toBe(0)
   })
 
   it('gilt für beide Routen gleichermassen', async () => {
