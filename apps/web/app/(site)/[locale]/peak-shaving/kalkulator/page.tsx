@@ -14,18 +14,14 @@ import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
 import { JsonLd } from '@/components/json-ld'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { calculatorLd } from '@/lib/json-ld'
-import { canonicalUrl, pageAlternates } from '@/lib/seo'
+import { canonicalUrl } from '@/lib/seo'
+import { KALKULATOR_PRODUCT_HREF, robotsFor } from '@/lib/routes'
 
 /*
- * Der Pfad DIESER Route — bewusst literal und NICHT `CTA_HREF` (das denselben
- * Wert hat): `CTA_HREF` bedeutet „wohin der CTA im Header zeigt" — eine Aussage
- * über die Navigation, nicht über diese Route. Zeigte der CTA später woanders
- * hin, würde der Canonical dieser Seite still mitwandern.
- *
- * Steht als Konstante da, seit ihn zwei Stellen brauchen: der Canonical und die
- * `url` des `SoftwareApplication`-JSON-LD. Beide müssen dieselbe Adresse nennen.
+ * Der Pfad DIESER Route kommt aus `lib/routes.ts`, wo auch ihr `noindex, nofollow` steht
+ * (Leadgen 7b). Er wird für die `url` des `SoftwareApplication`-JSON-LD gebraucht.
  */
-const KALKULATOR_HREF = '/peak-shaving/kalkulator'
+const KALKULATOR_HREF = KALKULATOR_PRODUCT_HREF
 
 export async function generateMetadata({
   params,
@@ -38,7 +34,8 @@ export async function generateMetadata({
   return {
     title: `${tPages('peakShavingCalculator')} — COOLiN ENERGY`,
     description: t('metaDescription'),
-    alternates: pageAlternates(locale, KALKULATOR_HREF),
+    // Kein Canonical: auf einer noindex-Seite wäre er ein widersprüchliches Signal (wie rechner-Hülle).
+    robots: robotsFor(KALKULATOR_HREF),
   }
 }
 
