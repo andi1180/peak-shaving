@@ -16,6 +16,8 @@ export type SchnellreportSettings = {
   price: string
   /** Zusatz neben dem Preis. */
   priceNote: string
+  /** Zeile unter der Überschrift der Seite „Netztarife“; leer = entfällt. */
+  tariffsAsOf: string
 }
 
 // Telefon in der Schreibweise des Impressums (`COMPANY_LEGAL.phone`), wie im Profi-Report.
@@ -26,4 +28,5 @@ export const SCHNELLREPORT_SETTINGS: SchnellreportSettings = {
   email: 'energy@coolin.at',
   price: '495 €',
   priceNote: 'Einführungspreis bis 31.12.2026, zzgl. USt.',
+  tariffsAsOf: 'Stand Oktober 2026',
 }

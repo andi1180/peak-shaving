@@ -83,7 +83,6 @@ export const LEAD_CAPTURE_FORM_KEYS = [
   'fachvortrag',
   'direktkontakt',
   'betroffenheits-check',
-  'rechnerergebnis',
   'artikel-inline',
   'branchenseite',
   'vertragsablauf-landing',
@@ -148,6 +147,14 @@ export const LEAD_CAPTURE_FORM_KEYS = [
  * Wirksamkeit genau dieses Gates gemessen wird.
  */
 export const LEAD_SOURCE_KEYS_WITHOUT_FORM = [
+  /*
+   * Leadgen 3b-2: 'rechnerergebnis' war das Formular unter dem alten Schnellrechner; seit 3a nicht
+   * mehr platziert, seit 3b-2 ohne Versandpfad. Der Schlüssel bleibt für den Bestand.
+   * 'schnellreport' hat eine eigene Server Action (`lib/schnellreport/actions.ts`) und darf über
+   * den generischen Erfassungs-Endpunkt nicht erreichbar sein.
+   */
+  'rechnerergebnis',
+  'schnellreport',
   'registrierung',
   'kalkulator-registrierung',
   'partner-empfehlung',
@@ -286,8 +293,6 @@ export type LeadCaptureEntry = {
    */
   offersMarketingConsent: boolean
   fields: readonly LeadCaptureField[]
-  /** Hängen die Werte des Schnellrechners an dieser Absendung? (Zusendung des Ergebnisses.) */
-  carriesCalculatorResult: boolean
   /**
    * Ist dieser Einstiegspunkt derzeit irgendwo platziert? REIN DOKUMENTARISCH — die Komponente
    * rendert einen Eintrag auch dann korrekt, wenn er (noch) nirgends steht: die Platzierung ist
@@ -359,7 +364,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
       { key: 'company', required: false },
       { key: 'phone', required: false },
     ],
-    carriesCalculatorResult: false,
     placed: true,
   },
 
@@ -374,7 +378,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     purpose: null,
     offersMarketingConsent: true,
     fields: EMAIL_ONLY,
-    carriesCalculatorResult: false,
     placed: false,
   },
 
@@ -395,7 +398,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     purpose: 'marketing_email',
     offersMarketingConsent: false,
     fields: WARTELISTE_FIELDS,
-    carriesCalculatorResult: false,
     placed: true,
   },
 
@@ -411,7 +413,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
       { key: 'lastName', required: false },
       { key: 'company', required: false },
     ],
-    carriesCalculatorResult: false,
     placed: false,
   },
 
@@ -428,7 +429,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
       { key: 'company', required: false },
       { key: 'phone', required: false },
     ],
-    carriesCalculatorResult: false,
     placed: false,
   },
 
@@ -452,24 +452,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
       { key: 'annualConsumptionKwh', required: true },
       { key: 'industry', required: true },
     ],
-    carriesCalculatorResult: false,
-    placed: false,
-  },
-
-  /*
-   * SEIT LEADGEN-UMBAU 3a NICHT MEHR PLATZIERT: die Erfassung stand unter dem Ergebnis des alten
-   * Schnellrechners, den der Schnellcheck ersetzt hat. Schlüssel und Pfad bleiben für 3b bestehen.
-   *
-   * 'result_delivery' ist NICHT bestätigungspflichtig (B1-1, `purpose_requires_double_opt_in`): die
-   * Zusendung IST die unmittelbar angeforderte Leistung. Seit B3-2 entsteht die Einwilligung
-   * deshalb sofort als `confirmed`, und der Anwendungscode liefert unmittelbar aus.
-   */
-  rechnerergebnis: {
-    key: 'rechnerergebnis',
-    purpose: 'result_delivery',
-    offersMarketingConsent: true,
-    fields: EMAIL_ONLY,
-    carriesCalculatorResult: true,
     placed: false,
   },
 
@@ -480,7 +462,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     purpose: 'marketing_email',
     offersMarketingConsent: false,
     fields: EMAIL_ONLY,
-    carriesCalculatorResult: false,
     placed: true,
   },
 
@@ -491,7 +472,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     purpose: 'marketing_email',
     offersMarketingConsent: false,
     fields: EMAIL_ONLY,
-    carriesCalculatorResult: false,
     placed: true,
   },
 
@@ -517,7 +497,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
       { key: 'supplier', required: true },
       { key: 'contractEndDate', required: true },
     ],
-    carriesCalculatorResult: false,
     placed: true,
   },
 
@@ -537,7 +516,6 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCapt
     purpose: 'marketing_email',
     offersMarketingConsent: false,
     fields: WARTELISTE_FIELDS,
-    carriesCalculatorResult: false,
     placed: true,
   },
 }

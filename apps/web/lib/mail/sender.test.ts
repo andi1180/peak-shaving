@@ -55,6 +55,8 @@ const applicationMail = await import('@/lib/partner-application/mail')
 const portalMail = await import('@/lib/partner-portal/mail')
 const calculatorRequestMail = await import('@/lib/partner-portal/calculator-request-mail')
 const kontakt = await import('@/lib/kontakt/deliver')
+const schnellreportMail = await import('@/lib/schnellreport/mail')
+const { SCHNELLREPORT_VALUES } = await import('@/lib/test-support/schnellreport')
 
 type SentMail = {
   from: string
@@ -106,15 +108,35 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         locale: 'de',
       }),
   },
+  // Schnellreport (3b-2): userFacing false nur, weil er die Unterschrift des Prototyps trägt.
   {
-    name: 'Zusendung des Rechenergebnisses',
-    userFacing: true,
+    name: 'Schnellreport (Kunde, PDF)',
+    userFacing: false,
     send: () =>
-      leadMail.sendCalculatorResultMail({
+      schnellreportMail.sendSchnellreportMail({
         to: 'max@test.local',
-        locale: 'de',
-        inputs: { peakKw: 100, reductionKw: 20, pricePerKwYear: 38.52 },
-        result: { effectiveReductionKw: 20, savingEur: 770.4, capped: false },
+        values: SCHNELLREPORT_VALUES,
+        pdf: Buffer.from('%PDF'),
+      }),
+  },
+  {
+    name: 'Schnellreport (intern)',
+    userFacing: false,
+    send: () =>
+      schnellreportMail.sendSchnellreportTeamNotice({
+        leadId: LEAD_ID,
+        values: SCHNELLREPORT_VALUES,
+        reportMail: 'sent',
+      }),
+  },
+  {
+    name: 'Schnellreport-Rückruf (intern)',
+    userFacing: false,
+    send: () =>
+      schnellreportMail.sendSchnellreportCallbackNotice({
+        leadId: LEAD_ID,
+        email: 'max@test.local',
+        phone: '+43 1 234 567',
       }),
   },
   {
@@ -219,13 +241,14 @@ describe('Absender — eine Definition für alle Mails', () => {
     /*
      * Der Wächter gegen die wahrscheinlichste Lücke: eine zehnte Mail entsteht, setzt ihren Absender
      * selbst und läuft an dieser Datei vorbei, weil niemand sie hier einträgt. Gezählt werden die
-     * exportierten `send*`-Funktionen der vier Mail-Module plus `deliverKontakt`.
+     * exportierten `send*`-Funktionen der fünf Mail-Module plus `deliverKontakt`.
      */
     const exported = [
       ...Object.keys(leadMail),
       ...Object.keys(applicationMail),
       ...Object.keys(portalMail),
       ...Object.keys(calculatorRequestMail),
+      ...Object.keys(schnellreportMail),
     ].filter((name) => name.startsWith('send'))
 
     expect(exported.length + 1).toBe(MAILS.length)

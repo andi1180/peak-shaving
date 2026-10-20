@@ -9,22 +9,9 @@ import messages from '@/messages/de.json'
 import { COMPANY } from '@/lib/nav'
 import { computeSchnellcheck, formatGrouped, type Country } from '@/lib/schnellcheck'
 import { SCHNELLREPORT_SETTINGS, type SchnellreportSettings } from './settings'
+import type { BrancheKey } from './branchen'
 
-/** Die sechs Branchen in der Reihenfolge des Prototyps; Texte unter `Schnellreport.branchen`. */
-export const BRANCHE_KEYS = [
-  'produktion',
-  'lebensmittel',
-  'gastro',
-  'logistik',
-  'handel',
-  'sonstige',
-] as const
-
-export type BrancheKey = (typeof BRANCHE_KEYS)[number]
-
-export function isBrancheKey(value: unknown): value is BrancheKey {
-  return typeof value === 'string' && (BRANCHE_KEYS as readonly string[]).includes(value)
-}
+export { BRANCHE_KEYS, isBrancheKey, type BrancheKey } from './branchen'
 
 /** Deckblatt, vier Inhaltsseiten, „Unsere Software", Abschlussblatt. */
 export const PAGE_COUNT = 7
@@ -109,6 +96,7 @@ export type SchnellreportContent = {
   page3: {
     kicker: string
     title: string
+    asOf: string
     facts: Fact[]
     checklistTitle: string
     checklist: string[]
@@ -257,6 +245,7 @@ export function buildSchnellreportContent(
     page3: {
       kicker: t('page3.kicker'),
       title: t('page3.title'),
+      asOf: settings.tariffsAsOf.trim(),
       facts: t.raw(isAT ? 'page3.factsAT' : 'page3.factsDE') as Fact[],
       checklistTitle: t('page3.checklistTitle'),
       checklist: t.raw('page3.checklist') as string[],

@@ -1005,22 +1005,6 @@
       }
     }
   },
-  "QuickCalculator": {
-    "title": "Schnellrechner",
-    "intro": "Drei Angaben, eine Zahl. Die Werte sind ein Beispiel — überschreiben Sie sie mit Ihren eigenen.",
-    "peakLabel": "Aktuelle Leistungsspitze (kW)",
-    "reductionLabel": "Zielreduktion (kW)",
-    "priceLabel": "Leistungspreis (€/kW·a)",
-    "resultLabel": "Geschätzte jährliche Einsparung",
-    "formula": "{reduction} kW × {price} €/kW·a",
-    "resultIncomplete": "Bitte alle drei Werte als Zahl eingeben.",
-    "resultTooLarge": "Die eingegebenen Werte sind zu groß für eine sinnvolle Schätzung.",
-    "hintNumber": "Bitte eine Zahl eingeben.",
-    "hintNegative": "Negative Werte werden als 0 gerechnet.",
-    "hintCapped": "Mehr als die aktuelle Spitze lässt sich nicht reduzieren — gerechnet wird mit {value} kW.",
-    "disclaimer": "Orientierungswert. Die belastbare Auslegung liefert der Peak-Shaving Kalkulator anhand Ihrer 15-Minuten-Lastgangdaten.",
-    "cta": "Zum Kalkulator"
-  },
   "Schnellcheck": {
     "eyebrow": "Schnellcheck",
     "title": "Was kostet Sie Ihre Lastspitze?",
@@ -2420,12 +2404,6 @@
       "button": "Einwilligung bestätigen",
       "noAction": "Ohne Ihre Bestätigung passiert nichts — wir senden Ihnen dann keine E-Mails. Falls Sie diese Nachricht nicht erwartet haben, ignorieren Sie sie einfach; der Link verfällt nach sieben Tagen von selbst."
     },
-    "result": {
-      "subject": "Ihr Ergebnis aus dem Schnellrechner",
-      "greeting": "Guten Tag,",
-      "intro": "hier ist Ihr Ergebnis aus dem Schnellrechner auf coolin.at — mit den Werten, die Sie eingegeben haben.",
-      "cta": "Belastbare Auslegung mit Ihrem Lastgang: zum Peak-Shaving Kalkulator"
-    },
     "contractReminder": {
       "subject": "Erinnerung: Ihr Stromvertrag läuft am {date} aus",
       "greeting": "Guten Tag,",
@@ -2517,12 +2495,6 @@
       "betroffenheits-check": {
         "heading": "Ergebnis des Betroffenheits-Checks erhalten",
         "body": "Wir schicken Ihnen die Einordnung für Ihren Betrieb per E-Mail — mit der Größenordnung Ihrer Lastspitze und dem, was die Umstellung 2027 für Sie bedeutet.",
-        "submit": "Ergebnis zusenden",
-        "success": "Danke — Ihr Ergebnis ist unterwegs. Bitte sehen Sie auch im Spam-Ordner nach."
-      },
-      "rechnerergebnis": {
-        "heading": "Ergebnis per E-Mail erhalten",
-        "body": "Wir schicken Ihnen Ihre Rechnung mit allen eingegebenen Werten zu — damit Sie sie in Ruhe ansehen oder weitergeben können.",
         "submit": "Ergebnis zusenden",
         "success": "Danke — Ihr Ergebnis ist unterwegs. Bitte sehen Sie auch im Spam-Ordner nach."
       },
@@ -2738,5 +2710,60 @@
       "invalid_attachments": "Ihre Unterlagen konnten nicht übergeben werden. Bitte laden Sie die Seite neu.",
       "network": "Verbindung unterbrochen. Bitte versuchen Sie es noch einmal."
     }
+  },
+  "SchnellreportMail": {
+    "subject": "Ihr Schnellreport: Was Ihre Lastspitze kostet",
+    "greeting": "Guten Tag {name},",
+    "intro": "hier ist Ihr Schnellreport. Nach Ihren Angaben kostet Ihre Lastspitze",
+    "outro": "pro Jahr. Im PDF finden Sie, warum diese Spitze in Ihrer Branche entsteht, drei Hebel ohne Investition und was sich mit den Netztarifen 2027 ändert.",
+    "profiPrice": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten, zum Einführungspreis von {price} bis 31.12.2026.",
+    "profi": "Der Schnellreport rechnet mit Durchschnittswerten. Wie viel Sie mit einem Speicher tatsächlich sparen, berechnet der Profi-Report mit Ihren echten Daten.",
+    "button": "Profi-Report anfragen",
+    "followUp": "Wir melden uns innerhalb eines Werktags per E-Mail.",
+    "followUpPhone": "Lieber gleich telefonieren? Rufen Sie uns an: {phone}",
+    "closing": "Freundliche Grüße",
+    "company": "COOLiN ENERGY GmbH",
+    "signaturePhone": "Tel. {phone}"
+  },
+  "SchnellreportForm": {
+    "title": "Ihr Schnellreport als PDF",
+    "sub": "Wir schicken Ihnen Ihr Ergebnis mit Erklärungen und Tipps per E-Mail. Kostenlos.",
+    "firma": "Firma",
+    "branche": "Branche",
+    "branchePlaceholder": "Bitte wählen",
+    "vorname": "Vorname",
+    "nachname": "Nachname",
+    "email": "E-Mail",
+    "telefon": "Telefon",
+    "optional": "(optional)",
+    "noCall": "Ohne Ihre Zustimmung rufen wir nicht an.",
+    "privacy": "Datenschutz",
+    "submit": "Schnellreport senden",
+    "submitting": "Wird gesendet …",
+    "honeypot": "Website (bitte leer lassen)",
+    "close": "Schließen",
+    "errors": {
+      "required": "Bitte ausfüllen.",
+      "tooLong": "Dieser Eintrag ist zu lang.",
+      "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+      "phoneInvalid": "Bitte geben Sie eine gültige Telefonnummer ein.",
+      "brancheRequired": "Bitte wählen Sie Ihre Branche.",
+      "kwhRequired": "Bitte geben Sie oben im Schnellcheck Ihren Jahresverbrauch ein."
+    },
+    "formError": {
+      "validation": "Bitte prüfen Sie die markierten Felder.",
+      "duplicate": "Ihr Schnellreport ist bereits unterwegs. Schauen Sie in ein paar Minuten in Ihr Postfach, auch im Spam-Ordner.",
+      "spam": "Das hat leider nicht geklappt. Bitte schreiben Sie uns an energy@coolin.at.",
+      "turnstile": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte laden Sie die Seite neu und versuchen Sie es noch einmal.",
+      "unavailable": "Das hat leider nicht geklappt. Bitte versuchen Sie es später noch einmal oder schreiben Sie uns an energy@coolin.at.",
+      "network": "Keine Verbindung. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es noch einmal."
+    },
+    "doneTitle": "Ihr Schnellreport ist unterwegs.",
+    "doneText": "Wir haben ihn an {email} geschickt. Schauen Sie in ein paar Minuten in Ihr Postfach, auch im Spam-Ordner.",
+    "askPhone": "Ihre Telefonnummer",
+    "askPhonePlaceholder": "+43 …",
+    "askYes": "Ja, gerne anrufen",
+    "askNo": "Nein, danke",
+    "askThanks": "Danke! Wir rufen Sie innerhalb eines Werktags an."
   }
 }

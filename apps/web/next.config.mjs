@@ -53,6 +53,11 @@ const nextConfig = {
       './public/brand/coolin-emblem.png',
       '../../node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**',
     ],
+    '/api/schnellreport': [
+      './assets/schnellreport-fonts/**',
+      './public/brand/coolin-emblem.png',
+      '../../node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**',
+    ],
   },
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).

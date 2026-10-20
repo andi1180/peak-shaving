@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { SchnellreportForm } from '@/components/schnellreport-form'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { cn } from '@/lib/utils'
 import {
@@ -22,8 +23,9 @@ import {
  * Angaben des Besuchers), und der Feldrand ist `line-input` (AA 3:1). Österreich und Deutschland
  * teilen sich seit Schritt 3a-2 dieselbe Ergebnisansicht; nur Leistungspreis und Quellenzeile
  * unterscheiden sich.
- * Karte mit Radius/Schatten: Ausnahme in DESIGN.md. Bis Schritt 3b führen alle drei Wege ins
- * Kontaktformular mit vorbelegtem Thema.
+ * Karte mit Radius/Schatten: Ausnahme in DESIGN.md. Der Schnellreport öffnet seit Schritt 3b-2
+ * sein Formular direkt unter dem Report-Block; Profi-Report und Erstgespräch führen bis Schritt 4
+ * ins Kontaktformular mit vorbelegtem Thema.
  */
 
 const LABEL = 'text-[13.5px] font-semibold text-ink'
@@ -41,12 +43,25 @@ const FIELDS: { key: FieldKey; unit: 'unitKwh' | 'unitKw' | 'unitEur'; optional:
   { key: 'bill', unit: 'unitEur', optional: true },
 ]
 
-export function Schnellcheck({ showHeading = false }: { showHeading?: boolean }) {
+export function Schnellcheck({
+  showHeading = false,
+  partnerSlug,
+}: {
+  showHeading?: boolean
+  /** Partnerzuordnung für den Schnellreport-Lead, falls die einbettende Seite eine kennt. */
+  partnerSlug?: string
+}) {
   const t = useTranslations('Schnellcheck')
   const uid = React.useId()
   const [country, setCountry] = React.useState<Country>('AT')
   const [raw, setRaw] = React.useState<Record<FieldKey, string>>({ kwh: '', kw: '', bill: '' })
   const [sliderKw, setSliderKw] = React.useState<number>(KW_SLIDER.initial)
+  const [reportOpen, setReportOpen] = React.useState(false)
+  const reportFormRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (reportOpen) reportFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [reportOpen])
 
   const kwh = parseGroupedNumber(raw.kwh)
   const kw = parseGroupedNumber(raw.kw)
@@ -281,11 +296,14 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={hrefFor('schnellreport')}
+                <button
+                  type="button"
+                  aria-expanded={reportOpen}
+                  aria-controls={`${uid}-report-form`}
+                  onClick={() => setReportOpen(true)}
                   className={cn(
                     BTN,
-                    'bg-accent text-accent-foreground hover:bg-accent-hover max-[620px]:justify-center',
+                    'cursor-pointer bg-accent text-accent-foreground hover:bg-accent-hover max-[620px]:justify-center',
                   )}
                 >
                   {t('ctaReport')}
@@ -298,10 +316,19 @@ export function Schnellcheck({ showHeading = false }: { showHeading?: boolean })
                       strokeLinejoin="round"
                     />
                   </svg>
-                </Link>
+                </button>
                 <p className={SMALL}>{t('reportNote')}</p>
               </div>
             </div>
+
+            {reportOpen && (
+              <div id={`${uid}-report-form`} ref={reportFormRef} className="mt-4 scroll-mt-6">
+                <SchnellreportForm
+                  check={{ country, kwh, kw, bill, sliderKw }}
+                  partnerSlug={partnerSlug}
+                />
+              </div>
+            )}
 
             <div className="mt-[22px] grid gap-3">
               <p className="m-0 text-balance text-[15.5px] font-semibold text-ink">{t('teaser')}</p>

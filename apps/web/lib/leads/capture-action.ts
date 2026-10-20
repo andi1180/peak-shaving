@@ -27,7 +27,7 @@ import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 import { CONFIRM_TOKEN_PARAM, EINWILLIGUNG_BESTAETIGEN_HREF } from './config'
 import { runLeadCapture, type LeadCaptureResponse } from './capture-flow'
 import type { LeadCaptureSubmission } from './capture-request'
-import { sendCalculatorResultMail, sendConsentConfirmationMail } from './mail'
+import { sendConsentConfirmationMail } from './mail'
 import { captureLead, getActiveConsentText } from './store'
 import { createConfirmationToken } from './tokens'
 
@@ -98,8 +98,6 @@ export async function submitLeadCaptureAction(
           ),
           locale: mailLocale,
         }),
-
-      sendResultMail: (input) => sendCalculatorResultMail(input),
     },
     { locale, sourceIp, userAgent },
   )

@@ -20,7 +20,6 @@ import type { CaptureOutcome, CaptureResult } from './config'
 type Recorded = {
   calls: CaptureLeadCall[]
   confirmationMails: number
-  resultMails: number
 }
 
 /**
@@ -32,7 +31,7 @@ function fakeEffects(outcomes: CaptureOutcome[] = ['consent_confirmed']): {
   effects: LeadCaptureEffects
   recorded: Recorded
 } {
-  const recorded: Recorded = { calls: [], confirmationMails: 0, resultMails: 0 }
+  const recorded: Recorded = { calls: [], confirmationMails: 0 }
   let index = 0
 
   const effects: LeadCaptureEffects = {
@@ -51,15 +50,23 @@ function fakeEffects(outcomes: CaptureOutcome[] = ['consent_confirmed']): {
     sendConfirmationMail: async () => {
       recorded.confirmationMails += 1
     },
-    sendResultMail: async () => {
-      recorded.resultMails += 1
-    },
   }
 
   return { effects, recorded }
 }
 
 const CONTEXT = { locale: 'de', sourceIp: null, userAgent: null }
+
+// Ein Eintrag mit sofort wirksamem Zweck UND zusätzlicher Marketing-Einwilligung.
+const BETROFFENHEIT = {
+  sourceKey: 'betroffenheits-check',
+  values: {
+    email: 'jemand@example.test',
+    postalCode: '1100',
+    annualConsumptionKwh: '120000',
+    industry: 'baeckerei',
+  },
+}
 
 describe('(7) unbekannter Einstiegspunkt', () => {
   it('erzeugt KEINEN Lead und liefert eine neutrale Meldung — keinen Ersatzwert', async () => {
@@ -136,20 +143,12 @@ describe('(8) der Zweck kommt ausschliesslich aus der Registry', () => {
   it('ein Eintrag mit zusätzlicher Einwilligung schreibt ZWEI Zwecke — aber nur wenn angekreuzt', async () => {
     // Ohne Häkchen: nur der Zweck des Eintrags.
     const ohne = fakeEffects(['consent_confirmed'])
-    await runLeadCapture(
-      { sourceKey: 'rechnerergebnis', values: { email: 'jemand@example.test' } },
-      ohne.effects,
-      CONTEXT,
-    )
+    await runLeadCapture(BETROFFENHEIT, ohne.effects, CONTEXT)
     expect(ohne.recorded.calls.map((call) => call.purpose)).toEqual(['result_delivery'])
 
     // Mit Häkchen: zusätzlich die Marketing-Einwilligung, als EIGENER Aufruf mit eigenem Token.
     const mit = fakeEffects(['consent_confirmed', 'consent_created'])
-    await runLeadCapture(
-      { sourceKey: 'rechnerergebnis', values: { email: 'jemand@example.test' }, marketing: true },
-      mit.effects,
-      CONTEXT,
-    )
+    await runLeadCapture({ ...BETROFFENHEIT, marketing: true }, mit.effects, CONTEXT)
     expect(mit.recorded.calls.map((call) => call.purpose)).toEqual([
       'result_delivery',
       'marketing_email',
@@ -162,10 +161,7 @@ describe('(8) der Zweck kommt ausschliesslich aus der Registry', () => {
 })
 
 describe('(9) die Rückmeldung verrät nichts über den Bestand', () => {
-  const submission = {
-    sourceKey: 'rechnerergebnis',
-    values: { email: 'jemand@example.test' },
-  }
+  const submission = BETROFFENHEIT
 
   async function respondFor(outcome: CaptureOutcome): Promise<LeadCaptureResponse> {
     const { effects } = fakeEffects([outcome])
@@ -191,80 +187,29 @@ describe('(9) die Rückmeldung verrät nichts über den Bestand', () => {
     // „Unbekannter Zustand" darf sich nicht als „diese Adresse kennen wir nicht" lesen — und schon
     // gar nicht als Fehlermeldung, die zum erneuten Absenden einlädt.
     expect(await runLeadCapture(submission, effects, CONTEXT)).toEqual({ ok: true })
-    expect(recorded.resultMails).toBe(0)
+    expect(recorded.confirmationMails).toBe(0)
   })
 
   it('löst bei gesperrter Adresse KEINEN Versand aus', async () => {
     const { effects, recorded } = fakeEffects(['suppressed'])
 
-    await runLeadCapture(
-      {
-        ...submission,
-        calculator: { peakKw: 500, reductionKw: 100, pricePerKwYear: 120 },
-      },
-      effects,
-      CONTEXT,
-    )
+    await runLeadCapture({ ...submission, marketing: true }, effects, CONTEXT)
 
-    expect(recorded.resultMails).toBe(0)
     expect(recorded.confirmationMails).toBe(0)
   })
 })
 
 describe('Versand hängt am outcome, nicht am Zweck', () => {
-  it("'consent_confirmed' liefert das Ergebnis sofort aus", async () => {
+  it("'consent_confirmed' löst keine Bestätigungsmail aus", async () => {
     const { effects, recorded } = fakeEffects(['consent_confirmed'])
-
-    await runLeadCapture(
-      {
-        sourceKey: 'rechnerergebnis',
-        values: { email: 'jemand@example.test' },
-        calculator: { peakKw: 500, reductionKw: 100, pricePerKwYear: 120 },
-      },
-      effects,
-      CONTEXT,
-    )
-
-    expect(recorded.resultMails).toBe(1)
+    await runLeadCapture(BETROFFENHEIT, effects, CONTEXT)
     expect(recorded.confirmationMails).toBe(0)
   })
 
-  it("'consent_created' schickt NUR die Bestätigungsmail, nie die Leistung", async () => {
-    const { effects, recorded } = fakeEffects(['consent_created'])
-
-    await runLeadCapture(
-      {
-        sourceKey: 'rechnerergebnis',
-        values: { email: 'jemand@example.test' },
-        calculator: { peakKw: 500, reductionKw: 100, pricePerKwYear: 120 },
-      },
-      effects,
-      CONTEXT,
-    )
-
+  it("'consent_created' schickt die Bestätigungsmail", async () => {
+    const { effects, recorded } = fakeEffects(['consent_confirmed', 'consent_created'])
+    await runLeadCapture({ ...BETROFFENHEIT, marketing: true }, effects, CONTEXT)
     expect(recorded.confirmationMails).toBe(1)
-    expect(recorded.resultMails).toBe(0)
-  })
-
-  it('ein Fehlversand des Ergebnisses bricht den Vorgang nicht ab', async () => {
-    const { effects, recorded } = fakeEffects(['consent_confirmed'])
-    effects.sendResultMail = async () => {
-      throw new Error('Resend nicht erreichbar')
-    }
-
-    const response = await runLeadCapture(
-      {
-        sourceKey: 'rechnerergebnis',
-        values: { email: 'jemand@example.test' },
-        calculator: { peakKw: 500, reductionKw: 100, pricePerKwYear: 120 },
-      },
-      effects,
-      CONTEXT,
-    )
-
-    // Der Lead steht; ein verlorenes Ergebnis wiegt leichter als ein verlorener Lead.
-    expect(response).toEqual({ ok: true })
-    expect(recorded.calls).toHaveLength(1)
   })
 })
 

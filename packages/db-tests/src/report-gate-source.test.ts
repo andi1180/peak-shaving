@@ -70,7 +70,7 @@ describe('Delta 16b — Herkunft, Zweck und Wortlaut existieren', () => {
   it('die jüngste deutsche Textfassung trägt KEINE interne Review-Markierung mehr', async () => {
     const rows = await sql<{ version: number; body: string }>(
       `select version, body from platform.consent_texts
-        where purpose = $1::platform.consent_purpose and locale = 'de'
+        where purpose = $1::platform.consent_purpose and locale = 'de' and source_key is null
         order by version desc`,
       [REPORT_GATE_CONSENT_PURPOSE],
     )
