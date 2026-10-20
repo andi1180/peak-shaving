@@ -18,6 +18,9 @@ afterEach(() => {
 /** Jedes Ereignis einmal, mit den Eigenschaften aus dem Auftrag. */
 function fireAll() {
   track('cta_ersparnis_click', { position: 'hero' })
+  track('cta_ersparnis_click', { position: 'bottombar' })
+  track('cta_profi_report_click', { position: 'header', variant: 'profi_report' })
+  track('cta_profi_report_click', { position: 'bottombar', variant: 'jetzt_anfragen' })
   track('schnellcheck_started', { country: 'AT' })
   track('schnellcheck_result_shown', {
     country: 'DE',
@@ -39,6 +42,9 @@ describe('Funnel-Ereignisse', () => {
     const common = { path: '/partner/muster-elektro', partner: true }
     expect(capture.mock.calls).toEqual([
       ['cta_ersparnis_click', { ...common, position: 'hero' }],
+      ['cta_ersparnis_click', { ...common, position: 'bottombar' }],
+      ['cta_profi_report_click', { ...common, position: 'header', variant: 'profi_report' }],
+      ['cta_profi_report_click', { ...common, position: 'bottombar', variant: 'jetzt_anfragen' }],
       ['schnellcheck_started', { ...common, country: 'AT' }],
       [
         'schnellcheck_result_shown',
