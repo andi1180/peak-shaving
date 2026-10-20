@@ -55,6 +55,13 @@ export type SiteRoute = {
 }
 
 /**
+ * Die Produktseite des Pro-Kalkulators (Leadgen 7b): öffentlich nicht mehr verlinkt, der Zugang
+ * läuft über das Partner-Portal. Sie soll weder ranken noch ihre Links vererben.
+ */
+export const KALKULATOR_PRODUCT_HREF = '/peak-shaving/kalkulator'
+const NOINDEX_NOFOLLOW_HREFS: readonly string[] = [KALKULATOR_PRODUCT_HREF]
+
+/**
  * Routen, die in KEINEM Menü stehen und deshalb keinen anderen Fundort haben.
  *
  * Die Startseite ist keine Nav-Zeile (sie IST das Logo), Produkte
@@ -64,8 +71,8 @@ export type SiteRoute = {
 const UNLISTED_HREFS = [
   '/',
   '/produkte',
-  // Seit Leadgen 7 nicht mehr im Menü, die Seite bleibt erreichbar und in der sitemap.
-  '/peak-shaving/kalkulator',
+  // Seit Leadgen 7 nicht mehr im Menü; erreichbar, aber noindex (s. NOINDEX_NOFOLLOW_HREFS).
+  KALKULATOR_PRODUCT_HREF,
   '/impressum',
   '/datenschutz',
   KONTAKT_HREF,
@@ -235,7 +242,8 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     href !== PROJEKTE_HREF &&
     !AUTH_HREF_SET.has(href) &&
     !LEAD_HREF_SET.has(href) &&
-    !PLACEHOLDER_HREFS.includes(href),
+    !PLACEHOLDER_HREFS.includes(href) &&
+    !NOINDEX_NOFOLLOW_HREFS.includes(href),
 }))
 
 /**
@@ -252,7 +260,8 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
 export function robotsFor(href: string): Metadata['robots'] {
   const route = SITE_ROUTES.find((r) => r.href === href)
   if (!route) throw new Error(`Route "${href}" fehlt in SITE_ROUTES (lib/routes.ts)`)
-  return route.indexable ? undefined : { index: false, follow: true }
+  if (route.indexable) return undefined
+  return { index: false, follow: !NOINDEX_NOFOLLOW_HREFS.includes(href) }
 }
 
 /* ─── Der Abgleich mit der Wirklichkeit ──────────────────────────────────── */

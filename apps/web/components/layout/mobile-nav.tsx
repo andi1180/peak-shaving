@@ -175,7 +175,7 @@ export function MobileNav() {
            */}
           <div className="shrink-0 space-y-2 border-t border-line p-4">
             {/* Partner statt Kalkulator (B16-Einstieg) — dieselbe Entscheidung wie im Desktop-Header,
-                dort begründet. Der Kalkulator bleibt über das „Peak Shaving"-Accordion oben
+                dort begründet. Der Schnellcheck bleibt über das „Peak Shaving"-Accordion oben
                 erreichbar; hier stand bis B16-Einstieg der doppelte Weg dorthin. */}
             <SheetClose asChild>
               <Button asChild variant="primary" size="lg" className="w-full">

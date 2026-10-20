@@ -576,7 +576,7 @@
     },
     "Overview": {
       "eyebrow": "Branchen",
-      "metaDescription": "Energiekosten senken in Bau, Hotellerie & Gastronomie, Handwerk, Industrie und Land- & Forstwirtschaft: typische Lastprofile, die passenden Hebel und der Peak-Shaving Kalkulator. COOLiN ENERGY, Wien.",
+      "metaDescription": "Energiekosten senken in Bau, Hotellerie & Gastronomie, Handwerk, Industrie und Land- & Forstwirtschaft: typische Lastprofile, die passenden Hebel und der Schnellcheck. COOLiN ENERGY, Wien.",
       "title": "Ihr Lastgang sieht aus wie Ihr Tagesablauf",
       "lead": "Eine Werkstatt, ein Hotel und ein Landwirtschaftsbetrieb zahlen denselben Leistungspreis — aber ihre teuerste Viertelstunde entsteht zu völlig verschiedenen Zeiten und aus völlig verschiedenen Gründen.",
       "intro": "Die Leistungen dahinter sind dieselben. Was sich unterscheidet, ist die Reihenfolge: Wo im Handwerk der Speicher zuerst wirkt, ist es in der Land- und Forstwirtschaft der Eigenverbrauch.",
@@ -605,7 +605,7 @@
           "pvSpeicher": "Bauhof- und Hallendächer sind meist groß, frei und unverbaut. Was tagsüber erzeugt wird, wird direkt verbraucht; ein Speicher fängt zusätzlich die Momente ab, in denen mehrere Geräte zusammenfallen.",
           "finanzierung": "Bau ist eine investitionsintensive Branche, und die Entscheidung über eine Anlage konkurriert mit der über Gerät und Fuhrpark. Welche Förderung greift und ob Kauf oder Contracting besser passt, gehört deshalb vor die Entscheidung — nicht danach.",
           "flagshipTitle": "Peak Shaving im Bau",
-          "flagshipText": "Der Hebel sitzt an Ihrem festen Standort — Bauhof, Halle, Werkstatt, Betriebsgebäude. Dort gibt es einen dauerhaften Zählpunkt, einen Lastgang und damit etwas, das sich rechnen lässt. Für eine wechselnde Baustelle mit Baustrom-Anschluss gilt das ausdrücklich nicht: Ein Speicher, der alle paar Monate umzieht, ist ein anderes Thema, und wir versprechen dafür nichts, bevor wir Ihren Fall gesehen haben. Was Ihr Standort hergibt, zeigt der Kalkulator aus seinem Lastgang."
+          "flagshipText": "Der Hebel sitzt an Ihrem festen Standort — Bauhof, Halle, Werkstatt, Betriebsgebäude. Dort gibt es einen dauerhaften Zählpunkt, einen Lastgang und damit etwas, das sich rechnen lässt. Für eine wechselnde Baustelle mit Baustrom-Anschluss gilt das ausdrücklich nicht: Ein Speicher, der alle paar Monate umzieht, ist ein anderes Thema, und wir versprechen dafür nichts, bevor wir Ihren Fall gesehen haben. Was Ihr Standort hergibt, zeigt der Profi-Report aus seinem Lastgang."
         },
         "kostentreiber": {
           "title": "Wo die Kosten im Bau entstehen",
@@ -688,7 +688,7 @@
           "pvSpeicher": "Der Mittagsbetrieb fällt mit dem höchsten Sonnenstand zusammen — dieser Teil des Verbrauchs lässt sich direkt decken. Der Speicher wird tagsüber geladen und fängt die Abendspitze ab, wenn längst keine Sonne mehr scheint.",
           "esg": "Firmenkunden, Reiseveranstalter und Buchungsplattformen fragen zunehmend nach belastbaren Nachhaltigkeitsdaten. Was Sie ohnehin messen, um Kosten zu senken, ist die Grundlage dafür — zwei Zwecke, eine Datenbasis.",
           "flagshipTitle": "Peak Shaving in Hotellerie & Gastronomie",
-          "flagshipText": "Mehrere kräftige Verbraucher, die gäste- und belegungsgetrieben zur selben Viertelstunde laufen: Das ist ein guter Ausgangspunkt für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe der Spitzen und an Ihrem Leistungspreis — und das rechnet der Kalkulator aus Ihrem Lastgang."
+          "flagshipText": "Mehrere kräftige Verbraucher, die gäste- und belegungsgetrieben zur selben Viertelstunde laufen: Das ist ein guter Ausgangspunkt für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe der Spitzen und an Ihrem Leistungspreis — und das rechnet der Profi-Report aus Ihrem Lastgang."
         },
         "kostentreiber": {
           "title": "Wo die Kosten in Hotellerie & Gastronomie entstehen",
@@ -771,7 +771,7 @@
           "smartHeating": "Wird die Halle elektrisch beheizt, ist die Heizung eine steuerbare Wärmelast: Wärme dann erzeugen, wenn unter der Spitze Platz ist. Läuft sie stattdessen zufällig zur Anlaufzeit mit, hebt sie die Spitze, ohne dass jemand es merkt.",
           "pvSpeicher": "Das Werkstattdach ist meist frei und unverschattet. Der Speicher fängt den Anlauf ab; geladen wird er tagsüber, wenn ohnehin Überschuss anfällt.",
           "flagshipTitle": "Peak Shaving im Handwerk",
-          "flagshipText": "Ein einzelner, kurzer, jeden Tag wiederkehrender Ausschlag über einem niedrigen Sockel: Das ist das Lehrbuchprofil für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe des Anlaufs und an Ihrem Leistungspreis — und das rechnet der Kalkulator aus Ihrem Lastgang."
+          "flagshipText": "Ein einzelner, kurzer, jeden Tag wiederkehrender Ausschlag über einem niedrigen Sockel: Das ist das Lehrbuchprofil für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe des Anlaufs und an Ihrem Leistungspreis — und das rechnet der Profi-Report aus Ihrem Lastgang."
         },
         "kostentreiber": {
           "title": "Wo die Kosten im Handwerk entstehen",
@@ -791,7 +791,7 @@
             },
             {
               "title": "Ab 2027 sehen es auch die Kleinen",
-              "text": "Wer heute unter der Messschwelle liegt, zahlt keinen Leistungspreis und kennt seine Spitze nicht. Die geplante Umstellung der Netzentgelte setzt auf dem Smart Meter auf — dann steht sie auf der Rechnung."
+              "text": "Wer heute unter der Messschwelle liegt, zahlt keinen Leistungspreis und kennt seine Spitze nicht. Die kundgemachte Umstellung der Netzentgelte setzt auf dem Smart Meter auf — dann steht sie auf der Rechnung."
             }
           ]
         },
@@ -804,7 +804,7 @@
             },
             {
               "q": "Wir zahlen gar keinen Leistungspreis. Ist das Thema für uns relevant?",
-              "a": "Heute vielleicht nicht, ab 2027 voraussichtlich schon. Der Leistungspreis hängt derzeit an einer Messschwelle, unter der die meisten Klein- und Mittelbetriebe liegen. Die geplante Neuordnung der Netzentgelte setzt stattdessen auf dem Smart Meter auf — die Spitze wird dann auch dort abgerechnet, wo sie bisher niemand gesehen hat. Was das konkret bedeutet, steht im Artikel zum Leistungstarif 2027."
+              "a": "Heute vielleicht nicht, ab 2027 voraussichtlich schon. Der Leistungspreis hängt derzeit an einer Messschwelle, unter der die meisten Klein- und Mittelbetriebe liegen. Die kundgemachte Neuordnung der Netzentgelte setzt stattdessen auf dem Smart Meter auf — die Spitze wird dann auch dort abgerechnet, wo sie bisher niemand gesehen hat. Was das konkret bedeutet, steht im Artikel zum Leistungstarif 2027."
             },
             {
               "q": "Woher weiß ich, wie hoch mein Anlauf wirklich ist?",
@@ -854,7 +854,7 @@
           "pvSpeicher": "Hallendächer sind groß, und die Produktion verbraucht tagsüber. Der Eigenverbrauchsanteil ist dadurch hoch, auch ohne Speicher. Der Speicher kommt dazu, wenn die Spitzen es rechtfertigen — nicht automatisch.",
           "ppa": "Ab einer gewissen Abnahmemenge ist Strom kein Tarif mehr, sondern eine Beschaffungsentscheidung. Preis- und Risikomodell, Vertragsstruktur und Herkunftsnachweise wirken dann über das ganze Portfolio, nicht je Standort.",
           "flagshipTitle": "Peak Shaving in der Industrie",
-          "flagshipText": "Der Mechanismus ist derselbe wie beim kleinen Betrieb, die Größenordnung eine andere — und damit auch die Auslegung: Ein Speicher, der eine Produktionsspitze abfangen soll, braucht Leistung, nicht nur Kapazität. Ob sich das rechnet, hängt daran, wie hoch die Ausschläge über dem Plateau liegen und wie oft sie kommen. Der Kalkulator rechnet es aus Ihrem Lastgang durch."
+          "flagshipText": "Der Mechanismus ist derselbe wie beim kleinen Betrieb, die Größenordnung eine andere — und damit auch die Auslegung: Ein Speicher, der eine Produktionsspitze abfangen soll, braucht Leistung, nicht nur Kapazität. Ob sich das rechnet, hängt daran, wie hoch die Ausschläge über dem Plateau liegen und wie oft sie kommen. Der Profi-Report rechnet es aus Ihrem Lastgang durch."
         },
         "kostentreiber": {
           "title": "Wo die Kosten in der Industrie entstehen",
@@ -937,7 +937,7 @@
           "pvSpeicher": "Hier passt die Erzeugung oft zur Nutzung: Bewässerung und Kühlung brauchen dann am meisten Strom, wenn die Sonne am stärksten scheint. Dach- und Freiflächen sind meist vorhanden. Was erzeugt wird, wird direkt verbraucht — dafür braucht es nicht einmal einen Speicher.",
           "finanzierung": "Für land- und forstwirtschaftliche Betriebe gibt es eigene Förderschienen, die neben den allgemeinen Energieförderungen stehen. Welche greift und wie sie sich mit einer Investitionsentscheidung verträgt, gehört vor die Anschaffung.",
           "flagshipTitle": "Und Peak Shaving?",
-          "flagshipText": "Hier ist es selten der erste Hebel, und das sagen wir lieber vorher als hinterher: Ein Lastprofil, das der Saison folgt, hat keine verlässlich wiederkehrende Spitze, auf die sich ein Speicher auslegen ließe. Ausschließen lässt es sich ohne Blick auf den Lastgang trotzdem nicht — bei fester Infrastruktur mit gleichmäßigem Betrieb, etwa einem Kühlhaus oder den Hofgebäuden, kann eine saubere Spitze durchaus da sein. Der Kalkulator zeigt, ob Ihre dazugehört."
+          "flagshipText": "Hier ist es selten der erste Hebel, und das sagen wir lieber vorher als hinterher: Ein Lastprofil, das der Saison folgt, hat keine verlässlich wiederkehrende Spitze, auf die sich ein Speicher auslegen ließe. Ausschließen lässt es sich ohne Blick auf den Lastgang trotzdem nicht — bei fester Infrastruktur mit gleichmäßigem Betrieb, etwa einem Kühlhaus oder den Hofgebäuden, kann eine saubere Spitze durchaus da sein. Der Profi-Report zeigt, ob Ihre dazugehört."
         },
         "kostentreiber": {
           "title": "Wo die Kosten in der Land- und Forstwirtschaft entstehen",
@@ -1453,7 +1453,7 @@
       "eyebrow": "Beispielhafte Darstellung",
       "title": "Lastgang vor und nach der Kappung",
       "lead": "Ein Tagesverlauf, wie er in vielen Betrieben entsteht: Die Grundlast läuft durch, am frühen Morgen erzeugt der Anlauf eine kurze, hohe Spitze. Der Speicher deckt genau diese Differenz — der Netzbezug bleibt unter der Schwelle. Die zweite, kleinere Erhebung am Nachmittag bleibt ohnehin darunter und kostet nichts extra.",
-      "disclaimer": "Beispielhafte Darstellung mit synthetischen Werten, die allein das Prinzip veranschaulichen. Keine Kundenmessung und kein Rechenergebnis. Ihr tatsächliches Profil ermittelt der Peak-Shaving Kalkulator aus Ihren eigenen Lastgangdaten.",
+      "disclaimer": "Beispielhafte Darstellung mit synthetischen Werten, die allein das Prinzip veranschaulichen. Keine Kundenmessung und kein Rechenergebnis. Ihr tatsächliches Profil ermittelt der Profi-Report aus Ihren eigenen Lastgangdaten.",
       "seriesBefore": "Netzbezug ohne Speicher",
       "seriesAfter": "Netzbezug mit Speicher",
       "capLabel": "Kappungsschwelle",
@@ -1493,7 +1493,7 @@
     "Cta": {
       "eyebrow": "Ihr Potenzial",
       "title": "Einsparpotenzial in zwei Minuten schätzen",
-      "lead": "Der Schnellcheck gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Peak-Shaving Kalkulator.",
+      "lead": "Der Schnellcheck gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Profi-Report.",
       "cta": "Zum Schnellcheck"
     }
   },
@@ -2136,7 +2136,7 @@
   },
   "Warteliste": {
     "metaTitle": "Warteliste: Leistungstarif 2027",
-    "metaDescription": "Zum 1. Jänner 2027 erreicht der Leistungstarif die Netzebene 7. Die Beträge stehen noch nicht fest — tragen Sie sich ein, und wir schreiben Ihnen, sobald die Tarifverordnung veröffentlicht ist. Kostenlos und jederzeit abbestellbar.",
+    "metaDescription": "Ab 1. Jänner 2027 erreicht der Leistungstarif die Netzebene 7, umgestellt wird bis spätestens 30. Juni 2028. Die Beträge stehen noch nicht fest — tragen Sie sich ein, und wir schreiben Ihnen, sobald die Tarifverordnung veröffentlicht ist. Kostenlos und jederzeit abbestellbar.",
     "eyebrow": "Kostenlos",
     "title": "Wir sagen Ihnen Bescheid, sobald die Sätze feststehen",
     "lead": "Zum 1. Jänner 2027 ändert sich, wofür Netzkosten verrechnet werden — auch für Betriebe, die bisher keine Leistungsmessung haben. Was das für Ihren Betrieb bedeutet, lässt sich erst rechnen, wenn die Tarifverordnung veröffentlicht ist. Tragen Sie sich ein, dann melden wir uns, sobald es so weit ist.",
@@ -2144,7 +2144,7 @@
     "wkoLead": "Sie haben von uns Post erhalten — über den QR-Code darin sind Sie hier gelandet. Zum 1. Jänner 2027 ändert sich, wofür Netzkosten verrechnet werden, auch für Betriebe ohne bisherige Leistungsmessung. Was das für Ihren Betrieb bedeutet, lässt sich erst rechnen, wenn die Tarifverordnung veröffentlicht ist. Tragen Sie sich ein, dann melden wir uns, sobald es so weit ist.",
     "change": {
       "title": "Was sich zum 1. Jänner 2027 ändert",
-      "body1": "Die Systemnutzungsentgelte werden neu geordnet. Der Leistungstarif — der Teil der Netzkosten, der sich nicht am Verbrauch bemisst, sondern an der höchsten bezogenen Leistung — erreicht dabei die Netzebene 7. Das ist die Ebene, an der die meisten Gewerbebetriebe hängen, die heute keine Leistungsmessung haben.",
+      "body1": "Die Systemnutzungsentgelte werden neu geordnet. Der Leistungstarif — der Teil der Netzkosten, der sich nicht am Verbrauch bemisst, sondern an der höchsten bezogenen Leistung — erreicht dabei die Netzebene 7 — umgestellt wird je Netzgebiet bis spätestens 30. Juni 2028. Das ist die Ebene, an der die meisten Gewerbebetriebe hängen, die heute keine Leistungsmessung haben.",
       "body2": "Wie hoch die Beträge ausfallen, steht noch nicht fest: Die Verordnung, die die Grundsätze regelt, ist kundgemacht (am 12.10.2026, BGBl. II Nr. 299/2026), die Tarifverordnung mit den Sätzen ist noch nicht veröffentlicht. Solange das so ist, wäre jede Zahl an dieser Stelle erfunden — deshalb steht hier keine."
     },
     "effect": {
@@ -2396,7 +2396,7 @@
       "long": {
         "label": "Ausführliche Fassung",
         "subject": "Leistungstarif ab 2027 — eine Einschätzung für Ihren Betrieb",
-        "body": "Guten Tag,\n\nmit 1. Jänner 2027 ändert sich in Österreich die Systematik der Netzentgelte. Bisher zahlen die meisten Gewerbebetriebe im Wesentlichen für die verbrauchte Energie. Künftig wird zusätzlich die höchste bezogene Leistung abgerechnet — also der eine Viertelstundenwert, in dem am meisten gleichzeitig gelaufen ist.\n\nFür Betriebe mit kurzen, kräftigen Lastspitzen — Kühlung, Druckluft, Öfen, Maschinenanlauf — kann das spürbar sein. Wie spürbar, hängt vom einzelnen Lastgang ab und lässt sich nicht pauschal sagen.\n\nWir arbeiten deshalb mit COOLiN ENERGY zusammen. COOLiN ist auf genau diese Frage spezialisiert und geht so vor:\n\n1. Sie stellen Ihren Viertelstunden-Lastgang und Ihre aktuelle Netzrechnung bereit. Den Lastgang bekommen Sie kostenlos von Ihrem Netzbetreiber.\n2. COOLiN wertet beides aus und zeigt Ihnen, wann Ihre Spitzen entstehen und was sie unter der neuen Systematik kosten würden.\n3. Sie erhalten eine nachvollziehbare Einschätzung — mit den Annahmen, auf denen sie beruht. Ob Sie daraus etwas machen, entscheiden Sie.\n\nCOOLiN prüft und rechnet; verkauft wird dabei nichts. Sollte sich eine technische Maßnahme rechnen, kommen wir als Ihr Fachbetrieb ins Spiel.\n\nHier können Sie sich unverbindlich melden:\n{link}\n\nFür Rückfragen bin ich wie gewohnt für Sie da.\n\nMit freundlichen Grüßen"
+        "body": "Guten Tag,\n\nmit 1. Jänner 2027 ändert sich in Österreich die Systematik der Netzentgelte. Bisher zahlen die meisten Gewerbebetriebe im Wesentlichen für die verbrauchte Energie. Künftig wird zusätzlich die höchste bezogene Leistung abgerechnet — also je Monat der eine Viertelstundenwert, in dem am meisten gleichzeitig gelaufen ist.\n\nFür Betriebe mit kurzen, kräftigen Lastspitzen — Kühlung, Druckluft, Öfen, Maschinenanlauf — kann das spürbar sein. Wie spürbar, hängt vom einzelnen Lastgang ab und lässt sich nicht pauschal sagen.\n\nWir arbeiten deshalb mit COOLiN ENERGY zusammen. COOLiN ist auf genau diese Frage spezialisiert und geht so vor:\n\n1. Sie stellen Ihren Viertelstunden-Lastgang und Ihre aktuelle Netzrechnung bereit. Den Lastgang bekommen Sie kostenlos von Ihrem Netzbetreiber.\n2. COOLiN wertet beides aus und zeigt Ihnen, wann Ihre Spitzen entstehen und was sie unter der neuen Systematik kosten würden.\n3. Sie erhalten eine nachvollziehbare Einschätzung — mit den Annahmen, auf denen sie beruht. Ob Sie daraus etwas machen, entscheiden Sie.\n\nCOOLiN prüft und rechnet; verkauft wird dabei nichts. Sollte sich eine technische Maßnahme rechnen, kommen wir als Ihr Fachbetrieb ins Spiel.\n\nHier können Sie sich unverbindlich melden:\n{link}\n\nFür Rückfragen bin ich wie gewohnt für Sie da.\n\nMit freundlichen Grüßen"
       }
     },
     "stats": {
