@@ -1,7 +1,8 @@
 /*
  * PDF-Schnellreport (Leadgen-Umbau Schritt 3b-1) — das Inhaltsmodell: aus den Eingaben werden alle
- * Zeichenketten der vier Seiten. Rein, ohne React und ohne Datenbank; das Layout liest nur dieses
- * Modell. Vorlage: `docs/prototypes/schnellreport-prototyp.html`, Abschnitt „2 · PDF".
+ * Zeichenketten der sieben Seiten. Rein, ohne React und ohne Datenbank; das Layout liest nur dieses
+ * Modell. Vorlage: `docs/prototypes/schnellreport-prototyp.html`, Abschnitt „2 · PDF"; Deckblatt,
+ * Abschlussblatt und Kopf-/Fusszeile im Look des Profi-Reports (3b-1-2).
  */
 import { createTranslator } from 'next-intl'
 import messages from '@/messages/de.json'
@@ -25,7 +26,11 @@ export function isBrancheKey(value: unknown): value is BrancheKey {
   return typeof value === 'string' && (BRANCHE_KEYS as readonly string[]).includes(value)
 }
 
-export const PAGE_COUNT = 4
+/** Deckblatt, vier Inhaltsseiten, „Unsere Software", Abschlussblatt. */
+export const PAGE_COUNT = 7
+
+export const SOFTWARE_STATUSES = ['available', 'from2027', 'projectCustomers'] as const
+export type SoftwareStatus = (typeof SOFTWARE_STATUSES)[number]
 
 /** Stundenwerte der statischen Tageskurve auf Seite 2 (Anteil der Spitze, 0–1). */
 export const DAY_LOAD = [
@@ -50,14 +55,25 @@ export type SchnellreportInput = {
 
 type Fact = { when: string; text: string }
 type Lever = { title: string; text: string }
-type ContactField = { label: string; value: string }
+type MetaRow = { label: string; value: string }
+type SoftwareModule = { title: string; status: string; accent: boolean; text: string }
 
 export type SchnellreportContent = {
-  brand: { prefix: string; i: string; suffix: string }
   pageOf: (page: number) => string
-  headMeta: string
+  /** Marke + Unterzeile der navyfarbenen Seiten, Wortmarke der Kopfzeile. */
+  brand: { name: string; sub: string }
+  /** Firma in der Kopfzeile; `null` bei leerer Eingabe (kein Fallback-Text in der Kopfzeile). */
+  headerFirma: string | null
+  footer: { address: string; web: string }
+  cover: {
+    titleLine1: string
+    titleLine2: string
+    subtitle: string
+    customerLabel: string
+    firma: string | null
+    rows: MetaRow[]
+  }
   page1: {
-    createdOn: string
     kicker: string
     title: string
     forPrefix: string
@@ -80,7 +96,6 @@ export type SchnellreportContent = {
     meaningTitle: string
     meaning: string
     source: string
-    footer: string
   }
   page2: {
     kicker: string
@@ -90,7 +105,6 @@ export type SchnellreportContent = {
     general: string
     leversTitle: string
     levers: Lever[]
-    footer: string
   }
   page3: {
     kicker: string
@@ -98,7 +112,6 @@ export type SchnellreportContent = {
     facts: Fact[]
     checklistTitle: string
     checklist: string[]
-    footer: string
   }
   page4: {
     kicker: string
@@ -110,8 +123,15 @@ export type SchnellreportContent = {
     ctaNote: string
     example: string
     talk: string
-    contact: ContactField[]
-    footer: string
+  }
+  software: { kicker: string; title: string; intro: string; modules: SoftwareModule[] }
+  closing: {
+    title: string
+    text: string
+    contactLabel: string
+    /** Name zuerst, dann Funktion, Telefon, E-Mail — leere Einstellungen fallen weg. */
+    contact: { name: string | null; role: string | null; lines: string[] }
+    footerLines: [string, string]
   }
 }
 
@@ -153,20 +173,36 @@ export function buildSchnellreportContent(
       ? tc('noteAT', { price: result.demandPrice })
       : tc('noteDE', { price: result.demandPrice, hours: formatGrouped(result.usageHours) })
 
-  const contact: ContactField[] = []
-  if (settings.contactName.trim())
-    contact.push({ label: t('page4.contactName'), value: settings.contactName.trim() })
-  if (settings.phone.trim())
-    contact.push({ label: t('page4.contactPhone'), value: settings.phone.trim() })
-  contact.push({ label: t('page4.contactEmail'), value: COMPANY.email })
-  contact.push({ label: t('page4.contactWeb'), value: 'coolin.at' })
+  const pageOf = (page: number) => t('pageOf', { page, total: PAGE_COUNT })
+  const createdOn = formatDate(input.createdAt, input.country)
+  const enteredFirma = input.firma.trim() || null
+  const address = `${COMPANY.name} · ${COMPANY.street} · ${COMPANY.city}`
+  const web = 'www.coolin.at'
+  const orNull = (value: string) => value.trim() || null
+  const statusLabels = t.raw('software.statuses') as Record<SoftwareStatus, string>
+  const modules = t.raw('software.modules') as {
+    title: string
+    status: SoftwareStatus
+    text: string
+  }[]
 
   return {
-    brand: { prefix: t('brandPrefix'), i: t('brandI'), suffix: t('brandSuffix') },
-    pageOf: (page) => t('pageOf', { page, total: PAGE_COUNT }),
-    headMeta: t('headMeta', { firma }),
+    pageOf,
+    brand: { name: COMPANY.name, sub: t('brandSub') },
+    headerFirma: enteredFirma,
+    footer: { address, web },
+    cover: {
+      titleLine1: t('cover.titleLine1'),
+      titleLine2: t('cover.titleLine2'),
+      subtitle: t('cover.subtitle'),
+      customerLabel: t('cover.customerLabel'),
+      firma: enteredFirma,
+      rows: [
+        { label: t('cover.country'), value: tc(isAT ? 'countryAT' : 'countryDE') },
+        { label: t('cover.createdAt'), value: createdOn },
+      ],
+    },
     page1: {
-      createdOn: t('createdOn', { date: formatDate(input.createdAt, input.country) }),
       kicker: t('page1.kicker'),
       title: t('page1.title'),
       forPrefix: t('page1.forPrefix'),
@@ -208,7 +244,6 @@ export function buildSchnellreportContent(
         t('page1.meaningAfter'),
       ].join(' '),
       source: `${note} ${t('page1.net')}`,
-      footer: t('page1.footer'),
     },
     page2: {
       kicker: t('page2.kicker'),
@@ -218,7 +253,6 @@ export function buildSchnellreportContent(
       general: t('page2.general'),
       leversTitle: t('page2.leversTitle'),
       levers: t.raw('page2.levers') as Lever[],
-      footer: t('page2.footer'),
     },
     page3: {
       kicker: t('page3.kicker'),
@@ -226,7 +260,6 @@ export function buildSchnellreportContent(
       facts: t.raw(isAT ? 'page3.factsAT' : 'page3.factsDE') as Fact[],
       checklistTitle: t('page3.checklistTitle'),
       checklist: t.raw('page3.checklist') as string[],
-      footer: t('page3.footer'),
     },
     page4: {
       kicker: t('page4.kicker'),
@@ -240,8 +273,31 @@ export function buildSchnellreportContent(
       ctaNote: t('page4.ctaNote'),
       example: t('page4.example'),
       talk: t('page4.talk'),
-      contact,
-      footer: t('page4.footer'),
+    },
+    software: {
+      kicker: t('software.kicker'),
+      title: t('software.title'),
+      intro: t('software.intro'),
+      modules: modules.map((m) => ({
+        title: m.title,
+        status: statusLabels[m.status],
+        accent: m.status === 'available',
+        text: m.text,
+      })),
+    },
+    closing: {
+      title: t('closing.title'),
+      text: t('closing.text'),
+      contactLabel: t('closing.contactLabel'),
+      contact: {
+        name: orNull(settings.contactName),
+        role: orNull(settings.contactRole),
+        lines: [settings.phone, settings.email].map((v) => v.trim()).filter(Boolean),
+      },
+      footerLines: [
+        `${address} · ${web}`,
+        t('closing.footerDoc', { date: createdOn, pageOf: pageOf(PAGE_COUNT) }),
+      ],
     },
   }
 }

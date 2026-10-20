@@ -4,19 +4,26 @@
  * Platzhalter wie „[Name]" darf nie im Kundendokument landen.
  */
 export type SchnellreportSettings = {
-  /** Ansprechpartner im Kontaktblock auf Seite 4. */
+  /** Ansprechpartner auf dem Abschlussblatt. */
   contactName: string
-  /** Telefonnummer im Kontaktblock auf Seite 4. */
+  /** Funktion des Ansprechpartners. */
+  contactRole: string
+  /** Telefonnummer auf dem Abschlussblatt. */
   phone: string
-  /** Preis des Profi-Reports (Seite 4); leer = Preisblock entfällt. */
+  /** E-Mail-Adresse auf dem Abschlussblatt. */
+  email: string
+  /** Preis des Profi-Reports (Seite „Profi-Report"); leer = Preisblock entfällt. */
   price: string
   /** Zusatz neben dem Preis. */
   priceNote: string
 }
 
+// Telefon in der Schreibweise des Impressums (`COMPANY_LEGAL.phone`), wie im Profi-Report.
 export const SCHNELLREPORT_SETTINGS: SchnellreportSettings = {
-  contactName: '',
-  phone: '',
+  contactName: 'Martin Neubauer',
+  contactRole: 'CEO',
+  phone: '+43 676 76 30456',
+  email: 'energy@coolin.at',
   price: '495 €',
   priceNote: 'Einführungspreis bis 31.12.2026, zzgl. USt.',
 }
