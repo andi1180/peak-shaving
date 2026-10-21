@@ -1365,7 +1365,7 @@
     "ProfiTeaser": {
       "eyebrow": "Profi-Report",
       "title": "Die genaue Antwort für Ihren Betrieb",
-      "lead": "Wir rechnen mit Ihrem echten Lastgang, Viertelstunde für Viertelstunde, mit Ihren Netztarifen und mit echten Speichern.",
+      "lead": "Wir rechnen mit Ihrem echten Lastgang, Viertelstunde für Viertelstunde, mit Ihren Netztarifen und mit echten Speichern. Eine Spitze allein trägt selten einen Speicher. Der Profi-Report rechnet Leistungspreis, Eigenverbrauch und dynamischen Tarif zusammen.",
       "questions": [
         {
           "title": "Wie viel kann ich sparen?",
@@ -1382,6 +1382,7 @@
       ],
       "ctaBeispiel": "Beispiel-Report ansehen",
       "ctaAnfragen": "Profi-Report anfragen",
+      "beispielSource": "Echter Betrieb, echter Lastgang: ein Gastronomiebetrieb in Wien, anonymisiert, mit Freigabe des Kunden.",
       "stackTag": "Echter Bericht, anonymisiert · 23 Seiten"
     },
     "Faq": {
@@ -1494,7 +1495,7 @@
       "eyebrow": "Ihr Potenzial",
       "title": "Einsparpotenzial in zwei Minuten schätzen",
       "lead": "Der Schnellcheck gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Profi-Report.",
-      "cta": "Zum Schnellcheck"
+      "cta": "Profi-Report ansehen"
     }
   },
   "PeakShavingCalculator": {
@@ -2792,6 +2793,7 @@
       "eyebrow": "Profi-Report",
       "title": "Die genaue Antwort für Ihren Betrieb",
       "lead": "Wir rechnen mit Ihrem echten Lastgang, Viertelstunde für Viertelstunde, mit Ihren Netztarifen und mit echten Speichern. Sie erfahren, wie viel Sie sparen, welcher Speicher passt und wann er sich bezahlt macht.",
+      "claim": "Kein Tool, keine Lizenz. Wir rechnen für Sie – zum Fixpreis.",
       "cta": "Profi-Report anfragen",
       "note": "Wir melden uns innerhalb eines Werktags per E-Mail.",
       "tag": "Echter Bericht, anonymisiert · 23 Seiten"
@@ -2801,12 +2803,12 @@
       "title": "Drei Fragen, klar beantwortet",
       "items": [
         {
-          "title": "Wie viel kann ich sparen?",
-          "text": "Ihre Stromkosten heute und mit jedem möglichen Weg: Tarifwechsel, Börsenpreis, Speicher mit intelligenter Ladesteuerung und Kappung der Spitzen. Jeder Weg mit eigener Zahl."
+          "title": "Ein konkreter Speichervorschlag",
+          "text": "Hersteller, Modell und Listenpreis netto mit Preisstand – aus unserem Katalog von Gewerbespeichern mehrerer Hersteller, mit den Alternativen im Vergleich. Rechnet sich keiner, steht genau das im Report. Listenpreise ohne Montage."
         },
         {
-          "title": "Welcher Speicher passt?",
-          "text": "Wir vergleichen echte Geräte an Ihrem Lastgang und empfehlen das, das sich über zehn Jahre am besten rechnet. Größer ist nicht automatisch besser."
+          "title": "Wie viel kann ich sparen?",
+          "text": "Ihre Stromkosten heute und mit jedem möglichen Weg: Tarifwechsel, Börsenpreis, Speicher mit intelligenter Ladesteuerung und Kappung der Spitzen. Jeder Weg mit eigener Zahl."
         },
         {
           "title": "Wann rechnet es sich?",
@@ -2817,7 +2819,7 @@
     "beispiel": {
       "eyebrow": "Blättern Sie selbst",
       "title": "So sieht ein Profi-Report aus",
-      "lead": "Ein echter Bericht für einen Gastronomiebetrieb in Wien, mit Freigabe des Kunden und ohne Namen. Ihre Zahlen werden andere sein.",
+      "lead": "Echter Betrieb, echter Lastgang: ein Gastronomiebetrieb in Wien, anonymisiert, mit Freigabe des Kunden. Ihre Zahlen werden andere sein.",
       "pageOf": "Seite {page} von 23",
       "thumb": "Seite {page}: {title}",
       "imageAlt": "Beispiel-Report, Seite {page}: {title}",

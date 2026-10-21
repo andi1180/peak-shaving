@@ -55,4 +55,22 @@ describe('/profi-report (4b)', () => {
     }
     expect(html).toContain(`${SCHNELLREPORT_SETTINGS.contactName}, ${SCHNELLREPORT_SETTINGS.phone}`)
   })
+
+  it('Leadgen 7c: Speichervorschlag als erster Punkt, Fixpreis-Zeile, Herkunft des Beispiels', () => {
+    const html = render()
+    const first = html.indexOf('Ein konkreter Speichervorschlag')
+    expect(html).toContain('Was Sie bekommen')
+    expect(first).toBeGreaterThan(html.indexOf('Was Sie bekommen'))
+    expect(first).toBeLessThan(html.indexOf('Wie viel kann ich sparen?'))
+    expect(html).toContain(
+      'Hersteller, Modell und Listenpreis netto mit Preisstand – aus unserem Katalog von Gewerbespeichern mehrerer Hersteller, mit den Alternativen im Vergleich. Rechnet sich keiner, steht genau das im Report. Listenpreise ohne Montage.',
+    )
+    expect(html).toContain('Kein Tool, keine Lizenz. Wir rechnen für Sie – zum Fixpreis.')
+    expect(
+      html.split(
+        'Echter Betrieb, echter Lastgang: ein Gastronomiebetrieb in Wien, anonymisiert, mit Freigabe des Kunden.',
+      ).length - 1,
+    ).toBe(1)
+    expect(html).not.toContain('Ein echter Bericht für einen Gastronomiebetrieb in Wien')
+  })
 })
