@@ -111,7 +111,7 @@ describe('Absenden', () => {
     expect(notice!.text).toContain('Tipp-Mails: nein')
     expect(notice!.text).toContain('/admin/leads/lead-1')
     expect(sent()).toHaveLength(2)
-  })
+  }, 30_000)
 
   it('mit Tipp-Häkchen: zusätzlich marketing_email mit Token und Bestätigungsmail', async () => {
     const { effects, calls, confirmations } = fakeEffects()

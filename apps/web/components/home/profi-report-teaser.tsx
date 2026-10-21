@@ -111,6 +111,7 @@ export function ProfiReportTeaser({
               {t('ctaAnfragen')}
             </CtaProfiReportLink>
           </div>
+          <p className="m-0 mt-3 text-[13px] text-navy-foreground-muted">{t('beispielSource')}</p>
         </div>
 
         <div

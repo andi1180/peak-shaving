@@ -96,4 +96,19 @@ describe('FAQ der Startseite (Leadgen 7)', () => {
       })),
     ).toEqual(visible)
   })
+
+  it('Leadgen 7c: Ergänzung nach der Einleitung und Herkunft des Beispiels', () => {
+    const html = render(<ProfiReportTeaser />)
+    const lead = html.indexOf('Wir rechnen mit Ihrem echten Lastgang')
+    const addition = html.indexOf(
+      'Eine Spitze allein trägt selten einen Speicher. Der Profi-Report rechnet Leistungspreis, Eigenverbrauch und dynamischen Tarif zusammen.',
+    )
+    expect(lead).toBeGreaterThan(-1)
+    expect(addition).toBeGreaterThan(lead)
+    expect(
+      html.split(
+        'Echter Betrieb, echter Lastgang: ein Gastronomiebetrieb in Wien, anonymisiert, mit Freigabe des Kunden.',
+      ).length - 1,
+    ).toBe(1)
+  })
 })

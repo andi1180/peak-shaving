@@ -69,7 +69,8 @@ export function ProfiReportPage({
           <h1 className="m-0 mb-[18px] text-balance text-[clamp(34px,4.2vw,50px)] font-bold leading-[1.06] tracking-[-0.025em] text-navy">
             {t('hero.title')}
           </h1>
-          <p className={cn(LEAD, 'mb-[26px]')}>{t('hero.lead')}</p>
+          <p className={cn(LEAD, 'mb-2.5')}>{t('hero.lead')}</p>
+          <p className={cn(LEAD, 'mb-[26px] font-semibold text-ink')}>{t('hero.claim')}</p>
           <div className="grid max-w-[460px] gap-[14px] rounded-[14px] border border-line bg-surface px-[22px] py-5 shadow-[0_1px_2px_rgba(15,23,42,.04),0_14px_32px_-22px_rgba(15,23,42,.25)]">
             {price && (
               <div className="flex flex-wrap items-baseline gap-3">
