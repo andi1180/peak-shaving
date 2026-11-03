@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: PostHog-Property `land` aus `x-vercel-ip-country`]** (03.11.2026). `GET /api/land` liefert `{land}` (zwei Grossbuchstaben, sonst `null`; `no-store`, keine IP, kein Cookie); `startPostHog` fragt sie parallel zum Chunk-Laden ab (Timeout 1,5 s, Fehler → ohne Land) und `register`t `land` direkt nach `init`, vor dem ersten `$pageview` (posthog-js schickt ihn per `setTimeout`). Interne Geräte fragen nicht; nichts im Browser gespeichert (Persistenz ist cookielos deaktiviert, `register` lebt nur im Speicher der Seitenladung). Ein Satz in Datenschutz §5.
+  - **[OFFEN]** Datenschutz §5 sagt weiterhin „Aufgezeichnet werden ausschließlich Seitenaufrufe“ — seit Leadgen 5 laufen auch Funnel-Ereignisse `[rechtlich]`.
+
 - **[GEBAUT: `$pageleave` ausdrücklich an, interne Geräte messen nicht]** (03.11.2026). Init-Optionen und Startentscheidung in `lib/analytics/posthog-start.ts` (`capture_pageleave: true` statt Default); kein Commit hatte `$pageleave` abgeschaltet — der Rückgang ab 28.10. kommt aus Bot-/Monitor-Aufrufen ohne `pagehide` (PostHog 228378). `$pageleave` kommt nur beim Verlassen des Dokuments, SPA-Wechsel tragen `$prev_pageview_duration`.
   - Markierung `localStorage.coolin_intern = '1'` (`lib/analytics/internal-device.ts`): gesetzt im Admin-Layout (nur Zugangs-Zweig) und über `/intern` (noindex, nicht in der sitemap, ohne Login); markiert → posthog-js wird weder geladen noch initialisiert, `/intern` selbst nie. **⚠ `opt_out_capturing()` ist bei `cookieless_mode: 'always'` wirkungslos** — nicht als Ersatz nehmen.
 

@@ -52,6 +52,32 @@ export function posthogInitOptions(apiHost: string) {
 
 export type PostHogLike = AnalyticsClient & {
   init: (key: string, options: ReturnType<typeof posthogInitOptions>) => unknown
+  register: (properties: Record<string, string>) => unknown
+}
+
+/** Zwei Grossbuchstaben (ISO 3166-1 alpha-2), sonst `null`. */
+export function parseLand(value: unknown): string | null {
+  return typeof value === 'string' && /^[A-Z]{2}$/.test(value) ? value : null
+}
+
+export const LAND_TIMEOUT_MS = 1500
+
+/**
+ * Fragt `/api/land` je Seitenladung neu ab — bewusst ohne Ablage im Browser (cookielos). Jeder
+ * Fehler und der Timeout ergeben `null`; die Messung startet dann ohne Land.
+ */
+export async function fetchLand(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/land', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(LAND_TIMEOUT_MS),
+    })
+    if (!response.ok) return null
+    const body: unknown = await response.json()
+    return parseLand((body as { land?: unknown } | null)?.land)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -69,14 +95,19 @@ export async function startPostHog(options: {
   pathname: string
   store?: DeviceStorage | null
   load: () => Promise<PostHogLike>
+  /** Vorgabe `fetchLand`; im Test ersetzt. */
+  getLand?: () => Promise<string | null>
   isCancelled: () => boolean
   onReady: (client: PostHogLike) => void
 }): Promise<boolean> {
   if (!analyticsAllowed(options.pathname, options.store)) return false
-  const posthog = await options.load()
+  // Chunk und Land parallel; `getLand` fängt jeden Fehler selbst ab.
+  const [posthog, land] = await Promise.all([options.load(), (options.getLand ?? fetchLand)()])
   // Der Nutzer kann die Seite verlassen haben, während der Chunk lud.
   if (options.isCancelled()) return false
   posthog.init(options.key, posthogInitOptions(options.apiHost))
+  // Vor dem ersten `$pageview`: den schickt posthog-js erst per setTimeout nach `init`.
+  if (land) posthog.register({ land })
   options.onReady(posthog)
   return true
 }

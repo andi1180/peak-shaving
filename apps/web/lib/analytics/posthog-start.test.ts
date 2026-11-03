@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { robotsFor, SITE_ROUTES } from '@/lib/routes'
 import { INTERNAL_DEVICE_KEY, INTERN_HREF, type DeviceStorage } from './internal-device'
-import { posthogInitOptions, startPostHog, type PostHogLike } from './posthog-start'
+import {
+  fetchLand,
+  LAND_TIMEOUT_MS,
+  posthogInitOptions,
+  startPostHog,
+  type PostHogLike,
+} from './posthog-start'
 
 function memoryStorage(entries: Record<string, string> = {}): DeviceStorage {
   const map = new Map(Object.entries(entries))
@@ -24,9 +30,28 @@ const brokenStorage: DeviceStorage = {
   },
 }
 
-function harness(pathname: string, store: DeviceStorage | null) {
-  const posthog: PostHogLike = { init: vi.fn(), capture: vi.fn() }
+/** Wie posthog-js: `init` schickt den ersten `$pageview` per setTimeout, mit den registrierten Eigenschaften. */
+function fakePostHog() {
+  const registered: Record<string, string> = {}
+  const captured: { event: string; properties: object }[] = []
+  const posthog = {
+    init: vi.fn(() => {
+      setTimeout(() => captured.push({ event: '$pageview', properties: { ...registered } }), 1)
+    }),
+    register: vi.fn((props: Record<string, string>) => Object.assign(registered, props)),
+    capture: vi.fn(),
+  } satisfies PostHogLike
+  return { posthog, captured }
+}
+
+function harness(
+  pathname: string,
+  store: DeviceStorage | null,
+  getLand: () => Promise<string | null> = async () => null,
+) {
+  const { posthog, captured } = fakePostHog()
   const load = vi.fn(async () => posthog)
+  const land = vi.fn(getLand)
   const onReady = vi.fn()
   const started = startPostHog({
     key: 'phc_test',
@@ -34,10 +59,11 @@ function harness(pathname: string, store: DeviceStorage | null) {
     pathname,
     store,
     load,
+    getLand: land,
     isCancelled: () => false,
     onReady,
   })
-  return { started, posthog, load, onReady }
+  return { started, posthog, captured, load, getLand: land, onReady }
 }
 
 describe('posthogInitOptions', () => {
@@ -63,9 +89,45 @@ describe('startPostHog', () => {
     expect(h.onReady).toHaveBeenCalledWith(h.posthog)
   })
 
-  it('lädt und initialisiert auf einem markierten Gerät nichts', async () => {
-    const h = harness('/', memoryStorage({ [INTERNAL_DEVICE_KEY]: '1' }))
+  it('trägt das Land schon im ersten $pageview', async () => {
+    const h = harness('/', memoryStorage(), async () => 'AT')
+    expect(await h.started).toBe(true)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(h.posthog.register).toHaveBeenCalledWith({ land: 'AT' })
+    expect(h.captured).toEqual([{ event: '$pageview', properties: { land: 'AT' } }])
+  })
+
+  it('startet bei Fehler oder Timeout der Land-Abfrage genau einmal ohne Land', async () => {
+    const fetchStub = vi.fn().mockRejectedValue(new TypeError('fetch failed'))
+    vi.stubGlobal('fetch', fetchStub)
+    const failed = harness('/', memoryStorage(), () => fetchLand())
+    expect(await failed.started).toBe(true)
+    expect(fetchStub).toHaveBeenCalledOnce()
+    expect(failed.posthog.init).toHaveBeenCalledOnce()
+    expect(failed.posthog.register).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('bricht eine hängende Land-Abfrage nach dem Timeout ab', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) =>
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+          ),
+      ),
+    )
+    const started = Date.now()
+    expect(await fetchLand()).toBeNull()
+    expect(Date.now() - started).toBeGreaterThanOrEqual(LAND_TIMEOUT_MS - 50)
+    vi.unstubAllGlobals()
+  })
+
+  it('lädt, fragt und initialisiert auf einem markierten Gerät nichts', async () => {
+    const h = harness('/', memoryStorage({ [INTERNAL_DEVICE_KEY]: '1' }), async () => 'AT')
     expect(await h.started).toBe(false)
+    expect(h.getLand).not.toHaveBeenCalled()
     expect(h.load).not.toHaveBeenCalled()
     expect(h.posthog.init).not.toHaveBeenCalled()
     expect(h.onReady).not.toHaveBeenCalled()
