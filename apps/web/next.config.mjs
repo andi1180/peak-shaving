@@ -131,6 +131,8 @@ const nextConfig = {
       { source: '/danke.html', destination: '/kontakt', statusCode: 301 },
       // Leadgen 7: die Platzhalterseite „Referenzen“ ist entfernt.
       { source: '/referenzen', destination: '/', statusCode: 301 },
+      // Der Admin-Rechner ist entfernt (03.11.2026); gerechnet wird über die Projekte.
+      { source: '/admin/kalkulator', destination: '/admin/kalkulator-projekte', statusCode: 301 },
 
       /*
        * BRANCHEN-NEUORDNUNG (Prompt 25). Dieselbe Konvention wie oben:

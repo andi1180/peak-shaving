@@ -3,7 +3,6 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { ADMIN_HREF } from './config'
-import { ADMIN_CALCULATOR_HREF } from './calculator'
 import { ADMIN_NAV_ITEMS } from './nav'
 import {
   PROJECTS_HREF,
@@ -38,22 +37,6 @@ describe('B24 Projektliste — Adressen', () => {
   it('ist ein Geschwisterpfad und liegt unterhalb von /admin', () => {
     expect(PROJECTS_HREF).toBe('/admin/kalkulator-projekte')
     expect(PROJECTS_HREF.startsWith(`${ADMIN_HREF}/`)).toBe(true)
-  })
-
-  it('⚠ liegt NICHT unter /admin/kalkulator — sonst wären zwei Nav-Punkte gleichzeitig aktiv', () => {
-    /*
-     * Die Regel aus `components/admin/nav.tsx`, hier beidseitig nachgestellt.
-     *
-     * Die Breitung auf `string` ist nötig, nicht kosmetisch: beide Konstanten sind
-     * Literal-Typen, und TypeScript weist einen Gleichheitsvergleich zwischen zwei verschiedenen
-     * Literalen als „unintentional" ab (TS2367). Der Vergleich soll hier aber zur LAUFZEIT
-     * stattfinden — er ist genau der, den `AdminNav` anstellt.
-     */
-    const punkt: string = ADMIN_CALCULATOR_HREF
-    const eigen: string = PROJECTS_HREF
-    expect(eigen === punkt).toBe(false)
-    expect(eigen.startsWith(`${punkt}/`)).toBe(false)
-    expect(punkt.startsWith(`${eigen}/`)).toBe(false)
   })
 
   it('bildet die Detailadresse aus der Kennung', () => {

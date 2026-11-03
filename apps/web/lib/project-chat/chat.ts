@@ -18,6 +18,7 @@ import {
  * auseinander. Der Grund für die Prüfung ist unverändert — ein Nicht-UUID-Wert liefe als Parameter
  * in einen rohen Postgres-Fehler (22P02) statt in ein sauberes „gibt es nicht".
  */
+import { getCalculatorAccess } from '@/lib/kalkulator/access'
 import {
   MAX_ATTACHED_DOCUMENTS_PER_TURN,
   PROJECT_ID_PATTERN,
@@ -125,6 +126,9 @@ export async function sendProjectChatMessage(
   userMessage: string,
   documentIds?: readonly string[],
 ): Promise<SendProjectChatMessageResult> {
+  // Nur Admins (03.11.2026); ohne Zugang dieselbe Antwort wie ein fremdes Projekt.
+  if ((await getCalculatorAccess()).state !== 'granted') return { status: 'not_found' }
+
   /*
    * ⚠ Die zwei Prüfungen antworten mit den BESTEHENDEN Turn-Zuständen, nicht mit neuen. Eine
    * unbrauchbare Projektkennung ist für den Aufrufer dasselbe wie ein fremdes Projekt („gibt es

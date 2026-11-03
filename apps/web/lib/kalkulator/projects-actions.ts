@@ -5,6 +5,7 @@ import 'server-only'
 import { getLocale } from 'next-intl/server'
 
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
+import { getCalculatorAccess } from '@/lib/kalkulator/access'
 import { createClient } from '@/lib/supabase/server'
 import {
   MAX_PROJECT_LABEL_LENGTH,
@@ -35,6 +36,11 @@ export async function createProjectAction(
   _prev: NewProjectState,
   formData: FormData,
 ): Promise<NewProjectState> {
+  // Eine Server Action ist über ihre Kennung direkt aufrufbar — die Prüfung der Seite schützt sie nicht.
+  const access = await getCalculatorAccess()
+  if (access.state === 'anonymous') return { formError: 'notSignedIn' }
+  if (access.state !== 'granted') return { formError: 'generic' }
+
   const raw = formData.get('label')
   const label = typeof raw === 'string' ? raw.trim() : ''
 
@@ -48,14 +54,6 @@ export async function createProjectAction(
   if (label.length > MAX_PROJECT_LABEL_LENGTH) return { fieldError: 'labelTooLong', label }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  // Die Seite rendert das Formular nur angemeldet; das ist die Rückfalllinie (Sitzung zwischen
-  // Seitenaufbau und Absenden abgelaufen). Eine Server Action ist über ihre Kennung ausserdem
-  // direkt aufrufbar — dass die Seite davor prüft, schützt sie nicht.
-  if (!user) return { formError: 'notSignedIn', label }
-
   const { data, error } = await supabase.rpc('create_my_project', { p_customer_label: label })
   if (error) {
     console.error('[projekte] create_my_project:', error)
