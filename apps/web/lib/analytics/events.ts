@@ -6,7 +6,7 @@
  * Keine personenbezogenen Daten: Die Eigenschaften sind ausschliesslich Aufzählungswerte, Wahrheits-
  * werte und Seitennummern — kein Name, keine Adresse, kein exakter Verbrauch (nur `kwh_band`).
  */
-import type { Country } from '@/lib/schnellcheck'
+import type { Country, GespraechStufe } from '@/lib/schnellcheck'
 import type { LoadProfileAnswer } from '@/lib/profi-report/request'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 
@@ -45,6 +45,8 @@ export type AnalyticsEvents = {
     has_kw: boolean
     has_bill: boolean
   }
+  schnellcheck_gespraech_angezeigt: { stufe: GespraechStufe; position?: SchnellcheckPosition }
+  cta_gespraech_click: { stufe: GespraechStufe; position?: SchnellcheckPosition }
   schnellreport_form_opened: NoProps
   schnellreport_submitted: { country: Country; tips_optin: boolean }
   callback_requested: NoProps

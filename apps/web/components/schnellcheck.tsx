@@ -13,6 +13,7 @@ import {
   KW_SLIDER,
   computeSchnellcheck,
   formatGrouped,
+  gespraechStufe,
   formatTyped,
   parseGroupedNumber,
   type Country,
@@ -105,6 +106,18 @@ export function Schnellcheck({
     return () => window.clearTimeout(timer)
   }, [hasResult, country, kwh, kw, bill, position])
 
+  // Gesprächsangebot ab 100 MWh; gezählt wie das Ergebnis erst nach Ruhe, je Stufe einmal.
+  const stufe = hasResult && kwh !== null ? gespraechStufe(kwh) : null
+  const gespraechShownRef = React.useRef(new Set<string>())
+  React.useEffect(() => {
+    if (!stufe || gespraechShownRef.current.has(stufe)) return
+    const timer = window.setTimeout(() => {
+      gespraechShownRef.current.add(stufe)
+      track('schnellcheck_gespraech_angezeigt', { stufe, ...(position && { position }) })
+    }, RESULT_SHOWN_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [stufe, position])
+
   // Die eingegebenen Werte reisen als vorbelegte Nachricht ins Kontaktformular.
   const prefill = [
     t('prefillIntro'),
@@ -116,6 +129,16 @@ export function Schnellcheck({
     .filter(Boolean)
     .join('\n')
   const hrefFor = (thema: string) => kontaktHrefFor(thema, kwh === null ? undefined : prefill)
+  const gespraechLink = (className: string, children: React.ReactNode) =>
+    stufe && (
+      <Link
+        href={hrefFor('peakShaving')}
+        className={className}
+        onClick={() => track('cta_gespraech_click', { stufe, ...(position && { position }) })}
+      >
+        {children}
+      </Link>
+    )
 
   const countryButton = (value: Country, label: string) => (
     <button
@@ -374,6 +397,19 @@ export function Schnellcheck({
               </div>
             )}
 
+            {stufe === 'gross' && (
+              <div className="mt-[22px] grid justify-items-start gap-3 rounded-[12px] border border-line bg-surface px-4 py-[14px] max-[480px]:justify-items-stretch">
+                <h3 className="m-0 text-[18px] font-semibold tracking-[-0.01em] text-navy">
+                  {t('gespraechTitle')}
+                </h3>
+                <p className="m-0 text-[14px] text-text">{t('gespraechText')}</p>
+                {gespraechLink(
+                  cn(BTN, 'bg-accent text-accent-foreground hover:bg-accent-hover'),
+                  t('ctaGespraech'),
+                )}
+              </div>
+            )}
+
             <div className="mt-[22px] grid gap-3">
               <p className="m-0 text-balance text-[15.5px] font-semibold text-ink">{t('teaser')}</p>
               <div className="flex flex-wrap items-center gap-3">
@@ -383,16 +419,26 @@ export function Schnellcheck({
                 >
                   {t('ctaProfi')}
                 </Link>
-                <span className={SMALL}>
-                  {t.rich('erstgespraech', {
-                    link: (chunks) => (
-                      <Link href={hrefFor('erstgespraech')} className="text-navy underline">
-                        {chunks}
-                      </Link>
-                    ),
-                  })}
-                </span>
+                {/* Ab 100 MWh ersetzt das Gesprächsangebot diesen Link — sonst stünden zwei nebeneinander. */}
+                {!stufe && (
+                  <span className={SMALL}>
+                    {t.rich('erstgespraech', {
+                      link: (chunks) => (
+                        <Link href={hrefFor('erstgespraech')} className="text-navy underline">
+                          {chunks}
+                        </Link>
+                      ),
+                    })}
+                  </span>
+                )}
               </div>
+              {stufe === 'mittel' && (
+                <p className={SMALL}>
+                  {t.rich('gespraechMittel', {
+                    link: (chunks) => gespraechLink('text-navy underline', chunks),
+                  })}
+                </p>
+              )}
             </div>
           </div>
         </div>

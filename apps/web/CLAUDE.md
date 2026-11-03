@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: Schnellcheck — Gesprächsweg nach Betriebsgröße]** (03.11.2026). Stufe aus dem Jahresverbrauch (Feld in **kWh**), `gespraechStufe` + `GESPRAECH_MITTEL_KWH` 100.000 / `GESPRAECH_GROSS_KWH` 1.000.000 in `lib/schnellcheck.ts`, Grenzwert zählt zur höheren Stufe. `mittel`: Zeile „Lieber kurz sprechen? Gespräch vereinbaren“ unter dem Profi-Report-Link; `gross`: Kasten (Stil der 10-%-Box) mit Primärknopf über dem Profi-Report-Block. Ziel `/kontakt?thema=peakShaving` samt Werte-Vorbelegung (`hrefFor`). **Ab 100 MWh ersetzt das den Link „kostenloses Erstgespräch“** (sonst zwei Gesprächslinks nebeneinander); darunter unverändert.
+  - Ereignisse `schnellcheck_gespraech_angezeigt` (je Stufe einmal, nach 1,5 s Ruhe wie `schnellcheck_result_shown`) und `cta_gespraech_click`, beide `{stufe, position?}` (Schnellcheck-Muster).
+
 - **[GEBAUT: PostHog-Property `land` aus `x-vercel-ip-country`]** (03.11.2026). `GET /api/land` liefert `{land}` (zwei Grossbuchstaben, sonst `null`; `no-store`, keine IP, kein Cookie); `startPostHog` fragt sie parallel zum Chunk-Laden ab (Timeout 1,5 s, Fehler → ohne Land) und `register`t `land` direkt nach `init`, vor dem ersten `$pageview` (posthog-js schickt ihn per `setTimeout`). Interne Geräte fragen nicht; nichts im Browser gespeichert (Persistenz ist cookielos deaktiviert, `register` lebt nur im Speicher der Seitenladung). Ein Satz in Datenschutz §5.
   - **[OFFEN]** Datenschutz §5 sagt weiterhin „Aufgezeichnet werden ausschließlich Seitenaufrufe“ — seit Leadgen 5 laufen auch Funnel-Ereignisse `[rechtlich]`.
 

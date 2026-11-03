@@ -33,6 +33,21 @@ export const SMALL_CONSUMPTION_KWH = 90_000
 /** Regler, wenn keine höchste Leistung eingegeben ist. Der Startwert ist ein Beispielwert. */
 export const KW_SLIDER = { min: 20, max: 1000, step: 5, initial: 150 } as const
 
+/** Ab hier bietet das Ergebnis zusätzlich ein Gespräch an (100 MWh). */
+export const GESPRAECH_MITTEL_KWH = 100_000
+
+/** Ab hier ist das Gespräch der Haupt-Weg (1 GWh). */
+export const GESPRAECH_GROSS_KWH = 1_000_000
+
+export type GespraechStufe = 'mittel' | 'gross'
+
+/** Stufe des Gesprächsangebots nach Jahresverbrauch in kWh; `null` = unverändert. */
+export function gespraechStufe(kwh: number): GespraechStufe | null {
+  if (kwh >= GESPRAECH_GROSS_KWH) return 'gross'
+  if (kwh >= GESPRAECH_MITTEL_KWH) return 'mittel'
+  return null
+}
+
 export type Country = 'AT' | 'DE'
 
 export type SchnellcheckInput = {

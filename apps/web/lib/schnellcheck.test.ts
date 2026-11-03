@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { computeSchnellcheck, demandPrice, formatTyped, parseGroupedNumber } from './schnellcheck'
+import {
+  computeSchnellcheck,
+  demandPrice,
+  formatTyped,
+  gespraechStufe,
+  parseGroupedNumber,
+} from './schnellcheck'
 
 const base = { country: 'AT' as const, kwh: 250_000, kw: null, bill: null, sliderKw: 150 }
 
@@ -57,5 +63,13 @@ describe('schnellcheck', () => {
     expect(parseGroupedNumber('250.000')).toBe(250_000)
     expect(parseGroupedNumber('0')).toBeNull()
     expect(formatTyped('65000')).toBe('65.000')
+  })
+})
+
+describe('gespraechStufe', () => {
+  it('stuft nach Jahresverbrauch in kWh, Grenzwerte zählen zur höheren Stufe', () => {
+    expect(
+      [80_000, 99_999, 100_000, 300_000, 999_999, 1_000_000, 12_000_000].map(gespraechStufe),
+    ).toEqual([null, null, 'mittel', 'mittel', 'mittel', 'gross', 'gross'])
   })
 })
