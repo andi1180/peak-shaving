@@ -3,6 +3,7 @@ import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminShell } from '@/components/admin/shell'
 import { AdminRootShell, ADMIN_METADATA } from '@/components/admin/root-shell'
+import { InternalDeviceMarker } from '@/components/admin/internal-device-marker'
 
 /*
  * Root-Layout UND Zugangsschranke des GESCHÜTZTEN Admin-Bereichs (T4-4; mit B17 aus
@@ -64,6 +65,8 @@ export default async function AdminInternLayout({ children }: { children: ReactN
    */
   return (
     <AdminRootShell>
+      {/* Nur im Zugangs-Zweig: ein abgewiesenes Konto ist kein internes Gerät. */}
+      <InternalDeviceMarker />
       <AdminShell>{children}</AdminShell>
     </AdminRootShell>
   )

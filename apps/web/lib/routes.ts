@@ -38,6 +38,7 @@ import {
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
+import { INTERN_HREF } from './analytics/internal-device'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
 import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
@@ -204,6 +205,8 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * Partner-Portal und den Auth-Routen.
      */
     PROJEKTE_HREF,
+    // Geräte-Schalter für die Messung (nicht verlinkt, NICHT INDEXIERBAR — für Suchende ohne Inhalt).
+    INTERN_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),
@@ -241,6 +244,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     href !== PARTNER_PORTAL_HREF &&
     href !== PARTNER_AKTIVIEREN_HREF &&
     href !== PROJEKTE_HREF &&
+    href !== INTERN_HREF &&
     !AUTH_HREF_SET.has(href) &&
     !LEAD_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href) &&

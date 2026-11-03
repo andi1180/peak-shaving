@@ -20,6 +20,7 @@ const EXCLUDED_PATHS = [
   '/peak-shaving/kalkulator/rechner',
   '/einwilligung-bestaetigen',
   '/abmelden',
+  '/intern',
 ]
 
 function normalize(pathname: string): string {

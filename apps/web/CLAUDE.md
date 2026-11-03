@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: `$pageleave` ausdrücklich an, interne Geräte messen nicht]** (03.11.2026). Init-Optionen und Startentscheidung in `lib/analytics/posthog-start.ts` (`capture_pageleave: true` statt Default); kein Commit hatte `$pageleave` abgeschaltet — der Rückgang ab 28.10. kommt aus Bot-/Monitor-Aufrufen ohne `pagehide` (PostHog 228378). `$pageleave` kommt nur beim Verlassen des Dokuments, SPA-Wechsel tragen `$prev_pageview_duration`.
+  - Markierung `localStorage.coolin_intern = '1'` (`lib/analytics/internal-device.ts`): gesetzt im Admin-Layout (nur Zugangs-Zweig) und über `/intern` (noindex, nicht in der sitemap, ohne Login); markiert → posthog-js wird weder geladen noch initialisiert, `/intern` selbst nie. **⚠ `opt_out_capturing()` ist bei `cookieless_mode: 'always'` wirkungslos** — nicht als Ersatz nehmen.
+
 - **[GEBAUT: Projekt-Actions nur Admin, `/admin/kalkulator` entfernt, Leistungstarif-CTA]** (03.11.2026). `createProjectAction` und `sendProjectChatMessage` prüfen zuerst `getCalculatorAccess()` (Nicht-Admin → `generic` bzw. `not_found`). `/admin/kalkulator` samt Nav-Punkt, `lib/admin/calculator.ts` und Token-Ausstellung gelöscht, 301 auf `/admin/kalkulator-projekte` (`next.config.mjs`). Artikel: neuer Einleitungssatz über dem Schnellcheck, Abschnitt „Genau wissen statt schätzen" mit MDX-Baustein `ProfiReportCta` (Knöpfe wie `/peak-shaving/kalkulator`, `cta_profi_report_click` mit `position: wissen_leistungstarif_2027`); damit ist der OFFEN-Punkt darunter erledigt.
   - **[OFFEN]** Ohne eigene App-Prüfung (Schutz nur über Eigentümer-oder-Admin-Wrapper in der DB): `uploadProjectDocumentAction` (`lib/project-documents/actions.ts`) und die `lib/admin/data-entry-actions-*.ts` sowie `report-render-actions.ts`.
 
