@@ -241,6 +241,11 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Rechner-App nur mit Zugangstoken (03.11.2026)
+
+`apps/website/middleware.ts` weist jede Anfrage (Seiten, RSC, Server Actions; ausgenommen `_next/static`, `_next/image`, `brand/`, `report-fonts/`) ohne gültiges Token im Query-Parameter `zugang` mit 401 ab; coolin.at stellt es nur nach der Admin-Prüfung aus (`shared/calculator-access.ts`, HMAC-SHA256, 12 h). Fail-closed: ohne `CALCULATOR_ACCESS_SECRET` (beide Vercel-Projekte, gleicher Wert) 401 für alle. Alle Antworten tragen `X-Robots-Tag: noindex, nofollow` (`next.config.mjs`), bewusst keine robots.txt.
+**⚠** Eine neue Navigation innerhalb der Rechner-App muss den Parameter mitführen, sonst endet sie in 401; Messläufe gegen die Live-URL brauchen ein Token.
+
 ### Assistent: Verhalten am Werkzeuglimit und bei leerer Antwort (10.10.2026)
 
 Gilt für Energieberater und Kunden-Chat (gemeinsame Schleife `apps/web/lib/project-chat/agent.ts`).

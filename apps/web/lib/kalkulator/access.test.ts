@@ -42,25 +42,26 @@ beforeEach(() => {
 })
 
 describe('getCalculatorAccess', () => {
-  it('fragt das Entitlement für calculator_pro ab — nicht für monitor', async () => {
+  it('fragt die Admin-Rolle ab — und nicht mehr das calculator_pro-Entitlement (03.11.2026)', async () => {
     await getCalculatorAccess()
 
     expect(rpc).toHaveBeenCalledTimes(1)
-    expect(rpc).toHaveBeenCalledWith('get_my_entitlement', { p_product: 'calculator_pro' })
-    // Der exportierte Schlüssel ist derselbe Wert — sonst könnte die Kontoseite (die ihn
-    // importiert) ein anderes Produkt anzeigen, als die Route prüft.
+    expect(rpc).toHaveBeenCalledWith('is_admin')
+    expect(rpc).not.toHaveBeenCalledWith('get_my_entitlement', expect.anything())
+    // Der Schlüssel bleibt exportiert, die Kontoseite zeigt das Entitlement weiter an.
     expect(CALCULATOR_PRODUCT).toBe('calculator_pro')
   })
 
-  it('gewährt Zugang bei aktivem Entitlement', async () => {
+  it('gewährt dem Admin Zugang', async () => {
     await expect(getCalculatorAccess()).resolves.toEqual({ state: 'granted' })
   })
 
-  it('verweigert Zugang ohne Entitlement und nennt die angemeldete Adresse', async () => {
+  it('verweigert einem Nicht-Admin den Zugang, auch mit calculator_pro, und nennt die Adresse', async () => {
+    // `is_admin` antwortet false; ein vorhandenes Entitlement wird gar nicht mehr gefragt.
     rpc.mockResolvedValue({ data: false, error: null })
 
     await expect(getCalculatorAccess()).resolves.toEqual({
-      state: 'no_entitlement',
+      state: 'no_access',
       email: 'kundin@example.at',
     })
   })
@@ -81,7 +82,7 @@ describe('getCalculatorAccess', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await expect(getCalculatorAccess()).resolves.toEqual({
-      state: 'no_entitlement',
+      state: 'no_access',
       email: 'kundin@example.at',
     })
     expect(spy).toHaveBeenCalled()
@@ -99,6 +100,21 @@ describe('getCalculatorAccess', () => {
     // „vereinfacht".
     rpc.mockResolvedValue({ data: value, error: null })
 
-    await expect(getCalculatorAccess()).resolves.toMatchObject({ state: 'no_entitlement' })
+    await expect(getCalculatorAccess()).resolves.toMatchObject({ state: 'no_access' })
+  })
+})
+
+describe('die Rechner-Routen hängen an dieser einen Prüfung', () => {
+  it.each([
+    'app/(site)/[locale]/peak-shaving/kalkulator/rechner/page.tsx',
+    'app/(site)/[locale]/kalkulator/projekte/page.tsx',
+    'app/(site)/[locale]/kalkulator/projekte/[id]/page.tsx',
+    'app/portal/kalkulator/page.tsx',
+  ])('%s fragt getCalculatorAccess und kein Entitlement', async (file) => {
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const source = readFileSync(resolve(__dirname, '../..', file), 'utf8')
+    expect(source).toContain('await getCalculatorAccess()')
+    expect(source).not.toContain('get_my_entitlement')
   })
 })

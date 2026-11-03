@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
+import { withCalculatorAccess } from '@/lib/kalkulator/embed-access'
 
 /**
  * `/admin/kalkulator` — der Rechner im Admin-Bereich, ohne Vorbedingung (B18-4).
@@ -127,7 +128,7 @@ export default async function Page() {
        * wer eine weitere Domain braucht, trägt sie in `apps/website/next.config.mjs` ein.
        */}
       <iframe
-        src={EMBEDDED_CALCULATOR_SRC}
+        src={await withCalculatorAccess(EMBEDDED_CALCULATOR_SRC)}
         title="Peak-Shaving Kalkulator"
         className={`block w-full border-0 ${ADMIN_CALCULATOR_FRAME_CLASS}`}
       />

@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./calculator-access": {
+      "types": "./src/calculator-access.ts",
+      "default": "./src/calculator-access.ts"
+    },
     "./country": {
       "types": "./src/country.ts",
       "default": "./src/country.ts"

@@ -18,7 +18,7 @@ import { robotsFor } from '@/lib/routes'
  * ── ⚠ DIESELBE ZUGANGSFRAGE WIE DER RECHNER, NICHT EINE ZWEITE ─────────────────────────────────
  * Der Chat IST der Kalkulator — nur die Dateneingabe im Gespräch statt im Formular (Delta §3.1).
  * Deshalb entscheidet hier `getCalculatorAccess()`, also derselbe Lesepfad
- * (`public.get_my_entitlement` mit `calculator_pro`), den auch `/peak-shaving/kalkulator/rechner`
+ * (seit 03.11.2026 die Admin-Rolle, `public.is_admin`), den auch `/peak-shaving/kalkulator/rechner`
  * benutzt. Es gibt bewusst keine zweite Definition von „hat Zugang" (Invariante I1).
  *
  * Der Grund ist nicht Symmetrie, sondern Geld: Jeder Turn löst bis zu neun ABRECHENBARE
@@ -27,7 +27,7 @@ import { robotsFor } from '@/lib/routes'
  * Konto — und Registrierung ist öffentlich — ein eigenes Tageskontingent.
  *
  * Drei Zustände, wie auf der Rechner-Route und aus denselben Gründen: `anonymous` → Umleitung mit
- * Rücksprungziel; `no_entitlement` → die BESTEHENDE Anfrage-Seite (kein zweiter Erklärzustand
+ * Rücksprungziel; `no_access` → die BESTEHENDE Anfrage-Seite (kein zweiter Erklärzustand
  * daneben, der dasselbe anders sagt); `granted` → die Liste.
  *
  * ── KEIN INDEX, KEIN CACHE ─────────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const t = await getTranslations({ locale, namespace: 'Projekte.list' })
   const tNew = await getTranslations({ locale, namespace: 'Projekte.new' })
 
-  if (access.state === 'no_entitlement') {
+  if (access.state === 'no_access') {
     return <CalculatorAccessRequest email={access.email} />
   }
 

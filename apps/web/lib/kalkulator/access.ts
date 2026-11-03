@@ -16,10 +16,9 @@
  * `calculator_pro` geben.)
  *
  * ── DIE ZUGANGS-WAHRHEIT ────────────────────────────────────────────────────────────────────────
- * Ab jetzt: eine Sitzung (Supabase-Auth, T4-2) PLUS ein aktives Entitlement für `calculator_pro`.
- * Gelesen wird über denselben Wrapper, den die Kontoseite für den Monitor benutzt
- * (`public.get_my_entitlement`, T4-2) — das Produkt ist dort ein PARAMETER, es gibt bewusst keinen
- * zweiten Lesepfad und keine zweite Definition von „hat Zugang" (Invariante I1).
+ * Seit 03.11.2026: eine Sitzung PLUS die Admin-Rolle (`public.is_admin`, dieselbe Prüfung wie
+ * `isCurrentUserAdmin`). `calculator_pro` schaltet den Rechner NICHT mehr frei — das Entitlement,
+ * die Gutscheinlogik und die Datenbank bleiben unverändert, nur diese Entscheidung liest sie nicht.
  *
  * Kein Browser-Client, keine `NEXT_PUBLIC_*`-Supabase-Env: Die Entscheidung fällt serverseitig,
  * BEVOR etwas gerendert wird (Invariante J1/J6, wie `/konto` und `/admin`).
@@ -28,7 +27,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 
 /**
- * Produktschlüssel des Pro-Kalkulators — Wert des Postgres-Enums `platform.product_key`, das seit
+ * Produktschlüssel des Pro-Kalkulators (nur noch für die Kontoanzeige, nicht für den Zugang) — Wert des Postgres-Enums `platform.product_key`, das seit
  * T4-1 BEIDE Produkte führt (`monitor`, `calculator_pro`). B10 Schritt 1 hat nachgewiesen, dass
  * der Lesepfad mit diesem zweiten Wert tatsächlich läuft und die Produkte voneinander isoliert
  * sind — ein Monitor-Abo schaltet den Kalkulator nicht frei.
@@ -46,14 +45,14 @@ export type CalculatorAccess =
   | { state: 'anonymous' }
   /** Die Adresse fährt mit: Der Anfrage-Zustand nennt sie, damit ein Nutzer mit zwei Konten den
    *  Fehler nicht beim Zugang sucht, wenn er ihn bei der Anmeldung gemacht hat. */
-  | { state: 'no_entitlement'; email: string | undefined }
+  | { state: 'no_access'; email: string | undefined }
   | { state: 'granted' }
 
 /**
  * Beantwortet für den AKTUELLEN Request, ob der Rechner ausgeliefert werden darf.
  *
  * ── FAIL CLOSED ─────────────────────────────────────────────────────────────────────────────────
- * Kann das Entitlement nicht gelesen werden (Netz, RLS, abgelaufenes JWT), gilt `no_entitlement` —
+ * Kann die Rolle nicht gelesen werden (Netz, RLS, abgelaufenes JWT), gilt `no_access` —
  * NICHT `granted`. Ein Lesefehler ist keine Zusage. Die Abwägung ist asymmetrisch: ein zu Unrecht
  * ausgesperrter zahlender Kunde sieht eine erklärende Seite mit einem Kontaktweg und meldet sich;
  * ein zu Unrecht freigeschalteter Besucher meldet sich nie, und niemand erfährt davon.
@@ -72,11 +71,11 @@ export async function getCalculatorAccess(): Promise<CalculatorAccess> {
   } = await supabase.auth.getUser()
   if (!user) return { state: 'anonymous' }
 
-  const { data, error } = await supabase.rpc('get_my_entitlement', { p_product: CALCULATOR_PRODUCT })
+  const { data, error } = await supabase.rpc('is_admin')
   if (error) {
-    console.error('[kalkulator] get_my_entitlement:', error)
-    return { state: 'no_entitlement', email: user.email }
+    console.error('[kalkulator] is_admin:', error)
+    return { state: 'no_access', email: user.email }
   }
 
-  return data === true ? { state: 'granted' } : { state: 'no_entitlement', email: user.email }
+  return data === true ? { state: 'granted' } : { state: 'no_access', email: user.email }
 }

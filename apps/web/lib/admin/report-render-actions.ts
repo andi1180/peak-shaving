@@ -18,6 +18,7 @@ import {
 } from 'shared'
 
 import { externalReportUrl } from '@/lib/config'
+import { withCalculatorAccess } from '@/lib/kalkulator/embed-access'
 import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
@@ -365,7 +366,7 @@ export async function createReportRenderRequestAction(
           : ' Im Speicherkatalog ist für Betriebe kein Gerät freigegeben — der Report enthält keinen Speichervorschlag.'
         : '') +
       levyMaintenanceNote(run.result.tariffOptimization, project.country),
-    successHref: externalReportUrl(created.data),
+    successHref: await withCalculatorAccess(externalReportUrl(created.data)),
   }
 }
 
