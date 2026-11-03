@@ -55,11 +55,12 @@ export type SiteRoute = {
 }
 
 /**
- * Die Produktseite des Pro-Kalkulators (Leadgen 7b): öffentlich nicht mehr verlinkt, der Zugang
- * läuft über das Partner-Portal. Sie soll weder ranken noch ihre Links vererben.
+ * Die Seite zum Kalkulator: seit 03.11.2026 wieder indexierbar („Wir rechnen für Sie"); der
+ * Rechner dahinter bleibt hinter Anmeldung + `calculator_pro`.
  */
 export const KALKULATOR_PRODUCT_HREF = '/peak-shaving/kalkulator'
-const NOINDEX_NOFOLLOW_HREFS: readonly string[] = [KALKULATOR_PRODUCT_HREF]
+/** Routen, die weder ranken noch ihre Links vererben sollen — derzeit keine. */
+const NOINDEX_NOFOLLOW_HREFS: readonly string[] = []
 
 /**
  * Routen, die in KEINEM Menü stehen und deshalb keinen anderen Fundort haben.
@@ -71,7 +72,7 @@ const NOINDEX_NOFOLLOW_HREFS: readonly string[] = [KALKULATOR_PRODUCT_HREF]
 const UNLISTED_HREFS = [
   '/',
   '/produkte',
-  // Seit Leadgen 7 nicht mehr im Menü; erreichbar, aber noindex (s. NOINDEX_NOFOLLOW_HREFS).
+  // Nicht im Menü; verlinkt von /peak-shaving.
   KALKULATOR_PRODUCT_HREF,
   '/impressum',
   '/datenschutz',

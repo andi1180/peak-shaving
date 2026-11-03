@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
+import { Link as TextLink } from '@/components/ui/link'
 
 /**
  * Galerie echter Report-Ansichten des Pro-Kalkulators (Pflichtenheft §5.2b).
@@ -164,7 +165,11 @@ export function ReportGallery() {
             var()-Hex-Tokens: Tailwind verwirft das still (DESIGN.md). */}
         <div className="mt-10 rounded-lg border border-accent-border bg-accent-subtle p-5 sm:p-6">
           <h3 className="text-h4 text-ink">{tPrivacy('title')}</h3>
-          <p className="mt-2 max-w-prose text-small text-text">{tPrivacy('text')}</p>
+          <p className="mt-2 max-w-prose text-small text-text">
+            {tPrivacy.rich('text', {
+              link: (chunks) => <TextLink href="/datenschutz">{chunks}</TextLink>,
+            })}
+          </p>
         </div>
       </Container>
     </Section>

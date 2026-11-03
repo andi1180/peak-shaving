@@ -4,11 +4,11 @@ import { KALKULATOR_PRODUCT_HREF, robotsFor, SITE_ROUTES } from './routes'
 
 const indexable = (href: string) => SITE_ROUTES.find((r) => r.href === href)?.indexable
 
-describe('Kalkulator-Produktseite (Leadgen 7b)', () => {
-  it('steht nicht in der sitemap und trägt noindex, nofollow', () => {
+describe('Kalkulator-Seite', () => {
+  it('ist indexierbar und steht damit in der sitemap', () => {
     expect(KALKULATOR_PRODUCT_HREF).toBe('/peak-shaving/kalkulator')
-    expect(indexable(KALKULATOR_PRODUCT_HREF)).toBe(false)
-    expect(robotsFor(KALKULATOR_PRODUCT_HREF)).toEqual({ index: false, follow: false })
+    expect(indexable(KALKULATOR_PRODUCT_HREF)).toBe(true)
+    expect(robotsFor(KALKULATOR_PRODUCT_HREF)).toBeUndefined()
   })
 
   it('lässt andere Seiten unverändert', () => {

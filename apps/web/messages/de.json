@@ -1481,7 +1481,8 @@
       "p2Text": "Die Steuerung entscheidet im laufenden Betrieb, wann entladen wird — und muss die Spitze erkennen, während sie entsteht. Nicht jeder Speicher bringt diese Fähigkeit mit; oft ist sie eine eigene Komponente.",
       "p3Title": "Betriebsstrategie",
       "p3Text": "Spitzenkappung, PV-Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Kapazität. Wer die drei Nutzen einzeln rechnet und addiert, überschätzt das Ergebnis. Die Strategie legt fest, was Vorrang hat.",
-      "note": "Deshalb ist die belastbare Auslegung eine Rechenaufgabe über den ganzen Lastgang — keine Frage des Datenblatts."
+      "note": "Deshalb ist die belastbare Auslegung eine Rechenaufgabe über den ganzen Lastgang — keine Frage des Datenblatts.",
+      "kalkulator": "Wie wir mit Ihrem echten Lastgang rechnen, zeigt unser <link>Peak-Shaving-Kalkulator</link>."
     },
     "Related": {
       "title": "Peak Shaving steht nicht allein",
@@ -1499,15 +1500,15 @@
     }
   },
   "PeakShavingCalculator": {
-    "metaDescription": "Der Peak-Shaving Kalkulator: echte Lastgang-Analyse, physikalisch korrekte Batteriesimulation, Speicherempfehlung und ROI für Gewerbebetriebe in Österreich.",
+    "metaTitle": "Peak-Shaving-Kalkulator: Speicher aus dem Lastgang berechnen — COOLiN ENERGY",
+    "metaDescription": "Wir rechnen Ihren 15-Minuten-Lastgang durch: Speicherempfehlung, Ersparnis und Amortisation für Betriebe in Österreich und Deutschland. Profi-Report anfragen.",
     "appName": "Peak-Shaving Kalkulator",
-    "//cta": "ARBEITSSTAND (B18-4): Hero.cta und Cta.cta sind DERSELBE Knopf an zwei Stellen und muessen wortgleich bleiben — er fuehrt seit B18-4 zur Kontaktanfrage (/kontakt?thema=peakShaving), nicht mehr in den Rechner. Endgueltige Formulierung von Andreas/Martina. Leitplanken: (1) KEINE Zusage ueber die Bearbeitungsdauer und keine Zusage, dass die Anfrage angenommen wird. (2) KEIN Preis (OP#1 ist offen) und keine Ersparniszusage — die Zugangs-/Preisaussage steht als Badge NEBEN dem Knopf, nie im Knopftext (§3.3). (3) Knopftext und Hero.badge muessen dasselbe sagen: 'Zugang anfragen' zu 'Zugang auf Anfrage'. Ein Knopf, der einen Start verspricht, den die Rechner-Route ohne calculator_pro-Entitlement nicht liefern kann, war genau der Widerspruch, den B18-4 aufgeloest hat. (4) Cta.ctaNote hiess bis B18-4 'external' — der Name stammte aus der Zeit des externen Absprungs auf apps/website und fuehrte fuer einen Hinweis auf das EIGENE Kontaktformular in die Irre.",
     "Hero": {
       "eyebrow": "Peak-Shaving Kalkulator",
       "title": "Vom Lastgang zur belastbaren Speicherempfehlung",
-      "lead": "Sie laden Ihre 15-Minuten-Lastgangdaten hoch und erhalten keine Faustformel, sondern eine durchgerechnete Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation — und wie die Zahl zustande kommt.",
-      "badge": "Zugang auf Anfrage",
-      "cta": "Zugang anfragen"
+      "lead": "Sie schicken uns Ihre 15-Minuten-Lastgangdaten und Ihre Netzrechnung – wir rechnen sie mit unserem Peak-Shaving-Kalkulator durch. Sie erhalten keine Faustformel, sondern eine Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation – und wie die Zahl zustande kommt. Für Standorte in Österreich und Deutschland, jeweils nach dem Abrechnungsmodell Ihres Netzbetreibers.",
+      "ctaPrimary": "Profi-Report anfragen",
+      "ctaSecondary": "Gespräch vereinbaren"
     },
     "Leistet": {
       "eyebrow": "Was der Kalkulator leistet",
@@ -1567,27 +1568,27 @@
       }
     },
     "Privacy": {
-      "title": "Ihre Verbrauchsdaten bleiben bei Ihnen",
-      "text": "Der Kalkulator rechnet im Browser. Ihre Lastgangdatei wird lokal eingelesen und nicht auf einen Server hochgeladen. Übermittelt wird erst etwas, wenn Sie sich bewusst dafür entscheiden."
+      "title": "Sorgfältiger Umgang mit Ihren Daten",
+      "text": "Wir verwenden Ihre Lastgangdaten ausschließlich, um Ihre Analyse zu erstellen. Wie wir sie speichern und wann wir sie löschen, steht in unserer <link>Datenschutzerklärung</link>."
     },
     "Cta": {
-      "title": "Rechnen Sie mit Ihren eigenen Daten",
+      "title": "Wir rechnen mit Ihren eigenen Daten",
       "lead": "Sie brauchen Ihren Lastgang im 15-Minuten-Raster und Ihre Netzrechnung — mehr nicht.",
-      "cta": "Zugang anfragen",
-      "ctaNote": "Der Knopf führt zum Kontaktformular: Sie stellen eine Anfrage, wir melden uns bei Ihnen."
+      "ctaPrimary": "Profi-Report anfragen",
+      "ctaSecondary": "Gespräch vereinbaren"
     },
     "HowItWorks": {
       "eyebrow": "In vier Schritten",
       "title": "So funktioniert's",
       "lead": "Von Ihrem Lastgang zur belastbaren Speicherempfehlung — ohne Tabellenkalkulation und ohne Faustformel.",
-      "s1Title": "Lastgang hochladen",
-      "s1Text": "CSV oder Excel vom Netzbetreiber. Die Datei bleibt in Ihrem Browser — sie wird nicht an uns übertragen.",
+      "s1Title": "Lastgang schicken",
+      "s1Text": "CSV oder Excel vom Netzbetreiber, dazu Ihre letzte Netzrechnung.",
       "s2Title": "Tarif & Ziel",
-      "s2Text": "Leistungspreis und Abrechnungsmodell aus Ihrer Netzrechnung. Sinnvoll vorbelegt, jeder Wert bleibt editierbar.",
+      "s2Text": "Leistungspreis und Abrechnungsmodell übernehmen wir aus Ihrer Netzrechnung – in Österreich wie in Deutschland.",
       "s3Title": "Analyse läuft",
       "s3Text": "Die Batterie wird über jede Viertelstunde des Jahres physikalisch simuliert — mit Leistung, Kapazität und Ladezustand.",
       "s4Title": "Ergebnis",
-      "s4Text": "Ersparnis, Speicherempfehlung und Amortisation — nachvollziehbar bis zur Rechenweise."
+      "s4Text": "Ihr Profi-Report: Ersparnis, Speicherempfehlung und Amortisation – nachvollziehbar bis zur Rechenweise."
     },
     "EnergyFlow": {
       "eyebrow": "Was simuliert wird",

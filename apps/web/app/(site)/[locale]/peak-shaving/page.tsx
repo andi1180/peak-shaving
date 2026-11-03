@@ -11,6 +11,7 @@ import { LoadCurveChart } from '@/components/peak-shaving/load-curve-chart'
 import { CtaProfiReportLink } from '@/components/analytics/cta-profi-report-link'
 import { PROFI_REPORT_HREF } from '@/lib/nav'
 import { pageAlternates } from '@/lib/seo'
+import { KALKULATOR_PRODUCT_HREF } from '@/lib/routes'
 
 export async function generateMetadata({
   params,
@@ -237,7 +238,12 @@ function ZusammenspielSection() {
           ))}
         </div>
 
-        <p className="mt-8 max-w-prose text-body text-text">{t('note')}</p>
+        <p className="mt-8 max-w-prose text-body text-text">
+          {t('note')}{' '}
+          {t.rich('kalkulator', {
+            link: (chunks) => <TextLink href={KALKULATOR_PRODUCT_HREF}>{chunks}</TextLink>,
+          })}
+        </p>
       </Container>
     </Section>
   )
