@@ -2642,7 +2642,7 @@
       {
         "title": "5. Reichweitenmessung (PostHog)",
         "paragraphs": [
-          "Zur Messung der Reichweite dieser Website setzen wir PostHog in der EU-Region (Frankfurt) ein. Die Messung läuft cookielos: Es werden weder Cookies noch Einträge im Speicher Ihres Browsers angelegt, es findet keine Wiedererkennung über Sitzungen hinweg statt, und es wird kein Personenbezug hergestellt. Aufgezeichnet werden ausschließlich Seitenaufrufe — kein automatisches Mitschneiden von Klicks oder Formulareingaben und keine Sitzungsaufzeichnung.",
+          "Zur Messung der Reichweite dieser Website setzen wir PostHog in der EU-Region (Frankfurt) ein. Die Messung läuft cookielos: Es werden weder Cookies noch Einträge im Speicher Ihres Browsers angelegt, es findet keine Wiedererkennung über Sitzungen hinweg statt, und es wird kein Personenbezug hergestellt. Aufgezeichnet werden ausschließlich Seitenaufrufe — kein automatisches Mitschneiden von Klicks oder Formulareingaben und keine Sitzungsaufzeichnung. Um zu sehen, aus welchem Land Besuche kommen, ermittelt unser Hosting-Anbieter Vercel beim Seitenaufruf aus Ihrer IP-Adresse das Land. An unser Analysewerkzeug übergeben wir nur das Länderkürzel (z. B. AT oder DE); IP-Adressen speichern wir dort nicht.",
           "Weil kein Zugriff auf Ihr Endgerät gespeichert wird, ist dafür keine Einwilligung erforderlich; diese Website braucht deshalb kein Cookie-Banner. Rechtsgrundlage ist unser berechtigtes Interesse an einer datensparsamen Reichweitenmessung, Art. 6 Abs. 1 lit. f DSGVO."
         ]
       },
