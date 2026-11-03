@@ -67,7 +67,7 @@ export default async function Page({
   if (access.state === 'anonymous') {
     redirectToLocalized(ANMELDEN_HREF, locale, { [NEXT_PARAM]: projectChatHref(id) })
   }
-  if (access.state === 'no_entitlement') {
+  if (access.state === 'no_access') {
     return <CalculatorAccessRequest email={access.email} />
   }
 

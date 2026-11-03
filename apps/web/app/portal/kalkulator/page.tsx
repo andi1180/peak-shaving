@@ -6,6 +6,7 @@ import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { CALCULATOR_FRAME_STYLE, EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
 import { getCalculatorAccess } from '@/lib/kalkulator/access'
+import { withCalculatorAccess } from '@/lib/kalkulator/embed-access'
 import { PORTAL_KALKULATOR_PATH } from '@/lib/portal-host'
 import { readMyCalculatorRequestState } from '@/lib/partner-portal/calculator-request-server'
 import { readPortal } from '@/lib/partner-portal/read'
@@ -26,11 +27,10 @@ import { routing } from '@/i18n/routing'
  *
  * ── DIE REIHENFOLGE DER DREI AUFRUFE IST DIE FACHLICHE ENTSCHEIDUNG DIESER SEITE ────────────────
  * 1. `readPortal()` — angemeldet? aktive Partnerzeile? (die Frage jedes Reiters)
- * 2. `getCalculatorAccess()` — hat dieses Konto `calculator_pro`? Steht VOR allem Übrigen: Wer den
- *    Zugang hat, soll das Werkzeug sehen und nicht erst eine Beschreibung davon. Gelesen über
- *    denselben Wrapper wie die öffentliche Rechner-Route und die Kontoseite
- *    (`public.get_my_entitlement`) — es gibt bewusst keinen zweiten Lesepfad und keine zweite
- *    Definition von „hat Zugang" (Invariante I1), und der ist fail-closed.
+ * 2. `getCalculatorAccess()` — ist dieses Konto Admin? (seit 03.11.2026 nur noch Admins, nicht
+ *    mehr `calculator_pro`). Steht VOR allem Übrigen: Wer den Zugang hat, soll das Werkzeug sehen
+ *    und nicht erst eine Beschreibung davon. Derselbe Lesepfad wie die öffentliche Rechner-Route,
+ *    fail-closed.
  * 3. `readMyCalculatorRequestState()` — nur, wenn KEIN Zugang besteht. Ohne diesen Schritt wüsste
  *    die Seite nicht, ob bereits eine Anfrage läuft: Sie zeigte jedem ein leeres Formular, auch dem,
  *    dessen Anfrage seit gestern offen ist — der reichte ein zweites Mal ein, bekäme
@@ -79,7 +79,7 @@ export default async function Page() {
     return (
       <PortalShell active={PORTAL_KALKULATOR_PATH}>
         <iframe
-          src={EMBEDDED_CALCULATOR_SRC}
+          src={await withCalculatorAccess(EMBEDDED_CALCULATOR_SRC)}
           title={t('iframeTitle')}
           className="block w-full border-0"
           style={CALCULATOR_FRAME_STYLE}

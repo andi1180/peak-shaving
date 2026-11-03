@@ -103,6 +103,9 @@ const nextConfig = {
             value:
               "frame-ancestors 'self' https://coolin.at https://www.coolin.at https://partner.coolin.at",
           },
+          // Der Rechner ist nur für Admins (03.11.2026) und gehört in keinen Suchindex. Bewusst
+          // KEINE robots.txt mit Disallow: sonst sähe der Crawler diesen Header nie.
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
     ]

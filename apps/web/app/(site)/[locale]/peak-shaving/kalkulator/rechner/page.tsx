@@ -5,6 +5,7 @@ import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { CALCULATOR_FRAME_STYLE, EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
 import { getCalculatorAccess } from '@/lib/kalkulator/access'
+import { withCalculatorAccess } from '@/lib/kalkulator/embed-access'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
 import { robotsFor } from '@/lib/routes'
 
@@ -102,16 +103,16 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
        * bereits als Umleitung beantwortet und kommt nie bis hierher):
        *
        *   granted        → der Rechner, ohne jeden Dialog davor.
-       *   no_entitlement → die erklärende Anfrage-Seite.
+       *   no_access      → die erklärende Anfrage-Seite.
        *
        * Der iframe wird im zweiten Fall NICHT gerendert — er steht nicht bloss
        * hinter etwas, es gibt ihn im Markup nicht. Das ist der Unterschied zum
        * abgelösten Soft-Gate, dessen Dialog eine Präsentationsschicht über einem
        * ohnehin ausgelieferten Rechner war.
        *
-       * Der Rechner selbst (`apps/website`) bleibt unangetastet und unter seiner
-       * eigenen URL erreichbar — das Gate sitzt vor dem iframe, nicht im iframe
-       * (unverändert seit Prompt 25). Die Produktseite /peak-shaving/kalkulator
+       * Seit 03.11.2026 sperrt auch der Rechner selbst (`apps/website`,
+       * `middleware.ts`): die iframe-URL trägt ein Zugangstoken, das nur hier,
+       * nach der Admin-Prüfung, entsteht. Die Produktseite /peak-shaving/kalkulator
        * und der öffentliche Schnellrechner bleiben ungated (§5.4).
        */}
       {access.state === 'granted' ? (
@@ -142,7 +143,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
          * Innenbreite mit. Ein Kasten um den Kasten wäre doppelter Rahmen.
          */}
           <iframe
-            src={EMBEDDED_CALCULATOR_SRC}
+            src={await withCalculatorAccess(EMBEDDED_CALCULATOR_SRC)}
             title={t('iframeTitle')}
             className="block w-full border-0"
             style={CALCULATOR_FRAME_STYLE}
