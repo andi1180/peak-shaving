@@ -3,6 +3,7 @@ import type { MDXRemoteProps } from 'next-mdx-remote/rsc'
 import { Link as TextLink } from '@/components/ui/link'
 import { Num } from '@/components/ui/layout'
 import { Schnellcheck } from '@/components/schnellcheck'
+import type { SchnellcheckPosition } from '@/lib/analytics/events'
 import { Callout } from '@/components/wissen/callout'
 import { ChartFigure, Figure } from '@/components/wissen/figure'
 import { ArbeitLeistungChart } from '@/components/wissen/charts/arbeit-leistung-chart'
@@ -227,9 +228,9 @@ export const mdxComponents: MdxComponentMap = {
    * und den Branchenseiten, ohne Vorbelegung. Breiter als die Prosa-Spalte, damit die drei Felder
    * nebeneinander Platz haben.
    */
-  Schnellcheck: () => (
+  Schnellcheck: ({ position }: { position?: SchnellcheckPosition }) => (
     <div className="mt-8 max-w-[55rem]">
-      <Schnellcheck />
+      <Schnellcheck position={position} />
     </div>
   ),
 }
