@@ -22,15 +22,19 @@ export function kwhBand(kwh: number): KwhBand {
 
 type NoProps = Record<string, never>
 
+/** Einbettungsort des Schnellchecks, wo `path` allein ihn nicht unterscheidet; sonst fehlt das Feld. */
+export type SchnellcheckPosition = 'wissen_leistungstarif_2027'
+
 export type AnalyticsEvents = {
   cta_ersparnis_click: { position: 'header' | 'hero' | 'bottombar' }
   cta_profi_report_click: {
     position: 'header' | 'bottombar' | 'home_teaser' | 'peak_shaving' | 'kalkulator'
     variant: 'profi_report' | 'jetzt_anfragen' | 'beispiel_ansehen' | 'anfragen'
   }
-  schnellcheck_started: { country: Country }
+  schnellcheck_started: { country: Country; position?: SchnellcheckPosition }
   schnellcheck_result_shown: {
     country: Country
+    position?: SchnellcheckPosition
     kwh_band: KwhBand
     has_kw: boolean
     has_bill: boolean

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { SchnellreportForm } from '@/components/schnellreport-form'
-import { kwhBand, track } from '@/lib/analytics/events'
+import { kwhBand, track, type SchnellcheckPosition } from '@/lib/analytics/events'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { PROFI_REPORT_HREF } from '@/lib/profi-report/links'
 import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
@@ -52,10 +52,13 @@ const FIELDS: { key: FieldKey; unit: 'unitKwh' | 'unitKw' | 'unitEur'; optional:
 export function Schnellcheck({
   showHeading = false,
   partnerSlug,
+  position,
 }: {
   showHeading?: boolean
   /** Partner aus dem Pfad (`/partner/<slug>`); sonst gilt `?partner=` der Adresse. */
   partnerSlug?: string
+  /** Einbettungsort für die Messung; ohne Angabe tragen die Ereignisse kein `position`. */
+  position?: SchnellcheckPosition
 }) {
   const t = useTranslations('Schnellcheck')
   const uid = React.useId()
@@ -96,10 +99,11 @@ export function Schnellcheck({
         kwh_band: kwhBand(kwh),
         has_kw: kw !== null,
         has_bill: bill !== null,
+        ...(position && { position }),
       })
     }, RESULT_SHOWN_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [hasResult, country, kwh, kw, bill])
+  }, [hasResult, country, kwh, kw, bill, position])
 
   // Die eingegebenen Werte reisen als vorbelegte Nachricht ins Kontaktformular.
   const prefill = [
@@ -176,7 +180,7 @@ export function Schnellcheck({
                       onChange={(e) => {
                         if (!startedRef.current) {
                           startedRef.current = true
-                          track('schnellcheck_started', { country })
+                          track('schnellcheck_started', { country, ...(position && { position }) })
                         }
                         setRaw((prev) => ({ ...prev, [field.key]: formatTyped(e.target.value) }))
                       }}
