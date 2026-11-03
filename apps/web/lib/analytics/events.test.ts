@@ -30,6 +30,8 @@ function fireAll() {
     has_kw: true,
     has_bill: false,
   })
+  track('schnellcheck_gespraech_angezeigt', { stufe: 'mittel' })
+  track('cta_gespraech_click', { stufe: 'gross', position: 'wissen_leistungstarif_2027' })
   track('schnellreport_form_opened')
   track('schnellreport_submitted', { country: 'AT', tips_optin: true })
   track('callback_requested')
@@ -56,6 +58,11 @@ describe('Funnel-Ereignisse', () => {
       [
         'schnellcheck_result_shown',
         { ...common, country: 'DE', kwh_band: '250-500k', has_kw: true, has_bill: false },
+      ],
+      ['schnellcheck_gespraech_angezeigt', { ...common, stufe: 'mittel' }],
+      [
+        'cta_gespraech_click',
+        { ...common, stufe: 'gross', position: 'wissen_leistungstarif_2027' },
       ],
       ['schnellreport_form_opened', common],
       ['schnellreport_submitted', { ...common, country: 'AT', tips_optin: true }],
