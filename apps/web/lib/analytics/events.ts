@@ -28,7 +28,13 @@ export type SchnellcheckPosition = 'wissen_leistungstarif_2027'
 export type AnalyticsEvents = {
   cta_ersparnis_click: { position: 'header' | 'hero' | 'bottombar' }
   cta_profi_report_click: {
-    position: 'header' | 'bottombar' | 'home_teaser' | 'peak_shaving' | 'kalkulator'
+    position:
+      | 'header'
+      | 'bottombar'
+      | 'home_teaser'
+      | 'peak_shaving'
+      | 'kalkulator'
+      | 'wissen_leistungstarif_2027'
     variant: 'profi_report' | 'jetzt_anfragen' | 'beispiel_ansehen' | 'anfragen'
   }
   schnellcheck_started: { country: Country; position?: SchnellcheckPosition }

@@ -2,8 +2,14 @@ import * as React from 'react'
 import type { MDXRemoteProps } from 'next-mdx-remote/rsc'
 import { Link as TextLink } from '@/components/ui/link'
 import { Num } from '@/components/ui/layout'
+import { ArrowRight } from 'lucide-react'
+import { Link } from '@/i18n/navigation'
+import { Button } from '@/components/ui/button'
+import { CtaProfiReportLink } from '@/components/analytics/cta-profi-report-link'
 import { Schnellcheck } from '@/components/schnellcheck'
-import type { SchnellcheckPosition } from '@/lib/analytics/events'
+import type { AnalyticsEvents, SchnellcheckPosition } from '@/lib/analytics/events'
+import { kontaktHrefFor } from '@/lib/kontakt/themen'
+import { PROFI_REPORT_HREF } from '@/lib/nav'
 import { Callout } from '@/components/wissen/callout'
 import { ChartFigure, Figure } from '@/components/wissen/figure'
 import { ArbeitLeistungChart } from '@/components/wissen/charts/arbeit-leistung-chart'
@@ -228,6 +234,28 @@ export const mdxComponents: MdxComponentMap = {
    * und den Branchenseiten, ohne Vorbelegung. Breiter als die Prosa-Spalte, damit die drei Felder
    * nebeneinander Platz haben.
    */
+  /** Die beiden Knöpfe von `/peak-shaving/kalkulator` (Profi-Report anfragen, Gespräch vereinbaren). */
+  ProfiReportCta: ({
+    primary,
+    secondary,
+    position,
+  }: {
+    primary: string
+    secondary: string
+    position: AnalyticsEvents['cta_profi_report_click']['position']
+  }) => (
+    <div className="mt-8 flex flex-wrap items-center gap-4">
+      <Button asChild variant="primary" size="lg">
+        <CtaProfiReportLink href={PROFI_REPORT_HREF} position={position} variant="anfragen">
+          {primary}
+          <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
+        </CtaProfiReportLink>
+      </Button>
+      <Button asChild variant="secondary" size="lg">
+        <Link href={kontaktHrefFor('peakShaving')}>{secondary}</Link>
+      </Button>
+    </div>
+  ),
   Schnellcheck: ({ position }: { position?: SchnellcheckPosition }) => (
     <div className="mt-8 max-w-[55rem]">
       <Schnellcheck position={position} />

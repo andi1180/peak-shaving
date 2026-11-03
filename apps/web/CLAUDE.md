@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: Projekt-Actions nur Admin, `/admin/kalkulator` entfernt, Leistungstarif-CTA]** (03.11.2026). `createProjectAction` und `sendProjectChatMessage` prüfen zuerst `getCalculatorAccess()` (Nicht-Admin → `generic` bzw. `not_found`). `/admin/kalkulator` samt Nav-Punkt, `lib/admin/calculator.ts` und Token-Ausstellung gelöscht, 301 auf `/admin/kalkulator-projekte` (`next.config.mjs`). Artikel: neuer Einleitungssatz über dem Schnellcheck, Abschnitt „Genau wissen statt schätzen" mit MDX-Baustein `ProfiReportCta` (Knöpfe wie `/peak-shaving/kalkulator`, `cta_profi_report_click` mit `position: wissen_leistungstarif_2027`); damit ist der OFFEN-Punkt darunter erledigt.
+  - **[OFFEN]** Ohne eigene App-Prüfung (Schutz nur über Eigentümer-oder-Admin-Wrapper in der DB): `uploadProjectDocumentAction` (`lib/project-documents/actions.ts`) und die `lib/admin/data-entry-actions-*.ts` sowie `report-render-actions.ts`.
+
 - **[GEBAUT: Schnellcheck im Leistungstarif-Artikel nach oben gezogen]** (03.11.2026). `<Schnellcheck />` stand schon unter „Ihr Einsparpotenzial in 2 Minuten" (Artikelende) und steht jetzt mit dem Satz „Was bedeutet das für Ihren Betrieb? …" am Ende von „Arbeitspreis vs. Leistungspreis" (nach dem Kasten „Warum hier keine Euro-Beträge stehen") — eine Instanz, nicht zwei. `schnellcheck_started`/`schnellcheck_result_shown` tragen von dort `position: wissen_leistungstarif_2027` (optionaler Prop `position` am Schnellcheck, durchgereicht über `mdxComponents`); alle anderen Einbindungen senden kein `position`.
   - **[OFFEN]** Der Abschnitt „Ihr Einsparpotenzial in 2 Minuten" hat damit keinen Rechner mehr unter sich — Text unverändert gelassen `[ANDREAS]`.
 
