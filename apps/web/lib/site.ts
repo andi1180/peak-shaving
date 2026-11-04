@@ -1,7 +1,7 @@
 /**
  * Die EINE Basis-URL dieser Seite (Pflichtenheft §6.3/§6.4).
  *
- * WARUM ÜBER EINE ENV-VARIABLE UND NICHT ALS KONSTANTE „https://coolin.at":
+ * WARUM ÜBER EINE ENV-VARIABLE UND NICHT ALS KONSTANTE „https://www.coolin.at":
  * Die Produktivdomain liegt noch auf Netlify; gebaut und angeschaut wird auf
  * einer Vercel-Preview-URL (§8.4/§12). Eine hart eingetragene Produktivdomain
  * würde JETZT schon Canonicals und OG-Bild-URLs auf eine Adresse zeigen lassen,
@@ -30,6 +30,15 @@ const VERCEL_URL = publicEnv.NEXT_PUBLIC_VERCEL_URL
 const LOCAL_FALLBACK = 'http://localhost:3000'
 
 /**
+ * Die Produktivdomain. Sie beantwortet „läuft dieser Build unter der echten Domain?" und ist das
+ * Ziel, auf das `resolveSiteUrl` den Apex abbildet; gerendert wird weiterhin nur `SITE_URL`.
+ */
+export const PRODUCTION_ORIGIN = 'https://www.coolin.at'
+
+/** Der Apex leitet in Vercel per 308 auf `PRODUCTION_ORIGIN` um und liefert selbst nichts aus. */
+const APEX_ORIGIN = 'https://coolin.at'
+
+/**
  * Prüft eine konfigurierte Basis-URL und gibt ihren Origin zurück (ohne
  * abschließenden „/").
  *
@@ -44,7 +53,7 @@ function toOrigin(raw: string, source: string): string {
     url = new URL(raw)
   } catch {
     throw new Error(
-      `${source}="${raw}" ist keine gültige absolute URL. Erwartet wird ein Origin mit Schema, z. B. "https://coolin.at".`,
+      `${source}="${raw}" ist keine gültige absolute URL. Erwartet wird ein Origin mit Schema, z. B. "https://www.coolin.at".`,
     )
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -54,14 +63,18 @@ function toOrigin(raw: string, source: string): string {
   // verfälschen (der Pfad ersetzt ihn, statt anzuhängen). Lieber jetzt brechen.
   if (url.pathname !== '/' || url.search !== '' || url.hash !== '') {
     throw new Error(
-      `${source}="${raw}" darf nur der Origin sein — ohne Pfad, Query oder Anker (z. B. "https://coolin.at").`,
+      `${source}="${raw}" darf nur der Origin sein — ohne Pfad, Query oder Anker (z. B. "https://www.coolin.at").`,
     )
   }
   return url.origin
 }
 
 function resolveSiteUrl(): string {
-  if (CONFIGURED_URL) return toOrigin(CONFIGURED_URL, 'NEXT_PUBLIC_SITE_URL')
+  if (CONFIGURED_URL) {
+    const origin = toOrigin(CONFIGURED_URL, 'NEXT_PUBLIC_SITE_URL')
+    // Ein Canonical darf nie auf eine Weiterleitung zeigen, auch wenn die Variable noch den Apex trägt.
+    return origin === APEX_ORIGIN ? PRODUCTION_ORIGIN : origin
+  }
   /*
    * Preview ohne gesetzte Variable: die Seite kanonisiert auf SICH SELBST.
    * Das ist der ehrliche Zustand — eine Preview, die auf coolin.at kanonisiert,
@@ -71,7 +84,7 @@ function resolveSiteUrl(): string {
   return LOCAL_FALLBACK
 }
 
-/** Origin dieser Seite, garantiert ohne abschließenden „/" (z. B. „https://coolin.at"). */
+/** Origin dieser Seite, garantiert ohne abschließenden „/" (z. B. „https://www.coolin.at"). */
 export const SITE_URL = resolveSiteUrl()
 
 /**
@@ -85,22 +98,8 @@ export const SITE_URL = resolveSiteUrl()
 export const HAS_CONFIGURED_SITE_URL = Boolean(CONFIGURED_URL)
 
 /**
- * Die Produktivdomain — das ZIEL des Cutovers (§12), nicht eine zweite Quelle
- * der Basis-URL.
- *
- * DER UNTERSCHIED IST WICHTIG, weil der Kopf dieser Datei eine hart eingetragene
- * Produktivdomain ausdrücklich ablehnt: Diese Konstante wird NIE gerendert. Kein
- * Canonical, kein hreflang, keine Bild-URL entsteht aus ihr — dafür bleibt
- * `SITE_URL` die einzige Quelle. Sie beantwortet eine andere Frage: „läuft dieser
- * Build unter der echten Domain?" Und die lässt sich nicht beantworten, ohne
- * irgendwo zu sagen, welche Domain die echte ist. Sie steht hier und nicht in
- * `app/robots.ts`, damit alles, was eine Domain kennt, in DIESER Datei bleibt.
- */
-export const PRODUCTION_ORIGIN = 'https://coolin.at'
-
-/**
  * Läuft dieser Build unter der Produktivdomain? Steuert `app/robots.ts`: Nur auf
- * coolin.at ist Indexierung erlaubt, überall sonst gilt `Disallow: /`.
+ * www.coolin.at ist Indexierung erlaubt, überall sonst gilt `Disallow: /`.
  *
  * WARUM NICHT `VERCEL_ENV === 'production'`, was näher läge: Das Vercel-Projekt
  * `peak-shaving-web` hat JETZT SCHON ein Production-Deployment — es liegt nur
@@ -116,7 +115,7 @@ export const PRODUCTION_ORIGIN = 'https://coolin.at'
  * Preview — die zweite merkt man beim Testen, die erste erst am Ranking.
  *
  * DER CUTOVER BLEIBT EIN EINZIGER HANDGRIFF: `NEXT_PUBLIC_SITE_URL` auf
- * `https://coolin.at` setzen schaltet Canonicals, hreflang, OG-Bild UND robots
+ * `https://www.coolin.at` setzen schaltet Canonicals, hreflang, OG-Bild UND robots
  * gemeinsam um. Ein zweiter Schalter (etwa `NEXT_PUBLIC_ALLOW_INDEXING`) könnte
  * halb umgelegt werden — robots gäbe die Seite frei, während die Canonicals noch
  * auf die vercel.app zeigen. Genau diese Hälfte darf es nicht geben.
