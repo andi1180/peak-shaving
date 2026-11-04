@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: Basis-URL auf `https://www.coolin.at`, Fremd-Hosts `noindex`]** (04.11.2026). `PRODUCTION_ORIGIN` ist www; `resolveSiteUrl` (`lib/site.ts`) bildet ein gesetztes `NEXT_PUBLIC_SITE_URL=https://coolin.at` auf www ab, damit Canonicals, sitemap, robots, JSON-LD, Mail-Links und Auth-Redirects unabhängig vom Vercel-Wert stimmen und `IS_PRODUCTION_SITE` nicht kippt. Preview und lokal bleiben auf sich selbst. Die Middleware setzt `X-Robots-Tag: noindex` auf `partner.`, `access.` und `*.vercel.app` (`lib/noindex-host.ts`), nur auf Pfaden des Matchers.
+  - **[OFFEN]** Vercel: `NEXT_PUBLIC_SITE_URL` (Production) auf `https://www.coolin.at` setzen (Klarheit, wirkt erst nach Redeploy), Supabase-Site-URL ebenso. `og:url` gibt die Seite nirgends aus.
+
 - **[GEBAUT: Schnellcheck — Gesprächsweg nach Betriebsgröße]** (03.11.2026). Stufe aus dem Jahresverbrauch (Feld in **kWh**), `gespraechStufe` + `GESPRAECH_MITTEL_KWH` 100.000 / `GESPRAECH_GROSS_KWH` 1.000.000 in `lib/schnellcheck.ts`, Grenzwert zählt zur höheren Stufe. `mittel`: Zeile „Lieber kurz sprechen? Gespräch vereinbaren“ unter dem Profi-Report-Link; `gross`: Kasten (Stil der 10-%-Box) mit Primärknopf über dem Profi-Report-Block. Ziel `/kontakt?thema=peakShaving` samt Werte-Vorbelegung (`hrefFor`). **Ab 100 MWh ersetzt das den Link „kostenloses Erstgespräch“** (sonst zwei Gesprächslinks nebeneinander); darunter unverändert.
   - Ereignisse `schnellcheck_gespraech_angezeigt` (je Stufe einmal, nach 1,5 s Ruhe wie `schnellcheck_result_shown`) und `cta_gespraech_click`, beide `{stufe, position?}` (Schnellcheck-Muster).
 

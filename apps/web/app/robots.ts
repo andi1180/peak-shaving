@@ -16,7 +16,7 @@ import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
  *
  * Die Weiche hängt an `SITE_URL` (`lib/site.ts`), nicht an `VERCEL_ENV` — die
  * Begründung steht bei `IS_PRODUCTION_SITE`. Damit bleibt der Cutover EIN
- * Handgriff: `NEXT_PUBLIC_SITE_URL=https://coolin.at` in Vercel setzen schaltet
+ * Handgriff: `NEXT_PUBLIC_SITE_URL=https://www.coolin.at` in Vercel setzen schaltet
  * Canonicals, hreflang, OG-Bild und robots gemeinsam scharf.
  *
  * WARUM HIER KEINE `disallow`-EINTRÄGE FÜR DIE noindex-SEITEN STEHEN (die
@@ -46,12 +46,8 @@ import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
  * auf diesem Host ist ein 308 auf die kanonische Basis, also ohnehin kein indexierbarer Inhalt.
  *
  * ⚠ WARUM KEINE POSITIVE ALLOWLIST INDEXIERBARER HOSTS (das wäre die strengere Fassung):
- * GEMESSEN am 03.08.2026 leitet der Apex `coolin.at` per 308 auf `www.coolin.at` um — ausgeliefert
- * wird die Seite also unter `www`, während `NEXT_PUBLIC_SITE_URL` (und damit `SITE_URL`,
- * `PRODUCTION_ORIGIN` und jeder Canonical) auf den Apex OHNE `www` lautet. Eine Regel „indexierbar
- * nur unter dem kanonischen Host" setzte damit die GESAMTE Seite auf `Disallow: /`, weil der
- * einzige Host, der überhaupt mit 200 antwortet, nicht der kanonische ist. Diese Weiche fügt
- * deshalb ausschliesslich eine VERBIETENDE Bedingung hinzu und erteilt nirgends eine neue Erlaubnis.
+ * Diese Weiche fügt ausschliesslich eine VERBIETENDE Bedingung hinzu und erteilt nirgends eine neue
+ * Erlaubnis; Fremd-Hosts tragen zusätzlich `X-Robots-Tag: noindex` aus der Middleware.
  * Die verbleibende Lücke — ein weiterer, unbekannter Host auf derselben Auslieferung bekäme
  * `Allow` — ist bekannt und gehört in die Domain-Konfiguration in Vercel, nicht in den Code.
  *

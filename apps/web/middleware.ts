@@ -15,9 +15,17 @@ import {
   leavesPortalHost,
   portalRenderPath,
 } from './lib/portal-host'
+import { isNoindexHostRequest } from './lib/noindex-host'
 import { SITE_URL } from './lib/site'
 
 const handleI18nRouting = createMiddleware(routing)
+
+/** Ein Header auf der fertigen Antwort: Routing und Funktion der Fremd-Hosts bleiben unberührt. */
+export async function middleware(request: NextRequest): Promise<Response> {
+  const response = await routeRequest(request)
+  if (isNoindexHostRequest(request.headers)) response.headers.set('X-Robots-Tag', 'noindex')
+  return response
+}
 
 /**
  * EINE Middleware, zwei Aufgaben (Next erlaubt nur genau eine): next-intl-Locale-Routing UND
@@ -34,7 +42,7 @@ const handleI18nRouting = createMiddleware(routing)
  * next-intl eine frische Response, die man zurückgibt) verwirft die refreshten Tokens STILL — der
  * Nutzer flöge scheinbar zufällig aus der Session. Genau das vermeidet die Komposition hier.
  */
-export async function middleware(request: NextRequest): Promise<Response> {
+async function routeRequest(request: NextRequest): Promise<Response> {
   /*
    * ⚠ DER WÄCHTER ÜBER DEN INTERNEN RENDER-BAUM (B18-1a-Nachbesserung, mit B18-3 auf den ganzen
    * Baum erweitert) — er steht VOR ALLEM ANDEREN, und diese Reihenfolge ist die eigentliche
