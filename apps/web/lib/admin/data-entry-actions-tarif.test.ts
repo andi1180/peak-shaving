@@ -5,7 +5,10 @@ import {
   TARIFF_COMPARISON_BASE_FEE_KEY,
   TARIFF_COMPARISON_ENERGY_PRICE_KEY,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
+  TARIFF_COMPARISON_OFFER_DATE_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
+  TARIFF_COMPARISON_SOURCE_KEY,
+  offerDateToday,
 } from './tariff-draft'
 
 /**
@@ -27,6 +30,7 @@ vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) 
 
 const {
   deleteMeteringPointDynamicTariffAction,
+  deleteMeteringPointTariffComparisonAction,
   saveMeteringPointAnalysisAssumptionsAction,
   saveMeteringPointDynamicTariffAction,
   saveMeteringPointTariffComparisonAction,
@@ -85,6 +89,8 @@ const VALID_COMPARISON = {
   energyPriceCtPerKwh: '14,94',
   baseFeeEurPerMonth: '3,90',
   priceBasis: 'net',
+  source: 'tarife_at',
+  offerDate: '2026-10-12',
 }
 
 function comparisonForm(overrides: Partial<typeof VALID_COMPARISON> = {}): FormData {
@@ -102,6 +108,8 @@ const COMPARISON_KEYS = [
   TARIFF_COMPARISON_ENERGY_PRICE_KEY,
   TARIFF_COMPARISON_BASE_FEE_KEY,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
+  TARIFF_COMPARISON_SOURCE_KEY,
+  TARIFF_COMPARISON_OFFER_DATE_KEY,
 ]
 
 describe('Tarif-Station — Vergleichstarif', () => {
@@ -111,7 +119,7 @@ describe('Tarif-Station — Vergleichstarif', () => {
     withDraftWrappers()
   })
 
-  it('schreibt alle vier Felder in EINEM Aufruf — Komma als Dezimaltrennzeichen', async () => {
+  it('schreibt alle sechs Felder in EINEM Aufruf — Komma als Dezimaltrennzeichen', async () => {
     const state = await saveMeteringPointTariffComparisonAction({}, comparisonForm())
 
     expect(state.fieldErrors).toBeUndefined()
@@ -123,12 +131,14 @@ describe('Tarif-Station — Vergleichstarif', () => {
     expect(draft[TARIFF_COMPARISON_ENERGY_PRICE_KEY]).toBe(14.94)
     expect(draft[TARIFF_COMPARISON_BASE_FEE_KEY]).toBe(3.9)
     expect(draft[TARIFF_COMPARISON_PRICE_BASIS_KEY]).toBe('net')
+    expect(draft[TARIFF_COMPARISON_SOURCE_KEY]).toBe('tarife_at')
+    expect(draft[TARIFF_COMPARISON_OFFER_DATE_KEY]).toBe('2026-10-12')
 
     // Der Bestand der übrigen Stationen bleibt unberührt.
     expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
 
-    // GENAU EIN Schreibvorgang für vier Felder — `update_metering_point_draft` ERSETZT den
-    // Entwurf, vier Aufrufe nähmen einander die Felder wieder weg.
+    // GENAU EIN Schreibvorgang für alle Felder — `update_metering_point_draft` ERSETZT den
+    // Entwurf, einzelne Aufrufe nähmen einander die Felder wieder weg.
     expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
     expect(revalidatePath).toHaveBeenCalledTimes(1)
   })
@@ -155,6 +165,11 @@ describe('Tarif-Station — Vergleichstarif', () => {
     ['baseFeeEurPerMonth (leer)', { baseFeeEurPerMonth: '' }, 'baseFeeEurPerMonth'],
     ['baseFeeEurPerMonth (keine Zahl)', { baseFeeEurPerMonth: 'abc' }, 'baseFeeEurPerMonth'],
     ['baseFeeEurPerMonth (negativ)', { baseFeeEurPerMonth: '-0,5' }, 'baseFeeEurPerMonth'],
+    ['source (leer)', { source: '' }, 'source'],
+    ['source (unbekannt)', { source: 'quatsch' }, 'source'],
+    ['offerDate (leer)', { offerDate: '' }, 'offerDate'],
+    ['offerDate (kein Kalendertag)', { offerDate: '2026-02-31' }, 'offerDate'],
+    ['offerDate (Zukunft)', { offerDate: '2999-01-01' }, 'offerDate'],
   ])(
     '⚠ weist %s ab, OHNE die Datenbank zu fragen',
     async (_name, overrides: Partial<typeof VALID_COMPARISON>, field: string) => {
@@ -168,6 +183,35 @@ describe('Tarif-Station — Vergleichstarif', () => {
       for (const key of COMPARISON_KEYS) expect(draft).not.toHaveProperty(key)
     },
   )
+
+  it('gibt bei einem Feldfehler alle Eingaben zurück — die Preise überstehen den Formular-Reset', async () => {
+    const state = await saveMeteringPointTariffComparisonAction({}, comparisonForm({ source: '' }))
+
+    expect(state.values).toMatchObject({
+      energyPriceCtPerKwh: '14,94',
+      baseFeeEurPerMonth: '3,90',
+      priceBasis: 'net',
+      offerDate: '2026-10-12',
+    })
+  })
+
+  it('das Datum „heute" gilt in Wiener Ortszeit, auch wenn in UTC noch gestern ist', () => {
+    expect(offerDateToday(new Date('2026-11-05T23:30:00Z'))).toBe('2026-11-06')
+  })
+
+  it('Löschen entfernt alle sechs Schlüssel, der Bestand bleibt', async () => {
+    await saveMeteringPointTariffComparisonAction({}, comparisonForm())
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+
+    const state = await deleteMeteringPointTariffComparisonAction({}, fd)
+
+    expect(state.success).toBeDefined()
+    expect(COMPARISON_KEYS).toHaveLength(6)
+    for (const key of COMPARISON_KEYS) expect(draft).not.toHaveProperty(key)
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+  })
 
   it('⚠ ein leeres Betragsfeld gilt NICHT als 0 — `Number("")` ist 0 und wäre endlich', async () => {
     const state = await saveMeteringPointTariffComparisonAction(

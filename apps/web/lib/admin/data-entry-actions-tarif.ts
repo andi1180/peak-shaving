@@ -7,14 +7,19 @@ import {
   TARIFF_COMPARISON_PRICE_BASES,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
+  TARIFF_COMPARISON_OFFER_DATE_KEY,
+  TARIFF_COMPARISON_SOURCE_KEY,
+  offerDateToday,
 } from './tariff-draft'
 import {
   ANALYSIS_ASSUMPTION_DRAFT_KEYS,
   DYNAMIC_TARIFF_DRAFT_KEYS,
   ANALYSIS_HORIZON_YEARS_MAX,
   ANALYSIS_HORIZON_YEARS_MIN,
+  comparisonTariffSourceSchema,
   DEPRECIATION_YEARS_MAX,
   DEPRECIATION_YEARS_MIN,
+  isIsoCalendarDate,
   netFromEntered,
   SUBSIDY_PROGRAM_DRAFT_KEYS,
   SUBSIDY_PROGRAM_LABEL_MAX,
@@ -92,6 +97,8 @@ export async function saveMeteringPointTariffComparisonAction(
   const priceBasis = String(formData.get('priceBasis') ?? '')
   const energyPriceRaw = String(formData.get('energyPriceCtPerKwh') ?? '')
   const baseFeeRaw = String(formData.get('baseFeeEurPerMonth') ?? '')
+  const source = String(formData.get('source') ?? '')
+  const offerDate = String(formData.get('offerDate') ?? '').trim()
 
   const fieldErrors: Record<string, string> = {}
   if (providerName === '') {
@@ -108,8 +115,27 @@ export async function saveMeteringPointTariffComparisonAction(
   if (baseFeeRaw.trim() === '' || !Number.isFinite(baseFee) || baseFee < 0) {
     fieldErrors.baseFeeEurPerMonth = 'Bitte die Grundgebühr als Zahl angeben.'
   }
+  if (!comparisonTariffSourceSchema.safeParse(source).success) {
+    fieldErrors.source = 'Bitte die Quelle des Preises angeben.'
+  }
+  if (!isIsoCalendarDate(offerDate)) {
+    fieldErrors.offerDate = 'Bitte das Angebotsdatum angeben.'
+  } else if (offerDate > offerDateToday()) {
+    fieldErrors.offerDate = 'Das Angebotsdatum darf nicht in der Zukunft liegen.'
+  }
   if (Object.keys(fieldErrors).length > 0) {
-    return { fieldErrors, values: { providerName, priceBasis } }
+    // Alles zurückgeben: React setzt das Formular nach der Action zurück, die Preise wären sonst weg.
+    return {
+      fieldErrors,
+      values: {
+        providerName,
+        priceBasis,
+        energyPriceCtPerKwh: energyPriceRaw,
+        baseFeeEurPerMonth: baseFeeRaw,
+        source,
+        offerDate,
+      },
+    }
   }
 
   const failure = await writeMeteringPointDraftFields(
@@ -120,6 +146,8 @@ export async function saveMeteringPointTariffComparisonAction(
       { field: TARIFF_COMPARISON_ENERGY_PRICE_KEY, value: energyPrice },
       { field: TARIFF_COMPARISON_BASE_FEE_KEY, value: baseFee },
       { field: TARIFF_COMPARISON_PRICE_BASIS_KEY, value: priceBasis },
+      { field: TARIFF_COMPARISON_SOURCE_KEY, value: source },
+      { field: TARIFF_COMPARISON_OFFER_DATE_KEY, value: offerDate },
     ],
     'Vergleichstarif',
   )
@@ -129,13 +157,13 @@ export async function saveMeteringPointTariffComparisonAction(
 }
 
 /**
- * Den eingetragenen Vergleichstarif wieder entfernen — ALLE VIER Felder gemeinsam.
+ * Den eingetragenen Vergleichstarif wieder entfernen — ALLE SECHS Felder gemeinsam.
  *
- * ⚠ WARUM DIE VIER NICHT EINZELN LÖSCHBAR SIND: `currentComparison` (die Leseseite) gibt `null`
- * zurück, sobald EINES der vier fehlt. Bliebe eines stehen, verschwände die Zusammenfassung
+ * ⚠ WARUM SIE NICHT EINZELN LÖSCHBAR SIND: `currentComparison` (die Leseseite) gibt `null`
+ * zurück, sobald eines der vier Preisfelder fehlt. Bliebe eines stehen, verschwände die Zusammenfassung
  * trotzdem — und mit ihr der Löschknopf, der das übrige Feld noch hätte entfernen können. Der
  * Zählpunkt trüge danach dauerhaft einen halben Vergleich, den keine Oberfläche mehr anzeigt und
- * kein Weg mehr erreicht. Die Liste steht deshalb als EINE Konstante neben den vier Schlüsseln
+ * kein Weg mehr erreicht. Die Liste steht deshalb als EINE Konstante neben den Schlüsseln
  * (`TARIFF_COMPARISON_DRAFT_KEYS`), nicht hier abgeschrieben.
  *
  * Kein neuer Löschhelfer: `clearMeteringPointDraftFields` (PR #223) entfernt benannte Schlüssel

@@ -41,6 +41,27 @@ function render(draft: Record<string, unknown> = {}): string {
   )
 }
 
+describe('Tarif-Station — Vergleichstarif', () => {
+  const WARNING = 'Ohne Vergleichstarif keine Wechselprüfung Fix ↔ Börse.'
+  const saved = {
+    tariffComparisonProviderName: 'Beispiel Energie',
+    tariffComparisonEnergyPriceCtPerKwh: 14.94,
+    tariffComparisonBaseFeeEurPerMonth: 3.9,
+    tariffComparisonPriceBasis: 'net',
+  }
+
+  it('warnt nur ohne gespeicherten Vergleichstarif', () => {
+    expect(render()).toContain(WARNING)
+    expect(render(saved)).not.toContain(WARNING)
+  })
+
+  it('ein Bestandsentwurf ohne Quelle und Datum gilt als gespeichert und trägt den Hilfetext', () => {
+    const html = render(saved)
+    expect(html).toContain('Beispiel Energie')
+    expect(html).toContain('nur Tarife ohne Bindung und ohne Neukundenbonus')
+  })
+})
+
 describe('Tarif-Station — Block „Dynamischer Tarif"', () => {
   it('Block ohne Länderbezug: leer mit Formular, mit AT-Vorbelegung die vermerkten Werte', () => {
     const empty = render()
