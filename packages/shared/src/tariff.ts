@@ -122,9 +122,10 @@ export type BenutzungsdauerModel = z.infer<typeof benutzungsdauerModelSchema>
  * und Abgabenposten wie im Ist-Tarif, nur der Energiepreis und die Lieferanten-Grundgebühr sind
  * andere.
  *
- * ⚠ `priceBasis` IST PFLICHT UND WIRD NICHT UMGERECHNET. Ein brutto eingetragener Tarif führt zum
- * AUSFALL dieses einen Wegs, nicht zu einer Division durch einen geratenen Steuersatz — dieselbe
- * Haltung wie bei Netzentgelt-Zeilen und Börsenpreisen (`tou.ts`, `kind: 'price_basis'`).
+ * ⚠ `priceBasis` IST PFLICHT. Ein brutto eingetragener Tarif wird an der Grenze
+ * (`mapDraftToTariffParams`) mit dem USt-Satz des Analyse-Landes in netto umgerechnet; die
+ * Engine sieht dann `priceBasis: 'net'`. Kommt trotzdem `'gross'` an, entfällt der Weg — der
+ * Rechenkern teilt nicht durch einen Satz, den er nicht kennt.
  */
 export const comparisonSupplierTariffSchema = z.object({
   /** Wie der Lieferant heisst, so wie der Kunde ihn eingetragen hat. Steht im Report. */
@@ -132,6 +133,8 @@ export const comparisonSupplierTariffSchema = z.object({
   energyPriceCtPerKwh: z.number().nonnegative(),
   baseFeeEurPerMonth: z.number().nonnegative(),
   priceBasis: priceBasisSchema,
+  /** `'gross'`: die Beträge hier sind aus einer Brutto-Eingabe umgerechnet. Fehlt bei Netto-Eingabe. */
+  enteredPriceBasis: z.literal('gross').optional(),
 })
 export type ComparisonSupplierTariff = z.infer<typeof comparisonSupplierTariffSchema>
 

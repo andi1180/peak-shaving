@@ -261,9 +261,9 @@ export type MonthlyTariffComparison = {
   /**
    * D7-Revision Weg 2 — derselbe rohe Lastgang zum selbst gefundenen VERGLEICHSTARIF des Kunden.
    *
-   * `undefined` heisst „kein Vergleichstarif angegeben ODER er ist brutto hinterlegt" — beides
-   * lässt den Weg ENTFALLEN, statt eine Reihe aus einem geratenen Steuersatz zu bilden
-   * (`comparisonSupplierTariffSchema`). Welcher Lieferant, steht in `comparisonSupplier`.
+   * `undefined` heisst „kein Vergleichstarif angegeben" oder keine Börsenseite. Brutto Eingetragenes
+   * ist an der Grenze netto gerechnet (`comparisonSupplierTariffSchema`); kommt doch `'gross'` an,
+   * entfällt der Weg ebenfalls. Welcher Lieferant, steht in `comparisonSupplier`.
    */
   comparisonTariffEur?: (number | null)[]
   /** Der Name des Lieferanten zu `comparisonTariffEur` — gemeinsam gesetzt oder gemeinsam weg. */

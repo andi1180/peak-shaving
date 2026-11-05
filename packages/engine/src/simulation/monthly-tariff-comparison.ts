@@ -198,8 +198,8 @@ function monthlyComparisonOf(
 
   /*
    * D7-Revision Weg 2 — der selbst gefundene Vergleichstarif. Dieselbe Funktion, dieselben Netz-,
-   * Mess- und Abgabenposten; getauscht wird GENAU der Energiepreis. Ein brutto hinterlegter Tarif
-   * lässt den Weg entfallen, statt durch einen geratenen Steuersatz zu teilen (`tariff.ts`).
+   * Mess- und Abgabenposten; getauscht wird GENAU der Energiepreis. Brutto Eingetragenes ist hier
+   * schon netto (`mapDraftToTariffParams`); ein unumgerechnetes `'gross'` lässt den Weg entfallen.
    */
   const comparisonTariff =
     spotPrices && tariffParams.comparisonSupplier?.priceBasis === 'net'

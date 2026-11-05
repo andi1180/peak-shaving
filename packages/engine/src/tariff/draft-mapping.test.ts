@@ -24,6 +24,44 @@ const DRAFT: Record<string, unknown> = {
   _provenance: { energyPriceCtPerKwh: { source: 'measured', at: '2026-09-16T08:00:00.000Z' } },
 }
 
+describe('mapDraftToTariffParams — Vergleichstarif', () => {
+  const entered = (priceBasis: string) => ({
+    ...DRAFT,
+    tariffComparisonProviderName: 'Anbieter',
+    tariffComparisonEnergyPriceCtPerKwh: 16.4,
+    tariffComparisonBaseFeeEurPerMonth: 2.5,
+    tariffComparisonPriceBasis: priceBasis,
+  })
+
+  it.each([
+    ['AT', 1.2],
+    ['DE', 1.19],
+    [undefined, 1.2],
+  ] as const)(
+    'brutto (%s): beide Beträge durch den Landessatz, Eingabeart bleibt',
+    (country, f) => {
+      const supplier = mapDraftToTariffParams(entered('gross'), { country }).comparisonSupplier!
+      expect(supplier.energyPriceCtPerKwh).toBeCloseTo(16.4 / f, 9)
+      expect(supplier.baseFeeEurPerMonth).toBeCloseTo(2.5 / f, 9)
+      expect(supplier.priceBasis).toBe('net')
+      expect(supplier.enteredPriceBasis).toBe('gross')
+    },
+  )
+
+  it('netto: unverändert, ohne Vermerk', () => {
+    expect(mapDraftToTariffParams(entered('net'), { country: 'DE' }).comparisonSupplier).toEqual({
+      supplier: 'Anbieter',
+      energyPriceCtPerKwh: 16.4,
+      baseFeeEurPerMonth: 2.5,
+      priceBasis: 'net',
+    })
+  })
+
+  it('eine unbekannte Preisbasis wird weiterhin abgewiesen', () => {
+    expect(() => mapDraftToTariffParams(entered('irgendwie'))).toThrow()
+  })
+})
+
 describe('mapDraftToTariffParams', () => {
   it('bildet die neun Entwurfsfelder ab und setzt den SNE-V-Standardfall als Abrechnungsmodell', () => {
     expect(mapDraftToTariffParams(DRAFT)).toEqual({
