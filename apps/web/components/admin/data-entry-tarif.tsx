@@ -17,12 +17,15 @@ import {
   TARIFF_COMPARISON_PRICE_BASES,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
+  offerDateToday,
   type TariffComparisonPriceBasis,
 } from '@/lib/admin/tariff-draft'
 import {
+  comparisonTariffSourceSchema,
   DEFAULT_DYNAMIC_SUPPLIER_NAME,
   DYNAMIC_TARIFF_DRAFT_KEYS,
   readDraftDynamicTariff,
+  type ComparisonTariffSource,
 } from 'shared'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
@@ -72,6 +75,13 @@ const PRICE_BASIS_LABEL: Record<TariffComparisonPriceBasis, string> = {
   gross: 'brutto (inkl. USt.)',
 }
 
+const COMPARISON_SOURCE_LABEL: Record<ComparisonTariffSource, string> = {
+  tarife_at: 'tarife.at',
+  durchblicker_at: 'durchblicker.at',
+  angebot: 'Angebot',
+  sonstige: 'sonstige',
+}
+
 /**
  * Platzhalter der Betragsfelder — ein FORMAT-Hinweis, kein Beispielwert.
  *
@@ -105,6 +115,9 @@ type TariffComparison = {
 
 /**
  * Der gespeicherte Vergleichstarif, oder `null`.
+ *
+ * ⚠ Quelle und Angebotsdatum bewusst NICHT in dieser Prüfung: Bestandsentwürfe tragen sie nicht und
+ * sollen weiter als gespeichert gelten.
  *
  * ⚠ ALLE VIER ODER KEINES — dieselbe Regel wie im Schreibweg, hier auf der Leseseite. Ein aus
  * jsonb halb gefüllter Eintrag (drei Felder da, eines weg oder vom falschen Typ) würde sonst als
@@ -281,6 +294,12 @@ export function DataEntryTarif({
         Vollständigkeit dieser Station (s. der Absatz beim Weiter-Knopf unten). Bis zum 15.09.2026
         hing das Formular am Zweig „optimieren" einer Tarif-WAHL — die es nicht mehr gibt.
       */}
+      {comparison === null && (
+        <p className="max-w-prose rounded-md border border-warning-border bg-warning-subtle p-3 text-small text-ink">
+          Ohne Vergleichstarif keine Wechselprüfung Fix ↔ Börse.
+        </p>
+      )}
+
       {comparison === null && !comparisonOpen && (
         <div>
           <Button
@@ -298,6 +317,11 @@ export function DataEntryTarif({
         <AdminPanel>
           <h3 className="text-h4 text-ink">Vergleichstarif</h3>
           <p className="mt-1 text-caption text-text-muted">{searchHint(segment)}</p>
+          <p className="mt-1 text-caption text-text-muted">
+            Günstigster Fixtarif laut tarife.at oder durchblicker.at für Verbrauch und Ort – nur
+            Tarife ohne Bindung und ohne Neukundenbonus. Preise so eintragen, wie sie angezeigt
+            werden; brutto wird mit der Umsatzsteuer des Projektlands in netto umgerechnet.
+          </p>
 
           {comparison && (
             <>
@@ -316,7 +340,7 @@ export function DataEntryTarif({
 
               {/*
                 ⚠ RÜCKFRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG — die Autorisierung liegt in der
-                Datenbank (Muster `ActionButton`/T4-4). Sie steht hier, weil der Klick vier Felder
+                Datenbank (Muster `ActionButton`/T4-4). Sie steht hier, weil der Klick alle Felder
                 gemeinsam entfernt und es dafür keinen Rückweg gibt ausser dem erneuten Eintragen.
 
                 ⚠ `ghost`, klein, UNTER der Zusammenfassung: er ist der Ausweg, nicht der Weg —
@@ -386,6 +410,7 @@ export function DataEntryTarif({
                   label="Arbeitspreis (ct/kWh)"
                   inputMode="numeric"
                   placeholder={AMOUNT_PLACEHOLDER}
+                  defaultValue={comparisonState.values?.energyPriceCtPerKwh}
                   error={comparisonState.fieldErrors?.energyPriceCtPerKwh}
                 />
                 <AdminField
@@ -394,6 +419,7 @@ export function DataEntryTarif({
                   label="Grundgebühr (EUR/Monat)"
                   inputMode="numeric"
                   placeholder={AMOUNT_PLACEHOLDER}
+                  defaultValue={comparisonState.values?.baseFeeEurPerMonth}
                   error={comparisonState.fieldErrors?.baseFeeEurPerMonth}
                 />
               </div>
@@ -407,6 +433,8 @@ export function DataEntryTarif({
               Fehler auffiele.
             */}
               <AdminSelect
+                /* `key`: ein Select übersteht den Formular-Reset nach der Action sonst nicht. */
+                key={`priceBasis:${comparisonState.values?.priceBasis ?? ''}`}
                 id={`${formId}-priceBasis`}
                 name="priceBasis"
                 label="Preisbasis"
@@ -420,6 +448,32 @@ export function DataEntryTarif({
                   </option>
                 ))}
               </AdminSelect>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <AdminSelect
+                  key={`source:${comparisonState.values?.source ?? ''}`}
+                  id={`${formId}-source`}
+                  name="source"
+                  label="Quelle"
+                  defaultValue={comparisonState.values?.source ?? ''}
+                  error={comparisonState.fieldErrors?.source}
+                >
+                  <option value="">— bitte wählen —</option>
+                  {comparisonTariffSourceSchema.options.map((source) => (
+                    <option key={source} value={source}>
+                      {COMPARISON_SOURCE_LABEL[source]}
+                    </option>
+                  ))}
+                </AdminSelect>
+                <AdminField
+                  id={`${formId}-offerDate`}
+                  name="offerDate"
+                  label="Angebotsdatum"
+                  type="date"
+                  defaultValue={comparisonState.values?.offerDate ?? offerDateToday()}
+                  error={comparisonState.fieldErrors?.offerDate}
+                />
+              </div>
 
               <div>
                 <Button type="submit" variant="secondary" size="sm" disabled={isSavingComparison}>

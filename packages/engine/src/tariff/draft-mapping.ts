@@ -1,7 +1,9 @@
 import {
+  comparisonTariffSourceSchema,
   DEFAULT_DRAFT_BILLING_MODEL,
   describeTariffParamsProblems,
   demandPriceFallsBackToZero,
+  isIsoCalendarDate,
   minBillableKwFallsBackToZero,
   tariffParamsSchema,
   vatRateFor,
@@ -11,10 +13,11 @@ import {
 } from 'shared'
 
 /**
- * Die vier Entwurfs-Schlüssel des selbst gefundenen VERGLEICHSTARIFS (Tarif-Station,
+ * Die Entwurfs-Schlüssel des selbst gefundenen VERGLEICHSTARIFS (Tarif-Station,
  * `apps/web/lib/admin/tariff-draft.ts`) — D7-Revision Weg 2.
  *
- * ⚠ ALLE VIER ODER KEINER. Die Leseseite der Station gibt schon heute `null` zurück, sobald eines
+ * ⚠ DIE VIER PREISFELDER GANZ ODER GAR NICHT; `source` und `offerDate` sind Herkunftsangaben und
+ * fehlen in Bestandsentwürfen, ohne dass der Tarif deshalb entfällt. Die Leseseite der Station gibt schon heute `null` zurück, sobald eines
  * fehlt; hier gilt dasselbe, weil ein Vergleich ohne Preis oder ohne Preisbasis keiner ist. Ein
  * halber Tarif wird still verworfen statt ergänzt — geraten wird in dieser Datei nichts.
  */
@@ -23,6 +26,8 @@ const COMPARISON_DRAFT_KEYS = {
   energyPriceCtPerKwh: 'tariffComparisonEnergyPriceCtPerKwh',
   baseFeeEurPerMonth: 'tariffComparisonBaseFeeEurPerMonth',
   priceBasis: 'tariffComparisonPriceBasis',
+  source: 'tariffComparisonSource',
+  offerDate: 'tariffComparisonOfferDate',
 } as const
 
 /**
@@ -206,6 +211,13 @@ export function mapDraftToTariffParams(
     typeof priceBasis === 'string'
   ) {
     const vatFactor = 1 + vatRateFor(options.country)
+    // Fehlende oder ungültige Angaben lassen den Schlüssel weg, damit Bestandsläufe objektgleich bleiben.
+    const source = comparisonTariffSourceSchema.safeParse(draft[COMPARISON_DRAFT_KEYS.source])
+    const offerDate = draft[COMPARISON_DRAFT_KEYS.offerDate]
+    const origin = {
+      ...(source.success ? { source: source.data } : {}),
+      ...(isIsoCalendarDate(offerDate) ? { offerDate } : {}),
+    }
     candidate.comparisonSupplier =
       priceBasis === 'gross'
         ? {
@@ -214,8 +226,15 @@ export function mapDraftToTariffParams(
             baseFeeEurPerMonth: baseFee / vatFactor,
             priceBasis: 'net',
             enteredPriceBasis: 'gross',
+            ...origin,
           }
-        : { supplier, energyPriceCtPerKwh: energyPrice, baseFeeEurPerMonth: baseFee, priceBasis }
+        : {
+            supplier,
+            energyPriceCtPerKwh: energyPrice,
+            baseFeeEurPerMonth: baseFee,
+            priceBasis,
+            ...origin,
+          }
   }
 
   const parsed = tariffParamsSchema.safeParse(candidate)

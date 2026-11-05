@@ -127,6 +127,21 @@ export type BenutzungsdauerModel = z.infer<typeof benutzungsdauerModelSchema>
  * Engine sieht dann `priceBasis: 'net'`. Kommt trotzdem `'gross'` an, entfällt der Weg — der
  * Rechenkern teilt nicht durch einen Satz, den er nicht kennt.
  */
+export const comparisonTariffSourceSchema = z.enum([
+  'tarife_at',
+  'durchblicker_at',
+  'angebot',
+  'sonstige',
+])
+export type ComparisonTariffSource = z.infer<typeof comparisonTariffSourceSchema>
+
+/** Ein echter Kalendertag als `JJJJ-MM-TT` — der 31.02. passt ins Muster, ist aber keiner. */
+export function isIsoCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
 export const comparisonSupplierTariffSchema = z.object({
   /** Wie der Lieferant heisst, so wie der Kunde ihn eingetragen hat. Steht im Report. */
   supplier: z.string().min(1),
@@ -135,6 +150,10 @@ export const comparisonSupplierTariffSchema = z.object({
   priceBasis: priceBasisSchema,
   /** `'gross'`: die Beträge hier sind aus einer Brutto-Eingabe umgerechnet. Fehlt bei Netto-Eingabe. */
   enteredPriceBasis: z.literal('gross').optional(),
+  /** Woher der Preis stammt. Fehlt bei Entwürfen von vor dieser Angabe. */
+  source: comparisonTariffSourceSchema.optional(),
+  /** Stand des Angebots, `JJJJ-MM-TT`. Fehlt bei Entwürfen von vor dieser Angabe. */
+  offerDate: z.string().refine(isIsoCalendarDate).optional(),
 })
 export type ComparisonSupplierTariff = z.infer<typeof comparisonSupplierTariffSchema>
 

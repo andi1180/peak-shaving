@@ -57,6 +57,37 @@ describe('mapDraftToTariffParams — Vergleichstarif', () => {
     })
   })
 
+  it('Quelle und Angebotsdatum reisen mit, netto wie brutto', () => {
+    const withOrigin = (basis: string) => ({
+      ...entered(basis),
+      tariffComparisonSource: 'durchblicker_at',
+      tariffComparisonOfferDate: '2026-10-12',
+    })
+    for (const basis of ['net', 'gross']) {
+      expect(mapDraftToTariffParams(withOrigin(basis), {}).comparisonSupplier).toMatchObject({
+        source: 'durchblicker_at',
+        offerDate: '2026-10-12',
+      })
+    }
+  })
+
+  it('Bestandsentwurf oder ungültige Angaben: Schlüssel fehlen, objektgleich zum Stand davor', () => {
+    const before = {
+      supplier: 'Anbieter',
+      energyPriceCtPerKwh: 16.4,
+      baseFeeEurPerMonth: 2.5,
+      priceBasis: 'net',
+    }
+    // toStrictEqual, weil toEqual ein `source: undefined` durchliesse.
+    expect(mapDraftToTariffParams(entered('net'), {}).comparisonSupplier).toStrictEqual(before)
+    const invalid = {
+      ...entered('net'),
+      tariffComparisonSource: 'quatsch',
+      tariffComparisonOfferDate: '2026-02-31',
+    }
+    expect(mapDraftToTariffParams(invalid, {}).comparisonSupplier).toStrictEqual(before)
+  })
+
   it('eine unbekannte Preisbasis wird weiterhin abgewiesen', () => {
     expect(() => mapDraftToTariffParams(entered('irgendwie'))).toThrow()
   })
