@@ -23,6 +23,12 @@ import {
 } from './summary'
 import type { AnnualScenarioPvInput } from './annual-scenario'
 import { headlineStorageOf } from './headline-storage'
+import {
+  seasonalSwitchNoticeOf,
+  seasonalSwitchWayOf,
+  switchPlanStageOf,
+  type SwitchPlanNames,
+} from './seasonal-switch'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -61,7 +67,7 @@ import type { PdfReportAnalysis } from './types'
 /** Ein Balken: ein Weg und seine Kosten über den gemessenen Zeitraum. */
 export type WaysBar = {
   /** Stabiler Schlüssel für die Zeichnung (React-`key`, Farbwahl). */
-  key: 'today' | 'comparison' | 'uncontrolled' | 'controlled'
+  key: 'today' | 'comparison' | 'uncontrolled' | 'seasonal' | 'controlled'
   label: string
   eur: number
   /** Unterstellt dieser Balken eine Steuerung, die so noch nicht läuft? (Schraffur, D15 Block 2.) */
@@ -150,7 +156,9 @@ export function hasWaysChapter(analysis: PdfReportAnalysis): boolean {
  * Stelle und wird von beiden gelesen (dasselbe Muster wie `context.hasWays`).
  */
 export function waysCountOf(analysis: PdfReportAnalysis): number {
-  const peak = peakWayShown(analysis) ? 1 : 0
+  const peak =
+    (peakWayShown(analysis) ? 1 : 0) +
+    (switchPlanStageOf(analysis.tariffSwitchPlan) === 'weg' ? 1 : 0)
   const ways = summaryWaysOf(analysis)
   if (!ways) {
     const unknown = unknownTariffWaysOf(analysis)
@@ -302,6 +310,20 @@ const LOAD_CONTROL_METHOD =
   'mitgeführtem Ladezustand und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang ' +
   'vor dem Preis. Eine Faustregel je Viertelstunde, keine Zusicherung für den einzelnen Tag.'
 
+/** Steht der Wechsel-Weg zwischen den beiden, wäre „der Weg davor" der falsche. */
+function loadControlMethodOf(tariffName: string, seasonalShown: boolean): string {
+  return seasonalShown
+    ? LOAD_CONTROL_METHOD.replace('wie der Weg davor', `wie „${uncontrolledWayLabel(tariffName)}"`)
+    : LOAD_CONTROL_METHOD
+}
+
+function switchPlanNamesOf(analysis: PdfReportAnalysis): SwitchPlanNames {
+  return {
+    spot: dynamicTariffOf(analysis).name,
+    comparisonSupplier: monthlyComparisonOf(analysis)?.comparisonSupplier ?? null,
+  }
+}
+
 /**
  * Der Zusatz, wenn Weg 4 die VORAUSSCHAUENDE Fassung trägt.
  *
@@ -404,6 +426,9 @@ export function buildWaysChapter(
   const controlWay = wayById(ways, 'controlled')
   const peakSavingPerYear = peakShavingSavingOf(analysis)
   const tiered = primaryEntryOf(analysis)?.networkTier !== undefined
+  const switchNames = switchPlanNamesOf(analysis)
+  const seasonal = seasonalSwitchWayOf(analysis.tariffSwitchPlan, switchNames)
+  const seasonalNotice = seasonalSwitchNoticeOf(analysis.tariffSwitchPlan, switchNames)
 
   /* Weg 1 ist der erste Balken und der erste Absatz — nicht mehr nur die Kopfzahl in Kapitel 1. */
   const bars: WaysBar[] = [
@@ -423,6 +448,7 @@ export function buildWaysChapter(
     eur: switchWay.costEur,
     model: false,
   })
+  if (seasonal) bars.push(seasonal.bar)
   if (controlWay) {
     bars.push({
       key: 'controlled',
@@ -500,6 +526,7 @@ export function buildWaysChapter(
       `${tariffName} statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder ` +
       `Verbrauch. Über die ${days} gemessenen Tage hätte das ` +
       outcome(switchWay, 'mehr gekostet als Ihr heutiger Tarif, nicht weniger.', 'weniger gekostet.'),
+      ...(seasonalNotice ? { notice: seasonalNotice } : {}),
     },
     'statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt Ihrer ' +
       `Grundgebühr die von ${tariffName}. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ` +
@@ -507,6 +534,8 @@ export function buildWaysChapter(
       'gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise ' +
       'genau dieses Zeitraums — keine Prognose und kein Durchschnittswert.',
   )
+
+  if (seasonal) addWay(seasonal.statement, seasonal.method)
 
   if (controlWay) {
     const device = controlledDeviceOf(analysis, pv)
@@ -526,7 +555,8 @@ export function buildWaysChapter(
         (device?.text ?? '') +
         (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
       },
-      LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
+      loadControlMethodOf(tariffName, seasonal !== null) +
+        (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
     )
   }
 
@@ -548,7 +578,7 @@ export function buildWaysChapter(
     )
   }
 
-  const wayCount = 1 + ways.ways.length + (peakWayShown(analysis) ? 1 : 0)
+  const wayCount = 1 + ways.ways.length + (seasonal ? 1 : 0) + (peakWayShown(analysis) ? 1 : 0)
 
   return {
     bars,
@@ -635,6 +665,10 @@ function buildUnknownTariffWaysChapter(
       : ` Gegenüber Ihrem Vergleichstarif sind das ${formatEur(Math.abs(diff))} mehr.`
   }
 
+  const switchNames = switchPlanNamesOf(analysis)
+  const seasonal = seasonalSwitchWayOf(analysis.tariffSwitchPlan, switchNames)
+  const seasonalNotice = seasonalSwitchNoticeOf(analysis.tariffSwitchPlan, switchNames)
+
   const bars: WaysBar[] = []
   const statements: ReportStatement[] = []
   const methodNotes: WayMethodNote[] = []
@@ -683,9 +717,15 @@ function buildUnknownTariffWaysChapter(
         (baseline
           ? ''
           : ' Ob das weniger ist als heute, zeigt erst der Vergleich mit Ihrer Stromrechnung.'),
+      ...(seasonalNotice ? { notice: seasonalNotice } : {}),
     },
     unknownTariffSwitchMethod(tariffName),
   )
+
+  if (seasonal) {
+    bars.push(seasonal.bar)
+    addWay(seasonal.statement, seasonal.method)
+  }
 
   if (ways.controlledEur !== null) {
     const controlValue = ways.uncontrolledEur - ways.controlledEur
@@ -709,7 +749,8 @@ function buildUnknownTariffWaysChapter(
           (device?.text ?? '') +
           (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
       },
-      LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
+      loadControlMethodOf(tariffName, seasonal !== null) +
+        (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
     )
   }
 

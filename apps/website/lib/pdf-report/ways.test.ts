@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { computeSwitchPlan } from 'engine'
 import { analysisForDisplay } from 'shared'
-import type { BatteryResultEntry, MonthlyTariffComparison } from 'shared'
+import type { BatteryResultEntry, MonthlyTariffComparison, TariffSwitchPlan } from 'shared'
 
 import { waysSectionTitle } from './content'
 import { buildSummaryKpis, summaryWaysOf } from './summary'
@@ -256,5 +257,83 @@ describe('Wege-Kapitel (D7-Revision)', () => {
     const brutto = buildWaysChapter(analysisForDisplay(analysis, 'gross'))!
     expect(brutto.figure.caption).toContain('Alle Beträge inkl. 20 % USt.')
     expect(brutto.figure.caption).not.toContain('exkl. MwSt')
+  })
+})
+
+describe('Tarifwechsel im Jahreslauf', () => {
+  const fix = Array.from({ length: 12 }, (_, m) => (m >= 3 && m <= 8 ? 130 : 100))
+  const spot = Array.from({ length: 12 }, (_, m) => (m >= 3 && m <= 8 ? 100 : 130))
+  const switchPlan = computeSwitchPlan([
+    { id: 'comparison', monthlyEur: fix },
+    { id: 'spot', monthlyEur: spot },
+  ])
+  const hintPlan = { ...switchPlan, result: { kind: 'single', tariffId: 'spot' } } as TariffSwitchPlan
+  const base = analysisWith({
+    comparison: comparisonWith({ current: 1500, comparison: 1380, spot: 1380, battery: 1100 }),
+    peakSaving: 200,
+  })
+  const ids = (analysis: PdfReportAnalysis) =>
+    buildWaysChapter(analysis)!.statements.map((statement) => statement.id)
+
+  it('Stufe 1: eigener Weg nach aWATTar, vor den Speicherwegen, Zählung und Balken +1', () => {
+    const analysis = { ...base, tariffSwitchPlan: switchPlan }
+    const chapter = buildWaysChapter(analysis)!
+
+    expect(ids(analysis)).toEqual([
+      'ways_current',
+      'ways_comparison_tariff',
+      'ways_tariff_switch',
+      'ways_seasonal_switch',
+      'ways_load_control',
+      'ways_peak_shaving',
+    ])
+    expect(chapter.wayCount).toBe(buildWaysChapter(base)!.wayCount + 1)
+    expect(waysCountOf(analysis)).toBe(chapter.wayCount)
+    expect(chapter.bars.map((bar) => bar.key)).toEqual([
+      'today',
+      'comparison',
+      'uncontrolled',
+      'seasonal',
+      'controlled',
+    ])
+    expect(chapter.methodNotes.map((note) => note.id)).toEqual(ids(analysis))
+    // „Der Weg davor" wäre sonst der Wechsel-Weg statt des Börsenpreises ohne Steuerung.
+    const loadControl = chapter.methodNotes.find((note) => note.id === 'ways_load_control')!
+    expect(loadControl.body).not.toContain('der Weg davor')
+  })
+
+  it('Stufe 1 lässt Ersparnis-Spanne und Wegliste der Zusammenfassung unberührt', () => {
+    expect(summaryWaysOf({ ...base, tariffSwitchPlan: switchPlan })).toEqual(summaryWaysOf(base))
+  })
+
+  it('Stufe 2: Hinweis beim aWATTar-Weg, Wegzahl unverändert', () => {
+    const analysis = { ...base, tariffSwitchPlan: hintPlan }
+    const chapter = buildWaysChapter(analysis)!
+
+    expect(ids(analysis)).toEqual(ids(base))
+    expect(chapter.wayCount).toBe(buildWaysChapter(base)!.wayCount)
+    const spotWay = chapter.statements.find((statement) => statement.id === 'ways_tariff_switch')!
+    expect(spotWay.notice?.body).toContain('hätte im Rückblick')
+  })
+
+  it.each<[string, TariffSwitchPlan]>([
+    ['zu wenig Daten', { status: 'insufficient_data', reason: 'short_period' }],
+    ['Ersparnis unter der Schwelle', { ...hintPlan, savingVsBestSingleEur: 30 } as TariffSwitchPlan],
+  ])('Stufe 3 (%s): identisch zur Ausgabe ohne Feld', (_, tariffSwitchPlan) => {
+    expect(buildWaysChapter({ ...base, tariffSwitchPlan })).toStrictEqual(buildWaysChapter(base))
+    expect(waysCountOf({ ...base, tariffSwitchPlan })).toBe(waysCountOf(base))
+  })
+
+  it('auch bei unbekanntem Liefertarif', () => {
+    const comparison = {
+      ...comparisonWith({ current: 0, comparison: 1380, spot: 1380, battery: 1100 }),
+      currentTariffEur: null,
+    }
+    const analysis = { ...analysisWith({ comparison }), tariffSwitchPlan: switchPlan }
+
+    expect(ids(analysis).indexOf('ways_seasonal_switch')).toBe(
+      ids(analysis).indexOf('ways_tariff_switch') + 1,
+    )
+    expect(waysCountOf(analysis)).toBe(buildWaysChapter(analysis)!.wayCount)
   })
 })

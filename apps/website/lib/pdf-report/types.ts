@@ -155,6 +155,7 @@ export type PdfReportAnalysis = Pick<
   | 'annualProjection'
   | 'annualScenario'
   | 'pvValue'
+  | 'tariffSwitchPlan'
   | 'dataQuality'
 >
 

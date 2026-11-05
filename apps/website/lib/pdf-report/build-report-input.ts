@@ -462,6 +462,7 @@ function reduceAnalysis(result: AnalysisResult): Complete<PdfReportAnalysis> {
     annualProjection: result.annualProjection,
     annualScenario: result.annualScenario,
     pvValue: result.pvValue,
+    tariffSwitchPlan: result.tariffSwitchPlan,
     dataQuality: result.dataQuality,
   }
 }

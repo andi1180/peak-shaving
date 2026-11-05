@@ -108,6 +108,11 @@ const PV_VALUE: NonNullable<AnalysisResult['pvValue']> = {
   estimatedGenerationKwh: 5212.67,
 }
 
+const SWITCH_PLAN: NonNullable<AnalysisResult['tariffSwitchPlan']> = {
+  status: 'insufficient_data',
+  reason: 'short_period',
+}
+
 const PROJECTION: NonNullable<AnalysisResult['annualProjection']> = {
   currentTariffEur: { measuredEur: 9000, projectedEur: 4000, totalEur: 13000 },
   spotWithoutControlEur: { measuredEur: 8200, projectedEur: 3600, totalEur: 11800 },
@@ -157,7 +162,7 @@ describe('buildReportInputFromRenderRequest', () => {
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')
 
-    /* Verengt auf die zwölf gelesenen Felder — `peaks` reist NICHT mit. */
+    /* Verengt auf die gelesenen Felder — `peaks` reist NICHT mit. */
     expect(Object.keys(input.analysis).sort()).toEqual([
       'annualProjection',
       'annualScenario',
@@ -171,6 +176,7 @@ describe('buildReportInputFromRenderRequest', () => {
       'pvValue',
       'recommendation',
       'tariffOptimization',
+      'tariffSwitchPlan',
     ])
     expect('peaks' in input.analysis).toBe(false)
   })
@@ -188,7 +194,7 @@ describe('buildReportInputFromRenderRequest', () => {
    * prüft dieser Test, und nur er. Der zweite Halt ist der Rückgabetyp `Complete<…>`, der ein
    * weggelassenes Feld zum Typfehler macht.
    */
-  it('reicht die drei optionalen Felder unverändert durch', () => {
+  it('reicht die optionalen Felder unverändert durch', () => {
     const readout = readRenderRequest({
       data: [
         {
@@ -198,6 +204,7 @@ describe('buildReportInputFromRenderRequest', () => {
             annualScenario: SCENARIO,
             annualProjection: PROJECTION,
             pvValue: PV_VALUE,
+            tariffSwitchPlan: SWITCH_PLAN,
           },
         },
       ],
@@ -212,6 +219,9 @@ describe('buildReportInputFromRenderRequest', () => {
     expect(input.analysis.annualProjection).toBe(PROJECTION)
     /* ⚠ `pvValue` steht von Anfang an in dieser Prüfung — nicht erst, nachdem es gefehlt hat. */
     expect(input.analysis.pvValue).toBe(PV_VALUE)
+    expect(input.analysis.tariffSwitchPlan).toBe(SWITCH_PLAN)
+    /* Positivkontrolle: ein Feld, das schon immer durchgereicht wird, mit derselben Prüfung. */
+    expect(input.analysis.tariffOptimization).toBe(ANALYSIS.tariffOptimization)
   })
 
   it('lässt die Grundgebühr ohne Angabe aus dem Preisstand-Satz weg', () => {
