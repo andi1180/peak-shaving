@@ -103,6 +103,17 @@ export const COUNTRY_DISPLAY: Record<Country, CountryDisplay> = {
   },
 }
 
+/** Umsatzsteuer-Normalsatz je Land. */
+export const VAT_RATE_BY_COUNTRY: Record<Country, number> = {
+  AT: 0.2,
+  DE: 0.19,
+}
+
+/** USt-Satz eines Landes; ohne Angabe gilt das Vorgabeland (wie `countryDisplay`). */
+export function vatRateFor(country: Country | null | undefined): number {
+  return VAT_RATE_BY_COUNTRY[country ?? DEFAULT_COUNTRY]
+}
+
 /** Anzeige-Daten eines Landes; ohne Angabe gilt das Vorgabeland (alte Übergaben, AT-Fixtures). */
 export function countryDisplay(country: Country | null | undefined): CountryDisplay {
   return COUNTRY_DISPLAY[country ?? DEFAULT_COUNTRY]

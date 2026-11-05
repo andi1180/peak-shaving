@@ -507,6 +507,39 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     expect(strip(a.result)).toEqual(strip(b.result))
   })
 
+  it('rechnet einen brutto eingetragenen Vergleichstarif mit dem Satz des Projektlands', async () => {
+    const baseFeeFor = async (country: 'AT' | 'DE') => {
+      const { result } = await runAnalysisFromMeteringPointDraft(
+        'mp-1',
+        ports({
+          readMeteringPoint: async () => ({
+            draft: {
+              ...DRAFT,
+              tariffComparisonProviderName: 'Anbieter',
+              tariffComparisonEnergyPriceCtPerKwh: 16.4,
+              tariffComparisonBaseFeeEurPerMonth: 2.5,
+              tariffComparisonPriceBasis: 'gross',
+            },
+            sourceDocumentId: 'doc-1',
+          }),
+          fetchTariffPricing: async (request: {
+            window: { startIso: string; endIso: string }
+            intervalMinutes: number
+          }) => ({
+            gridTariffRows: GRID_ROWS,
+            spotPrices: spotSeries(request.window, request.intervalMinutes),
+            levies: LEVIES_NONE,
+          }),
+        }),
+        { country },
+      )
+      if (result.tariffOptimization?.computable !== true) throw new Error('nicht berechenbar')
+      return result.tariffOptimization.monthlyComparison!.fixedCosts.comparisonSupplierBaseFeeEur!
+    }
+
+    expect((await baseFeeFor('AT')) / (await baseFeeFor('DE'))).toBeCloseTo(1.19 / 1.2, 9)
+  })
+
   it('füllt payload.tariffPricing und macht die Tarifoptimierung berechenbar', async () => {
     const fetchTariffPricing = vi.fn(async (request: { window: { startIso: string; endIso: string }; intervalMinutes: number }) => ({
       gridTariffRows: GRID_ROWS,

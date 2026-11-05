@@ -4,7 +4,9 @@ import {
   demandPriceFallsBackToZero,
   minBillableKwFallsBackToZero,
   tariffParamsSchema,
+  vatRateFor,
   type BillingModel,
+  type Country,
   type TariffParams,
 } from 'shared'
 
@@ -109,6 +111,8 @@ export type DraftTariffMappingOptions = {
   billingModelOverride?: BillingModel
   /** Die Netzentgelt-Zeile trägt Benutzungsdauer-Stufen (`demandPriceFallsBackToZero`); Vorgabe `false`. */
   hasDemandTiers?: boolean
+  /** Analyse-Land — sein USt-Satz rechnet einen brutto eingetragenen Vergleichstarif in netto um. */
+  country?: Country
 }
 
 /**
@@ -189,7 +193,7 @@ export function mapDraftToTariffParams(
   /*
    * Weg 2 — der Vergleichstarif reist als GANZES Objekt in den Contract, nicht als vier
    * Einzelfelder: so kann es ihn nur vollständig geben, und `comparisonSupplierTariffSchema`
-   * prüft ihn in einem Stück.
+   * prüft ihn in einem Stück. Brutto eingetragen wird er HIER einmalig netto, ungerundet.
    */
   const supplier = draft[COMPARISON_DRAFT_KEYS.supplier]
   const energyPrice = draft[COMPARISON_DRAFT_KEYS.energyPriceCtPerKwh]
@@ -201,12 +205,17 @@ export function mapDraftToTariffParams(
     typeof baseFee === 'number' &&
     typeof priceBasis === 'string'
   ) {
-    candidate.comparisonSupplier = {
-      supplier,
-      energyPriceCtPerKwh: energyPrice,
-      baseFeeEurPerMonth: baseFee,
-      priceBasis,
-    }
+    const vatFactor = 1 + vatRateFor(options.country)
+    candidate.comparisonSupplier =
+      priceBasis === 'gross'
+        ? {
+            supplier,
+            energyPriceCtPerKwh: energyPrice / vatFactor,
+            baseFeeEurPerMonth: baseFee / vatFactor,
+            priceBasis: 'net',
+            enteredPriceBasis: 'gross',
+          }
+        : { supplier, energyPriceCtPerKwh: energyPrice, baseFeeEurPerMonth: baseFee, priceBasis }
   }
 
   const parsed = tariffParamsSchema.safeParse(candidate)

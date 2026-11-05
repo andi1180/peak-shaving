@@ -266,9 +266,8 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
   const ways: SummaryWay[] = []
 
   /*
-   * Weg 2 — nur, wenn die Engine die Reihe gebildet hat. Sie fehlt, wenn der Kunde keinen
-   * Vergleichstarif angegeben hat ODER er brutto hinterlegt ist (`tariff.ts`); in beiden Fällen
-   * entfällt der Weg ganz, statt mit einem geratenen Wert dazustehen.
+   * Weg 2 — nur, wenn die Engine die Reihe gebildet hat. Fehlt sie, entfällt der Weg ganz, statt
+   * mit einem geratenen Wert dazustehen (`comparisonSupplierTariffSchema`).
    */
   if (costs.comparisonTariffEur !== null) {
     const costEur = costs.comparisonTariffEur

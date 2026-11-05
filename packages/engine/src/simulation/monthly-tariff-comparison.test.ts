@@ -9,7 +9,11 @@ import type {
   TariffPricingInputs,
 } from 'shared'
 
-import { buildMonthlyTariffComparison } from './monthly-tariff-comparison'
+import { mapDraftToTariffParams } from '../tariff/draft-mapping'
+import {
+  buildMonthlyTariffComparison,
+  buildOwnTariffMonthlyComparison,
+} from './monthly-tariff-comparison'
 
 /**
  * Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Speicher" (01.09.2026).
@@ -521,7 +525,64 @@ describe('Monatsvergleich — Weg 2: der selbst gefundene Vergleichstarif (D7-Re
     expect(result.spotWithBatteryEur).toEqual(ohne.spotWithBatteryEur)
   })
 
-  it('BRUTTO hinterlegt: der Weg entfällt, statt durch einen geratenen Steuersatz zu teilen', () => {
+  /** Der Tarif, wie ihn die Station hinterlässt, durch das Mapping — so kommt er in den Rechenkern. */
+  const mapped = (priceBasis: 'net' | 'gross', energy: number, baseFee: number): TariffParams => ({
+    ...tariff,
+    comparisonSupplier: mapDraftToTariffParams(
+      {
+        billingModel: 'annual_max',
+        leistungspreisEurPerKwYear: 50,
+        minBillableKw: 0,
+        arbeitspreisNetzCtPerKwh: 5,
+        energyPriceCtPerKwh: 10,
+        tariffComparisonProviderName: 'ENSTROGA',
+        tariffComparisonEnergyPriceCtPerKwh: energy,
+        tariffComparisonBaseFeeEurPerMonth: baseFee,
+        tariffComparisonPriceBasis: priceBasis,
+      },
+      { country: 'AT' },
+    ).comparisonSupplier,
+  })
+
+  it('BRUTTO eingetragen: läuft nach dem Mapping wie der entsprechende Netto-Tarif', () => {
+    const brutto = buildMonthlyTariffComparison(load, mapped('gross', 16.4, 2.5), pricing, gridAfter)!
+    const netto = buildMonthlyTariffComparison(
+      load,
+      mapped('net', 16.4 / 1.2, 2.5 / 1.2),
+      pricing,
+      gridAfter,
+    )!
+    expect(brutto.comparisonTariffEur).toEqual(netto.comparisonTariffEur)
+    expect(brutto.comparisonTariffEur![0]).not.toBeNull()
+    expect(brutto.comparisonSupplier).toBe('ENSTROGA')
+  })
+
+  it('NETTO eingetragen: dasselbe Ergebnis wie ohne Mapping', () => {
+    const direkt: TariffParams = {
+      ...tariff,
+      comparisonSupplier: {
+        supplier: 'ENSTROGA',
+        energyPriceCtPerKwh: 18,
+        baseFeeEurPerMonth: 3.1,
+        priceBasis: 'net',
+      },
+    }
+    expect(buildMonthlyTariffComparison(load, mapped('net', 18, 3.1), pricing, gridAfter)).toEqual(
+      buildMonthlyTariffComparison(load, direkt, pricing, gridAfter),
+    )
+  })
+
+  it('BRUTTO eingetragen ohne Börsenseite: der Weg entfällt weiterhin', () => {
+    const result = buildOwnTariffMonthlyComparison(load, mapped('gross', 16.4, 2.5), {
+      ...pricing,
+      dynamicTariff: null,
+    })!
+    expect(result.currentTariffEur).not.toBeNull()
+    expect(result.comparisonTariffEur).toBeUndefined()
+    expect(result.comparisonSupplier).toBeUndefined()
+  })
+
+  it('unumgerechnetes BRUTTO am Mapping vorbei: der Weg entfällt, der Rechenkern rät keinen Satz', () => {
     const brutto: TariffParams = {
       ...tariff,
       comparisonSupplier: {
