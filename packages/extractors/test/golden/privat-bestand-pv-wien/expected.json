@@ -13118,6 +13118,10 @@
     ]
    }
   },
+  "tariffSwitchPlan": {
+   "status": "insufficient_data",
+   "reason": "short_period"
+  },
   "existingBatteryAnalysis": {
    "entry": {
     "battery": {

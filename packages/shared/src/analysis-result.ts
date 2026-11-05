@@ -5,6 +5,7 @@ import type { LevyComponentLabel } from './levies'
 import type { PvValueScenario } from './pv-value'
 import type { BillingModel } from './tariff'
 import type { TariffOptimizationStatus } from './tariff-pricing'
+import type { TariffSwitchPlan } from './tariff-switch-plan'
 
 /**
  * [ANNAHME, fixiert mit §3.4-Implementierung] Verteilung der Bezugsspitzen für die
@@ -575,6 +576,11 @@ export type AnalysisResult = {
    * Ist-Kosten. S. Kopf von `pv-value.ts`.
    */
   pvValue?: PvValueScenario
+  /**
+   * Halbjahreswechsel Fix ↔ Börse, ohne Speicher; Tarif-Kennungen `comparison` und `spot`.
+   * Fehlt ohne Vergleichstarif oder Börsenseite ganz. Additiv: kein `bundleVersion`-Sprung.
+   */
+  tariffSwitchPlan?: TariffSwitchPlan
   dataQuality: {
     coveredDays: number
     /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5) —

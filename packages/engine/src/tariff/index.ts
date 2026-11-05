@@ -15,3 +15,6 @@ export type { DraftTariffMappingOptions } from './draft-mapping'
 // des EAG-Förderbeitrags. Steht bewusst AUSSERHALB der Monatsreihen — s. Modulkopf.
 export { eagDemandChargePerYear } from './eag-demand-charge'
 export { usageLevyFactor } from './usage-levy'
+export { computeSwitchPlan, DEFAULT_SWITCH_RULES } from './switch-plan'
+export type { SwitchPlanTariff } from './switch-plan'
+export { tariffSwitchPlanOf } from './analysis-switch-plan'

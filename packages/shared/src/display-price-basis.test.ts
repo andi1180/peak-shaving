@@ -45,6 +45,18 @@ describe('display-price-basis', () => {
     expect(displayedPriceBasis(golden)).toBe('net')
   })
 
+  it('Tarifwechsel-Plan: Beträge brutto, Monatsindizes und Anteil unverändert', () => {
+    const block = { tariffId: 'spot', months: [3, 4] }
+    const view = analysisForDisplay(
+      { bestSwitch: { startMonth: 3, blocks: [block], annualEur: 100 }, savingShare: 0.1 },
+      'gross',
+    )
+    expect(view.bestSwitch.annualEur).toBe(120)
+    expect(view.bestSwitch.startMonth).toBe(3)
+    expect(view.bestSwitch.blocks[0]!.months).toEqual([3, 4])
+    expect(view.savingShare).toBe(0.1)
+  })
+
   it('netto lässt das Ergebnis unangetastet (dasselbe Objekt)', () => {
     expect(analysisForDisplay(golden, 'net')).toBe(golden)
   })

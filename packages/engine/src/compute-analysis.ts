@@ -22,7 +22,7 @@ import type { DataQuality } from './parser'
 import { utcMsToLocalFields } from './parser/datetime'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
-import { eagDemandChargePerYear } from './tariff'
+import { eagDemandChargePerYear, tariffSwitchPlanOf } from './tariff'
 import { calculateRoi, subsidyProgramAssumptionsOf, taxAssumptionsOf } from './roi'
 import {
   computeBatterySavings,
@@ -582,6 +582,8 @@ export function computeAnalysis(
       ? { ...baseTariffOptimization, monthlyComparison: ownTariffComparison }
       : baseTariffOptimization
 
+  const tariffSwitchPlan = tariffSwitchPlanOf(loadProfile, monthlyComparison)
+
   // Nur Namen, mitgeschrieben fürs Report; ein leerer Plan (Österreich) lässt das Feld weg.
   const levyComponents = levyComponentsOf(loadProfile, leviesOf(payload))
   const dynamicTariff = payload.tariffPricing ? resolveDynamicTariff(payload.tariffPricing) : undefined
@@ -626,6 +628,7 @@ export function computeAnalysis(
       ...(subsidyPrograms ? { subsidyPrograms } : {}),
     },
     tariffOptimization,
+    ...(tariffSwitchPlan ? { tariffSwitchPlan } : {}),
     existingBatteryAnalysis: existing?.analysis,
     dataQuality: pvWarnings.length
       ? {

@@ -73,6 +73,7 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   amortizationYears: 'other',
   amortizationYearsAfterTax: 'other',
   annualDepreciationEffect: 'money',
+  annualEur: 'money',
   annualPeakKw: 'other',
   annualizationFactor: 'other',
   assumed: 'other',
@@ -183,6 +184,11 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   valueEur: 'money',
   withPvEur: 'money',
   withoutPvEur: 'money',
+  // Tarifwechsel-Plan: Monatsindizes und Anteil bleiben, die Beträge tragen USt wie ihre Reihen.
+  months: 'other',
+  savingShare: 'other',
+  savingVsBestSingleEur: 'money',
+  startMonth: 'other',
   year: 'other',
 }
 
