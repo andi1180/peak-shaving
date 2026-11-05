@@ -91,6 +91,7 @@ describe('Golden File — Gewerbe, eigener Liefertarif unbekannt', () => {
     ).tariffOptimization
     expect(status.monthlyComparison.currentTariffEur).toBeNull()
     expect(status.monthlyComparison.comparisonTariffEur).toBeUndefined()
+    expect(actual).not.toHaveProperty('tariffSwitchPlan')
   }, 120_000)
 
   it('mit Vergleichstarif: er steht als eigener Weg da', () => {
@@ -101,5 +102,6 @@ describe('Golden File — Gewerbe, eigener Liefertarif unbekannt', () => {
     ).tariffOptimization
     expect(status.monthlyComparison.currentTariffEur).toBeNull()
     expect(status.monthlyComparison.comparisonTariffEur).toBeInstanceOf(Array)
+    expect(actual).toMatchObject({ tariffSwitchPlan: { status: 'ok' } })
   }, 120_000)
 })

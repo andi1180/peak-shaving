@@ -14731,6 +14731,417 @@
    ]
   }
  },
+ "tariffSwitchPlan": {
+  "status": "ok",
+  "singles": [
+   {
+    "tariffId": "comparison",
+    "annualEur": 20974.18152852673
+   },
+   {
+    "tariffId": "spot",
+    "annualEur": 20208.81899872974
+   }
+  ],
+  "bestSingle": {
+   "tariffId": "spot",
+   "annualEur": 20208.81899872974
+  },
+  "bestSwitch": {
+   "startMonth": 3,
+   "blocks": [
+    {
+     "tariffId": "spot",
+     "months": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+     ]
+    },
+    {
+     "tariffId": "comparison",
+     "months": [
+      9,
+      10,
+      11,
+      0,
+      1,
+      2
+     ]
+    }
+   ],
+   "annualEur": 19545.342745036753
+  },
+  "savingVsBestSingleEur": 663.4762536929884,
+  "savingShare": 0.03283102559009966,
+  "result": {
+   "kind": "single",
+   "tariffId": "spot"
+  },
+  "variants": [
+   {
+    "kind": "single",
+    "tariffId": "comparison",
+    "annualEur": 20974.18152852673
+   },
+   {
+    "kind": "single",
+    "tariffId": "spot",
+    "annualEur": 20208.81899872974
+   },
+   {
+    "kind": "switch",
+    "startMonth": 0,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     }
+    ],
+    "annualEur": 20628.82258323174
+   },
+   {
+    "kind": "switch",
+    "startMonth": 0,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     }
+    ],
+    "annualEur": 20554.17794402473
+   },
+   {
+    "kind": "switch",
+    "startMonth": 1,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       7,
+       8,
+       9,
+       10,
+       11,
+       0
+      ]
+     }
+    ],
+    "annualEur": 21011.69652483373
+   },
+   {
+    "kind": "switch",
+    "startMonth": 1,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       7,
+       8,
+       9,
+       10,
+       11,
+       0
+      ]
+     }
+    ],
+    "annualEur": 20171.304002422738
+   },
+   {
+    "kind": "switch",
+    "startMonth": 2,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       2,
+       3,
+       4,
+       5,
+       6,
+       7
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       8,
+       9,
+       10,
+       11,
+       0,
+       1
+      ]
+     }
+    ],
+    "annualEur": 21540.690132319723
+   },
+   {
+    "kind": "switch",
+    "startMonth": 2,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       2,
+       3,
+       4,
+       5,
+       6,
+       7
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       8,
+       9,
+       10,
+       11,
+       0,
+       1
+      ]
+     }
+    ],
+    "annualEur": 19642.310394936743
+   },
+   {
+    "kind": "switch",
+    "startMonth": 3,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       9,
+       10,
+       11,
+       0,
+       1,
+       2
+      ]
+     }
+    ],
+    "annualEur": 21637.657782219714
+   },
+   {
+    "kind": "switch",
+    "startMonth": 3,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       9,
+       10,
+       11,
+       0,
+       1,
+       2
+      ]
+     }
+    ],
+    "annualEur": 19545.342745036753
+   },
+   {
+    "kind": "switch",
+    "startMonth": 4,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       10,
+       11,
+       0,
+       1,
+       2,
+       3
+      ]
+     }
+    ],
+    "annualEur": 21401.261742140705
+   },
+   {
+    "kind": "switch",
+    "startMonth": 4,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       4,
+       5,
+       6,
+       7,
+       8,
+       9
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       10,
+       11,
+       0,
+       1,
+       2,
+       3
+      ]
+     }
+    ],
+    "annualEur": 19781.738785115765
+   },
+   {
+    "kind": "switch",
+    "startMonth": 5,
+    "blocks": [
+     {
+      "tariffId": "comparison",
+      "months": [
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     },
+     {
+      "tariffId": "spot",
+      "months": [
+       11,
+       0,
+       1,
+       2,
+       3,
+       4
+      ]
+     }
+    ],
+    "annualEur": 20990.81684867172
+   },
+   {
+    "kind": "switch",
+    "startMonth": 5,
+    "blocks": [
+     {
+      "tariffId": "spot",
+      "months": [
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     },
+     {
+      "tariffId": "comparison",
+      "months": [
+       11,
+       0,
+       1,
+       2,
+       3,
+       4
+      ]
+     }
+    ],
+    "annualEur": 20192.18367858475
+   }
+  ]
+ },
  "dataQuality": {
   "coveredDays": 365,
   "coveredMonths": 12,
