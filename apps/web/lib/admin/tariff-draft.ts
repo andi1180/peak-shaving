@@ -58,6 +58,29 @@ export const TARIFF_COMPARISON_PRICE_BASES = ['net', 'gross'] as const
 export type TariffComparisonPriceBasis = (typeof TARIFF_COMPARISON_PRICE_BASES)[number]
 
 /**
+ * Das Formular mit dem gespeicherten Satz vorbelegen. Beträge ungerundet und mit Komma: gerundet
+ * zeigte die Bearbeitung einen anderen Preis, als gespeichert ist, und schriebe ihn zurück.
+ */
+export function comparisonFormValues(saved: {
+  providerName: string
+  energyPriceCtPerKwh: number
+  baseFeeEurPerMonth: number
+  priceBasis: string
+  source: string | null
+  offerDate: string | null
+}): Record<string, string> {
+  const amount = (value: number) => String(value).replace('.', ',')
+  return {
+    providerName: saved.providerName,
+    energyPriceCtPerKwh: amount(saved.energyPriceCtPerKwh),
+    baseFeeEurPerMonth: amount(saved.baseFeeEurPerMonth),
+    priceBasis: saved.priceBasis,
+    source: saved.source ?? '',
+    offerDate: saved.offerDate ?? offerDateToday(),
+  }
+}
+
+/**
  * ALLE sechs Schlüssel des Vergleichstarifs — der Löschweg entfernt sie gemeinsam.
  *
  * ⚠ ABGELEITET, NICHT ABGESCHRIEBEN, und hier wiegt das schwerer als anderswo: `currentComparison`

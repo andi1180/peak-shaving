@@ -43,6 +43,7 @@ function render(draft: Record<string, unknown> = {}): string {
 
 describe('Tarif-Station — Vergleichstarif', () => {
   const WARNING = 'Ohne Vergleichstarif keine Wechselprüfung Fix ↔ Börse.'
+  const MISSING_ORIGIN = 'Quelle und Angebotsdatum fehlen'
   const saved = {
     tariffComparisonProviderName: 'Beispiel Energie',
     tariffComparisonEnergyPriceCtPerKwh: 14.94,
@@ -59,6 +60,29 @@ describe('Tarif-Station — Vergleichstarif', () => {
     const html = render(saved)
     expect(html).toContain('Beispiel Energie')
     expect(html).toContain('nur Tarife ohne Bindung und ohne Neukundenbonus')
+    expect(html).toContain(MISSING_ORIGIN)
+    expect(html).toContain('Bearbeiten')
+    expect(html).toContain('Vergleichstarif löschen')
+    expect(html).not.toContain('name="providerName"')
+  })
+
+  it('vollständiger Satz: Quelle und Datum in „Aktuell vermerkt", kein Hinweis', () => {
+    const html = render({
+      ...saved,
+      tariffComparisonSource: 'durchblicker_at',
+      tariffComparisonOfferDate: '2026-10-12',
+    })
+    expect(html).toContain('durchblicker.at')
+    expect(html).toContain('12.10.2026')
+    expect(html).not.toContain(MISSING_ORIGIN)
+  })
+
+  it.each([
+    ['Quelle fehlt', { tariffComparisonOfferDate: '2026-10-12' }],
+    ['Datum fehlt', { tariffComparisonSource: 'angebot' }],
+    ['ungültige Quelle', { tariffComparisonSource: 'quatsch', tariffComparisonOfferDate: '2026-10-12' }],
+  ])('%s: Hinweis', (_, origin) => {
+    expect(render({ ...saved, ...origin })).toContain(MISSING_ORIGIN)
   })
 })
 
