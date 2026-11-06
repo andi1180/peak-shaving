@@ -2,6 +2,7 @@ import {
   AnalysisRefusedError,
   buildSyntheticYearProfile,
   computeAnalysis,
+  computeSwitchPlan,
   type SyntheticYearBlocker,
 } from 'engine'
 import type { CalculatorPayload } from 'engine'
@@ -14,7 +15,9 @@ import {
   tariffWayCosts,
   type AnalysisWindow,
   type AnnualScenario,
+  type AnnualSwitchPlan,
   type BatteryCandidate,
+  type MonthlyCostComparison,
   type TariffPricingInputs,
 } from 'shared'
 
@@ -46,6 +49,9 @@ import {
  * ⚠ Ohne `import 'server-only'`: alles kommt durch den Port herein, der Paket-Barrel trägt die
  * Markierung ohnehin — dieselbe Lage wie bei `gap-market-prices.ts`.
  */
+
+/** Darunter stammt zu viel des Jahres aus einem kurzen Block, um Halbjahre gegeneinander zu stellen. */
+export const MIN_MEASURED_DAYS_FOR_SWITCH_PLAN = 90
 
 /** Warum kein Jahres-Szenario entstanden ist. */
 export type AnnualScenarioBlocker =
@@ -157,6 +163,7 @@ export async function buildAnnualScenario(
   const costs = tariffWayCosts(comparison)
   const entry = primaryBatteryEntry(result)
   if (!entry) return { ok: false, blocker: 'no_device' }
+  const switchPlan = annualSwitchPlanOf(comparison, year.measuredDays)
   const peakShavingSavingEur = peakShavingSavingPerYearOf(entry)
   // Ohne Börsenseite ist Weg 4 „Ihr Tarif mit Speicher": Ist-Kosten minus Energie-Anteil des Geräts.
   const ways =
@@ -182,6 +189,7 @@ export async function buildAnnualScenario(
           }),
       measuredDays: year.measuredDays,
       projectedDays: year.projectedDays,
+      ...(switchPlan ? { switchPlan } : {}),
       fill: {
         blockFromDate: year.block.fromDate,
         blockToDate: year.block.toDate,
@@ -195,6 +203,25 @@ export async function buildAnnualScenario(
       },
     },
   }
+}
+
+/**
+ * Direkt auf den Reihen des Jahreslaufs statt über dessen `result.tariffSwitchPlan`: das Fenster
+ * hat hier 365 Tage, die Abdeckungsprüfung dort verwirft einen angebrochenen letzten Messtag.
+ */
+function annualSwitchPlanOf(
+  comparison: MonthlyCostComparison,
+  measuredDays: number,
+): AnnualSwitchPlan | undefined {
+  const { comparisonTariffEur, spotWithoutControlEur } = comparison
+  if (!comparisonTariffEur || !spotWithoutControlEur) return undefined
+  if (measuredDays < MIN_MEASURED_DAYS_FOR_SWITCH_PLAN) {
+    return { status: 'insufficient_data', reason: 'short_measurement' }
+  }
+  return computeSwitchPlan([
+    { id: 'comparison', monthlyEur: comparisonTariffEur },
+    { id: 'spot', monthlyEur: spotWithoutControlEur },
+  ])
 }
 
 /** Der lokale Kalendertag des letzten Intervalls (`YYYY-MM-DD`) — `null` ohne lesbaren Zeitstempel. */

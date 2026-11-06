@@ -1,5 +1,6 @@
 import type { LoadProfile } from './load-profile'
 import type { MonthlyCostComparison } from './tariff-pricing'
+import type { AnnualSwitchPlan } from './tariff-switch-plan'
 import type { ControlVariant } from './tariff-ways'
 
 /**
@@ -105,6 +106,11 @@ export type AnnualScenario = {
   measuredDays: number
   /** Kalendertage des Fensters, die aus dem Block gefüllt wurden. */
   projectedDays: number
+  /**
+   * Die Wechselprüfung auf den Monatsreihen dieses Laufs, ohne Speicher. Gesetzt nur mit
+   * Vergleichstarif, Börsenseite und Jahresbasis (`annualBasisApplies`); fehlt sonst.
+   */
+  switchPlan?: AnnualSwitchPlan
   fill: AnnualScenarioFill
   ways: AnnualScenarioWays
 }

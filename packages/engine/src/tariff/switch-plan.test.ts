@@ -121,19 +121,22 @@ describe('computeSwitchPlan', () => {
 })
 
 describe('tariffSwitchPlanOf — Abdeckung', () => {
-  const profileOf = (days: number) =>
+  const profileBetween = (firstTs: string, lastTs: string) =>
     ({
       readings: [
-        { ts: '2025-01-05T00:00:00.000Z', gridImportKw: 1 },
-        {
-          ts: new Date(
-            Date.parse('2025-01-05T00:00:00.000Z') + days * 86_400_000 - 900_000,
-          ).toISOString(),
-          gridImportKw: 1,
-        },
+        { ts: firstTs, gridImportKw: 1 },
+        { ts: lastTs, gridImportKw: 1 },
       ],
       intervalMinutes: 15,
+      timezoneMeta: 'Europe/Vienna',
     }) as unknown as LoadProfile
+
+  // 05.01.2025 00:00 Ortszeit bis zum letzten Slot des n-ten Tages.
+  const profileOf = (days: number) =>
+    profileBetween(
+      '2025-01-04T23:00:00.000Z',
+      new Date(Date.parse('2025-01-04T23:00:00.000Z') + days * 86_400_000 - 900_000).toISOString(),
+    )
 
   const comparison = {
     comparisonTariffEur: flat(100),
@@ -148,6 +151,16 @@ describe('tariffSwitchPlanOf — Abdeckung', () => {
     [368, { status: 'insufficient_data', reason: 'overlap' }],
   ])('%i Tage', (days, expected) => {
     expect(tariffSwitchPlanOf(profileOf(days), comparison)).toMatchObject(expected)
+  })
+
+  it('Volljahr über die Zeitumstellung: 29.03.2026–28.03.2027 sind 365 Kalendertage', () => {
+    const profile = profileBetween('2026-03-28T23:00:00.000Z', '2027-03-28T21:45:00.000Z')
+    expect(tariffSwitchPlanOf(profile, comparison)).toMatchObject({ status: 'ok' })
+  })
+
+  it('angebrochener letzter Tag zählt als Kalendertag', () => {
+    const profile = profileBetween('2025-01-04T23:00:00.000Z', '2026-01-04T11:00:00.000Z')
+    expect(tariffSwitchPlanOf(profile, comparison)).toMatchObject({ status: 'ok' })
   })
 
   it('kurzer Zeitraum geht vor fehlenden Monaten', () => {

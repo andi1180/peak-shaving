@@ -357,6 +357,7 @@ export {
  * Verdrahtet in `runAnalysisFromMeteringPointDraft`; angezeigt im Kapitel „Hochrechnung auf ein ganzes Jahr" (`apps/website/lib/pdf-report/annual-scenario.ts`).
  */
 export {
+  MIN_MEASURED_DAYS_FOR_SWITCH_PLAN,
   buildAnnualScenario,
   type AnnualScenarioBlocker,
   type AnnualScenarioOptions,

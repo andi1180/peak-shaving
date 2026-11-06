@@ -571,7 +571,7 @@ export async function runAnalysisFromMeteringPointDraft(
   const annualBasis = annualBasisApplies(annualValue, comparisonOf(result), pvInput)
   // Nur wenn der gemessene Lauf keinen Monatsvergleich trägt (kein Kapitel) — dann linear nachrechnen.
   if (ranking && !annualBasis) result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
-  const annualScenarioOut = annualValue && !annualBasis ? withoutDevices(annualValue) : annualValue
+  const annualScenarioOut = annualValue && !annualBasis ? withoutAnnualBasis(annualValue) : annualValue
 
   /*
    * ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`.
@@ -947,8 +947,8 @@ function comparisonOf(result: AnalysisResult): MonthlyCostComparison | undefined
 }
 
 /** Ohne Jahreskapitel trägt das Szenario keine Jahresreihung — sie gälte für nichts im Report. */
-function withoutDevices(scenario: AnnualScenario): AnnualScenario {
-  const { devices: _devices, ...rest } = scenario
+function withoutAnnualBasis(scenario: AnnualScenario): AnnualScenario {
+  const { devices: _devices, switchPlan: _switchPlan, ...rest } = scenario
   return rest
 }
 
