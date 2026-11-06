@@ -1,5 +1,5 @@
 import { computeSwitchPlan } from 'engine'
-import { analysisForDisplay, type TariffSwitchPlan } from 'shared'
+import { analysisForDisplay, type AnnualSwitchPlan, type TariffSwitchPlan } from 'shared'
 import { describe, expect, it } from 'vitest'
 
 import { seasonalSwitchNoticeOf, seasonalSwitchWayOf, switchPlanStageOf } from './seasonal-switch'
@@ -45,6 +45,18 @@ describe('switchPlanStageOf', () => {
     const { plan } = analysisForDisplay({ plan: single(45, 0.05) }, 'gross')
     expect((plan as { savingVsBestSingleEur: number }).savingVsBestSingleEur).toBeCloseTo(54)
     expect(switchPlanStageOf(plan)).toBe('nichts')
+  })
+})
+
+describe('switchPlanStageOf — Plan der Hochrechnung', () => {
+  it.each<[string, AnnualSwitchPlan | undefined, string]>([
+    ['Wechsel', SWITCH_PLAN, 'weg'],
+    ['3,3 % / 663 €', single(663, 0.033), 'hinweis'],
+    ['30 €', single(30, 0.033), 'nichts'],
+    ['unter 90 Messtagen', { status: 'insufficient_data', reason: 'short_measurement' }, 'nichts'],
+    ['Schlüssel fehlt', undefined, 'nichts'],
+  ])('%s', (_name, plan, stage) => {
+    expect(switchPlanStageOf(plan)).toBe(stage)
   })
 })
 

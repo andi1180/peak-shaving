@@ -5,6 +5,12 @@ import { formatEur } from '@/lib/format'
 import { controlledWayLabel, dynamicTariffOf, uncontrolledWayLabel } from '@/lib/report-copy'
 import { hasAdviceChapter } from './advice'
 import { ADVICE_SECTION } from './content'
+import {
+  annualSwitchNoticeOf,
+  annualSwitchOf,
+  annualSwitchStatementOf,
+  switchPlanNamesOf,
+} from './seasonal-switch'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf } from './summary'
@@ -158,6 +164,11 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
           'stehen nur in diesem Kapitel.'),
   }
 
+  const annualSwitch = annualSwitchOf(analysis, input)
+  const switchNames = switchPlanNamesOf(analysis)
+  const switchStatement = annualSwitch && annualSwitchStatementOf(annualSwitch, switchNames)
+  const switchNotice = annualSwitch && annualSwitchNoticeOf(annualSwitch, switchNames)
+
   const costs: ReportStatement = {
     id: 'annual_scenario_costs',
     title: 'Ihre Stromkosten über ein Jahr',
@@ -172,6 +183,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
           ]),
     ],
     body: `Hochgerechnete Jahreskosten (${priceLabel}), gerechnet mit ${deviceRef(scenario)}.`,
+    ...(switchNotice ? { notice: switchNotice } : {}),
   }
 
   const { switchEur, controlEur, peakEur } = savings
@@ -256,7 +268,13 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   }
 
   return {
-    statements: noDeviation ? [basis, costs, overview] : [basis, costs, overview, deviation],
+    statements: [
+      basis,
+      costs,
+      ...(switchStatement ? [switchStatement] : []),
+      overview,
+      ...(noDeviation ? [] : [deviation]),
+    ],
     donut: buildSavingsDonut({ switchEur, controlEur, peakEur }, tierChange),
     assumption,
     totalSavingEur,

@@ -391,7 +391,7 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     ...new Set(input.loadProfile.readings.map((r) => localMonthIndex(Date.parse(r.ts), tz))),
   ].sort((a, b) => a - b)
 
-  const switchReview = seasonalSwitchReviewOf(analysis)
+  const switchReview = seasonalSwitchReviewOf(analysis, input)
 
   return {
     variant,

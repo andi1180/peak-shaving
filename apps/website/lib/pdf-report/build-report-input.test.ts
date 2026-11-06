@@ -113,6 +113,8 @@ const SWITCH_PLAN: NonNullable<AnalysisResult['tariffSwitchPlan']> = {
   reason: 'short_period',
 }
 
+const ANNUAL_SWITCH_PLAN = { status: 'insufficient_data', reason: 'short_measurement' } as const
+
 const PROJECTION: NonNullable<AnalysisResult['annualProjection']> = {
   currentTariffEur: { measuredEur: 9000, projectedEur: 4000, totalEur: 13000 },
   spotWithoutControlEur: { measuredEur: 8200, projectedEur: 3600, totalEur: 11800 },
@@ -220,7 +222,7 @@ describe('buildReportInputFromRenderRequest', () => {
           ...ROW,
           analysis_result: {
             ...ANALYSIS,
-            annualScenario: SCENARIO,
+            annualScenario: { ...SCENARIO, switchPlan: ANNUAL_SWITCH_PLAN },
             annualProjection: PROJECTION,
             pvValue: PV_VALUE,
             tariffSwitchPlan: SWITCH_PLAN,
@@ -234,7 +236,8 @@ describe('buildReportInputFromRenderRequest', () => {
     const input = buildReportInputFromRenderRequest(readout.request, NOW)
 
     /* Identität, nicht Gleichheit: 1:1 durchgereicht, keine Umformung und kein Vorgabewert. */
-    expect(input.analysis.annualScenario).toBe(SCENARIO)
+    expect(input.analysis.annualScenario?.switchPlan).toBe(ANNUAL_SWITCH_PLAN)
+    expect(input.analysis.annualScenario?.ways).toBe(SCENARIO.ways)
     expect(input.analysis.annualProjection).toBe(PROJECTION)
     /* ⚠ `pvValue` steht von Anfang an in dieser Prüfung — nicht erst, nachdem es gefehlt hat. */
     expect(input.analysis.pvValue).toBe(PV_VALUE)

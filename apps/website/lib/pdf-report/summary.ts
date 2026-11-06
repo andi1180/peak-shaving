@@ -1251,7 +1251,7 @@ export function buildReportSummary(
   const annualTotal = summaryAnnualTotalOf(analysis, context?.executiveSummary)
   const costYear = summaryCostTodayYearOf(input, context?.executiveSummary)
 
-  const switchReview = seasonalSwitchReviewOf(analysis)
+  const switchReview = seasonalSwitchReviewOf(analysis, input)
 
   return {
     ...(switchReview ? { switchReview } : {}),
