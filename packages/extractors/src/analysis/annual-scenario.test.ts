@@ -340,3 +340,78 @@ describe('buildAnnualScenario', () => {
     )
   })
 })
+
+describe('buildAnnualScenario — Wechselprüfung auf dem Jahreslauf', () => {
+  const withComparison: TariffParams = {
+    ...tariff,
+    comparisonSupplier: {
+      supplier: 'Vergleich',
+      energyPriceCtPerKwh: 20,
+      baseFeeEurPerMonth: 0,
+      priceBasis: 'net',
+    },
+  }
+
+  /** Börse im Winterhalbjahr 8 ct teurer: Fix und Börse tauschen die Rangfolge übers Jahr. */
+  const seasonalPricing = async (request: { window: { startIso: string; endIso: string } }) => {
+    const series = hourly(
+      request.window.startIso,
+      new Date(Date.parse(request.window.endIso) + HOUR_MS).toISOString(),
+    )
+    const prices = series.prices.map((price) => {
+      const month = new Date(price.tsStart).getUTCMonth()
+      return { ...price, ctPerKwh: price.ctPerKwh + (month >= 3 && month <= 8 ? 0 : 8) }
+    })
+    return { gridTariffRows: [gridRow()], spotPrices: { ...series, prices }, levies: LEVIES_NONE }
+  }
+
+  /** `days` Messtage ab 01.04.2026 Ortszeit Wien. */
+  const scenarioOf = async (days: number, tariffParams = withComparison) => {
+    const fromMs = Date.parse('2026-03-31T22:00:00Z')
+    const toIso = new Date(fromMs + days * 24 * HOUR_MS).toISOString()
+    const out = await buildAnnualScenario({
+      payload: payloadOf(new Date(fromMs).toISOString(), toIso, undefined, tariffParams),
+      horizonYears: 10,
+      catalog: CATALOG,
+      fetchTariffPricing: seasonalPricing,
+    })
+    if (!out.ok) throw new Error(out.blocker)
+    return out.value
+  }
+
+  it('157 Messtage: Plan aus den Monatsreihen des Jahreslaufs, Beträge wie dessen Jahressummen', async () => {
+    const scenario = await scenarioOf(157)
+    const plan = scenario.switchPlan
+    if (plan?.status !== 'ok') throw new Error('Plan erwartet')
+
+    expect(plan.variants).toHaveLength(14)
+    expect(plan.singles.find((s) => s.tariffId === 'comparison')!.annualEur).toBeCloseTo(
+      scenario.ways.comparisonTariffEur!,
+      6,
+    )
+    expect(plan.singles.find((s) => s.tariffId === 'spot')!.annualEur).toBeCloseTo(
+      scenario.ways.spotWithoutControlEur!,
+      6,
+    )
+    expect(plan.result).toEqual({
+      kind: 'switch',
+      blocks: [
+        { tariffId: 'spot', months: [3, 4, 5, 6, 7, 8] },
+        { tariffId: 'comparison', months: [9, 10, 11, 0, 1, 2] },
+      ],
+    })
+  })
+
+  it.each([
+    [60, { status: 'insufficient_data', reason: 'short_measurement' }],
+    [89, { status: 'insufficient_data', reason: 'short_measurement' }],
+    [90, { status: 'ok' }],
+  ])('%i Messtage', async (days, expected) => {
+    expect((await scenarioOf(days)).switchPlan).toMatchObject(expected)
+  })
+
+  it('ohne Vergleichstarif fehlt der Schlüssel, auch unter 90 Messtagen', async () => {
+    expect(await scenarioOf(157, tariff)).not.toHaveProperty('switchPlan')
+    expect(await scenarioOf(60, tariff)).not.toHaveProperty('switchPlan')
+  })
+})

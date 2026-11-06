@@ -6,21 +6,28 @@ import {
   type TariffSwitchPlan,
 } from 'shared'
 
+import { utcMsToLocalFields } from '../parser/datetime'
 import { computeSwitchPlan } from './switch-plan'
 
 const MIN_COVERED_DAYS = 365
 const MAX_COVERED_DAYS = 367
-const MINUTES_PER_DAY = 24 * 60
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+function localDayNumber(iso: string, timeZone: string): number {
+  const { year, month, day } = utcMsToLocalFields(Date.parse(iso), timeZone)
+  return Date.UTC(year, month - 1, day) / MS_PER_DAY
+}
 
 /**
  * Prüft die Spanne, nicht die Zahl der Messwerte: innere Lücken zählen hier bewusst nicht.
- * Der letzte Slot läuft noch bis zu seinem Ende, sonst fiele ein volles Jahr auf 364,99 Tage.
+ * Gezählt werden lokale Kalendertage inklusive beider Enden, sonst fiele ein Jahr über die
+ * Zeitumstellung oder mit angebrochenem letztem Tag unter 365.
  */
 function coverageProblemOf(profile: LoadProfile): SwitchPlanInsufficientReason | null {
   const window = analysisWindow(profile)
   if (window === null) return 'short_period'
-  const spanMinutes = (Date.parse(window.endIso) - Date.parse(window.startIso)) / 60_000
-  const coveredDays = (spanMinutes + profile.intervalMinutes) / MINUTES_PER_DAY
+  const timeZone = profile.timezoneMeta
+  const coveredDays = localDayNumber(window.endIso, timeZone) - localDayNumber(window.startIso, timeZone) + 1
   if (coveredDays < MIN_COVERED_DAYS) return 'short_period'
   if (coveredDays > MAX_COVERED_DAYS) return 'overlap'
   return null

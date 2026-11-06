@@ -43,3 +43,11 @@ export type TariffSwitchPlan =
       result: { kind: 'single'; tariffId: string } | { kind: 'switch'; blocks: SwitchPlanBlock[] }
       variants: SwitchPlanVariant[]
     }
+
+/**
+ * Der Plan auf der Jahres-Hochrechnung (`AnnualScenario.switchPlan`). `short_measurement` steht
+ * bewusst nur hier: am gemessenen `tariffSwitchPlan` kann dieser Grund nicht auftreten.
+ */
+export type AnnualSwitchPlan =
+  | TariffSwitchPlan
+  | { status: 'insufficient_data'; reason: 'short_measurement' }

@@ -540,6 +540,48 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     expect((await baseFeeFor('AT')) / (await baseFeeFor('DE'))).toBeCloseTo(1.19 / 1.2, 9)
   })
 
+  it('Wechselprüfung des Jahreslaufs: bleibt nur mit Jahresbasis, mit PV fehlt der Schlüssel', async () => {
+    const hundredDays = (): string => {
+      const rows: string[] = ['Zeitstempel;Bezug (kW)']
+      for (let i = 0; i < 100 * 96; i += 1) {
+        const at = new Date(Date.UTC(2026, 2, 2, 0, 0) + i * 15 * 60_000)
+        rows.push(`${at.toISOString().slice(0, 16)};${at.getUTCHours() >= 5 ? 22 : 9}`)
+      }
+      return rows.join('\n')
+    }
+    const scenarioFor = async (extra: Record<string, unknown>) => {
+      const { result } = await runAnalysisFromMeteringPointDraft(
+        'mp-1',
+        ports({
+          readDocument: async () => file(hundredDays(), 'lastgang-2026.csv'),
+          readMeteringPoint: async () => ({
+            draft: {
+              ...DRAFT,
+              tariffComparisonProviderName: 'Anbieter',
+              tariffComparisonEnergyPriceCtPerKwh: 16.4,
+              tariffComparisonBaseFeeEurPerMonth: 2.5,
+              tariffComparisonPriceBasis: 'net',
+              ...extra,
+            },
+            sourceDocumentId: 'doc-1',
+          }),
+          fetchTariffPricing: async (request: {
+            window: { startIso: string; endIso: string }
+            intervalMinutes: number
+          }) => ({
+            gridTariffRows: GRID_ROWS,
+            spotPrices: spotSeries(request.window, request.intervalMinutes),
+            levies: LEVIES_NONE,
+          }),
+        }),
+      )
+      return result.annualScenario!
+    }
+
+    expect((await scenarioFor({})).switchPlan).toMatchObject({ status: 'ok' })
+    expect(await scenarioFor({ hasPv: true, pvStage: 'existing' })).not.toHaveProperty('switchPlan')
+  })
+
   it('füllt payload.tariffPricing und macht die Tarifoptimierung berechenbar', async () => {
     const fetchTariffPricing = vi.fn(async (request: { window: { startIso: string; endIso: string }; intervalMinutes: number }) => ({
       gridTariffRows: GRID_ROWS,
