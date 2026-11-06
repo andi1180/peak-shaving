@@ -325,11 +325,25 @@ describe('Tarifwechsel im Jahreslauf', () => {
     expect(spotWay.notice?.body).toContain('hätte im Rückblick')
   })
 
-  it.each<[string, TariffSwitchPlan]>([
-    ['zu wenig Daten', { status: 'insufficient_data', reason: 'short_period' }],
-    ['Ersparnis unter der Schwelle', { ...hintPlan, savingVsBestSingleEur: 30 } as TariffSwitchPlan],
-  ])('Stufe 3 (%s): identisch zur Ausgabe ohne Feld', (_, tariffSwitchPlan) => {
+  it('zu wenig Daten: identisch zur Ausgabe ohne Feld', () => {
+    const tariffSwitchPlan: TariffSwitchPlan = { status: 'insufficient_data', reason: 'short_period' }
     expect(buildWaysChapter({ ...base, tariffSwitchPlan })).toStrictEqual(buildWaysChapter(base))
+    expect(waysCountOf({ ...base, tariffSwitchPlan })).toBe(waysCountOf(base))
+  })
+
+  it.each<[string, TariffSwitchPlan]>([
+    ['Ersparnis unter der Schwelle', { ...hintPlan, savingVsBestSingleEur: 30 } as TariffSwitchPlan],
+    ['kein Vorteil', { ...hintPlan, savingVsBestSingleEur: -40 } as TariffSwitchPlan],
+  ])('Stufe 3 (%s): nur der Hinweis beim Börsentarif kommt dazu', (_, tariffSwitchPlan) => {
+    const chapter = buildWaysChapter({ ...base, tariffSwitchPlan })!
+    const spotWay = chapter.statements.find((statement) => statement.id === 'ways_tariff_switch')!
+
+    expect(spotWay.notice?.body).toContain('Tarifwechsel zweimal im Jahr zwischen')
+    const { notice: _notice, ...withoutNotice } = spotWay
+    expect({
+      ...chapter,
+      statements: chapter.statements.map((s) => (s === spotWay ? withoutNotice : s)),
+    }).toStrictEqual(buildWaysChapter(base))
     expect(waysCountOf({ ...base, tariffSwitchPlan })).toBe(waysCountOf(base))
   })
 

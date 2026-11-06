@@ -65,6 +65,7 @@ describe('Tarifwechsel in Zusammenfassung und Vorderseite', () => {
   it.each<[string, TariffSwitchPlan]>([
     ['Stufe 2', HINT_PLAN],
     ['Stufe 3', LOW_PLAN],
+    ['Stufe 3, kein Vorteil', { ...HINT_PLAN, savingVsBestSingleEur: -40 } as TariffSwitchPlan],
     ['zu wenig Daten', { status: 'insufficient_data', reason: 'overlap' }],
   ])('%s: identisch zur Ausgabe ohne Plan', (_, plan) => {
     const input = withPlan(plan)

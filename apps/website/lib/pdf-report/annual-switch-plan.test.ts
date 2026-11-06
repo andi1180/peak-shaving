@@ -25,6 +25,8 @@ const HINT = {
   savingShare: 0.033,
 } as TariffSwitchPlan
 const LOW = { ...HINT, savingVsBestSingleEur: 30 } as TariffSwitchPlan
+const NO_ADVANTAGE = { ...HINT, savingVsBestSingleEur: -40 } as TariffSwitchPlan
+const NO_SHARE = { ...HINT, savingShare: null } as TariffSwitchPlan
 const SHORT: AnnualSwitchPlan = { status: 'insufficient_data', reason: 'short_measurement' }
 
 const base = structuredClone(muster(true))
@@ -94,8 +96,27 @@ describe('Jahreskapitel', () => {
 
   it.each<[string, AnnualSwitchPlan]>([
     ['30 €', LOW],
+    ['kein Vorteil', NO_ADVANTAGE],
+  ])('Stufe 3 (%s): nur der Hinweis bei den Jahreskosten kommt dazu', (_name, plan) => {
+    const input = withPlan(plan)
+    const chapter = buildAnnualScenarioChapter(input)!
+    const costs = chapter.statements.find((s) => s.id === 'annual_scenario_costs')!
+
+    expect(costs.notice?.body).toContain('Auf Basis der Hochrechnung wurde auch ein Tarifwechsel')
+    const { notice: _notice, ...withoutNotice } = costs
+    expect({
+      ...chapter,
+      statements: chapter.statements.map((s) => (s === costs ? withoutNotice : s)),
+    }).toStrictEqual(buildAnnualScenarioChapter(base))
+    expect(buildReportSummary(input)).toStrictEqual(buildReportSummary(base))
+    expect(buildExecutiveSummary(input)).toStrictEqual(buildExecutiveSummary(base))
+    expectUntouchedOutsideChapter(input)
+  })
+
+  it.each<[string, AnnualSwitchPlan]>([
     ['unter 90 Messtagen', SHORT],
-  ])('Stufe 3 (%s): keine Spur im Kapitel, in der Zusammenfassung und vorne', (_name, plan) => {
+    ['kein Anteil bei mindestens 50 €', NO_SHARE],
+  ])('kein Satz (%s): keine Spur im Kapitel, in der Zusammenfassung und vorne', (_name, plan) => {
     const input = withPlan(plan)
     expect(buildAnnualScenarioChapter(input)).toStrictEqual(buildAnnualScenarioChapter(base))
     expect(buildReportSummary(input)).toStrictEqual(buildReportSummary(base))
@@ -126,6 +147,7 @@ describe('Zusammenfassung und Vorderseite', () => {
   it('steht das Jahreskapitel nicht, erscheint der Plan nirgends', () => {
     const input = { ...withPlan(SWITCH), hasPv: true }
     expect(buildAnnualScenarioChapter(input)).toBeNull()
+    expect(buildAnnualScenarioChapter({ ...withPlan(LOW), hasPv: true })).toBeNull()
     expect(buildReportSummary(input).switchReview).toBeUndefined()
     expect(buildLimitations(input.analysis, input).hints.join(' ')).toContain('12 vollständige Monate')
   })

@@ -39,14 +39,23 @@ export type AnnualSwitch = { plan: AnnualSwitchPlan; measuredDays: number }
 
 type OkPlan = Extract<TariffSwitchPlan, { status: 'ok' }>
 
+// Die Schwelle gilt netto: die Brutto-Anzeige für Privatkunden darf die Stufe nicht verschieben.
+const netSavingEurOf = (plan: OkPlan): number =>
+  plan.savingVsBestSingleEur / vatFactor(displayedPriceBasis(plan))
+
 export function switchPlanStageOf(plan: AnnualSwitchPlan | undefined): SwitchPlanStage {
   if (plan?.status !== 'ok') return 'nichts'
   if (plan.result.kind === 'switch') return 'weg'
-  // Die Schwelle gilt netto: die Brutto-Anzeige für Privatkunden darf die Stufe nicht verschieben.
-  const netSavingEur = plan.savingVsBestSingleEur / vatFactor(displayedPriceBasis(plan))
-  return plan.savingShare !== null && netSavingEur >= DEFAULT_SWITCH_RULES.minSavingEur
+  return plan.savingShare !== null && netSavingEurOf(plan) >= DEFAULT_SWITCH_RULES.minSavingEur
     ? 'hinweis'
     : 'nichts'
+}
+
+/** Warum ein geprüfter Wechsel in Stufe 3 nicht trägt; `null`, wenn dazu kein Satz gehört. */
+function noSwitchReasonOf(plan: OkPlan): 'no_advantage' | 'too_small' | null {
+  if (switchPlanStageOf(plan) !== 'nichts') return null
+  if (!plan.bestSwitch || plan.savingVsBestSingleEur <= 0) return 'no_advantage'
+  return netSavingEurOf(plan) < DEFAULT_SWITCH_RULES.minSavingEur ? 'too_small' : null
 }
 
 export function switchPlanNamesOf(analysis: PdfReportAnalysis): SwitchPlanNames {
@@ -65,6 +74,12 @@ function comparisonSupplierOf(analysis: PdfReportAnalysis): string | null {
 function tariffLabel(tariffId: string, names: SwitchPlanNames): string {
   if (tariffId === 'spot') return names.spot
   return names.comparisonSupplier ? `Fixtarif ${names.comparisonSupplier}` : 'Fixtarif'
+}
+
+/** Der Anbietername allein, für Sätze, die beide Tarife nebeneinander nennen. */
+function tariffName(tariffId: string, names: SwitchPlanNames): string {
+  if (tariffId === 'spot') return names.spot
+  return names.comparisonSupplier ?? 'Fixtarif'
 }
 
 /** „April–September: aWATTar · Oktober–März: Fixtarif X" — Block 2 läuft über den Jahreswechsel. */
@@ -144,22 +159,51 @@ export function seasonalSwitchWayOf(
   }
 }
 
+const switchNotice = (id: string, body: string): ReportNotice => ({
+  id,
+  tone: 'neutral',
+  title: 'Wechsel im Jahreslauf',
+  body,
+  list: null,
+  hints: [],
+})
+
+function noSwitchVerdict(
+  plan: OkPlan,
+  reason: NonNullable<ReturnType<typeof noSwitchReasonOf>>,
+  names: SwitchPlanNames,
+): string {
+  const best = tariffName(plan.bestSingle.tariffId, names)
+  return reason === 'no_advantage'
+    ? `Er lohnt sich nicht – ${best} ist über das ganze Jahr günstiger.`
+    : `Der beste Wechsel brächte höchstens ${formatEur(plan.savingVsBestSingleEur)} im Jahr – zu ` +
+        `wenig, um ihn zu empfehlen; ${best} ganzjährig ist die einfachere Wahl.`
+}
+
+const tariffPair = (names: SwitchPlanNames): string =>
+  `${tariffName('comparison', names)} und ${tariffName('spot', names)}`
+
 export function seasonalSwitchNoticeOf(
   plan: TariffSwitchPlan | undefined,
   names: SwitchPlanNames,
 ): ReportNotice | null {
-  if (plan?.status !== 'ok' || switchPlanStageOf(plan) !== 'hinweis') return null
-  return {
-    id: 'ways_seasonal_switch_hint',
-    tone: 'neutral',
-    title: 'Wechsel im Jahreslauf',
-    body:
-      `Ein Wechsel (${planText(plan.bestSwitch.blocks, names)}) hätte im Rückblick ` +
+  if (plan?.status !== 'ok') return null
+  const id = 'ways_seasonal_switch_hint'
+  const reason = noSwitchReasonOf(plan)
+  if (reason) {
+    return switchNotice(
+      id,
+      `Geprüft wurde auch ein Tarifwechsel zweimal im Jahr zwischen ${tariffPair(names)}: ` +
+        noSwitchVerdict(plan, reason, names),
+    )
+  }
+  if (switchPlanStageOf(plan) !== 'hinweis') return null
+  return switchNotice(
+    id,
+    `Ein Wechsel (${planText(plan.bestSwitch.blocks, names)}) hätte im Rückblick ` +
       `${savingText(plan)} gespart. Dieser Vorteil liegt im Bereich normaler Preisschwankungen von ` +
       'Jahr zu Jahr; ein Wechsel allein deshalb ist nicht zu empfehlen.',
-    list: null,
-    hints: [],
-  }
+  )
 }
 
 /** Der Plan der Hochrechnung, nur wenn das Jahreskapitel steht: dieselbe Bedingung wie dort. */
@@ -197,24 +241,29 @@ export function annualSwitchStatementOf(
   }
 }
 
-/** Stufe 2 im Jahreskapitel. */
+/** Stufe 2 und das geprüfte Nein im Jahreskapitel. */
 export function annualSwitchNoticeOf(
   { plan }: AnnualSwitch,
   names: SwitchPlanNames,
 ): ReportNotice | null {
-  if (plan.status !== 'ok' || switchPlanStageOf(plan) !== 'hinweis') return null
-  return {
-    id: 'annual_scenario_switch_hint',
-    tone: 'neutral',
-    title: 'Wechsel im Jahreslauf',
-    body:
-      `Auf Basis der Hochrechnung würde ein Tarifwechsel zweimal im Jahr ` +
+  if (plan.status !== 'ok') return null
+  const id = 'annual_scenario_switch_hint'
+  const reason = noSwitchReasonOf(plan)
+  if (reason) {
+    return switchNotice(
+      id,
+      `Auf Basis der Hochrechnung wurde auch ein Tarifwechsel zweimal im Jahr zwischen ` +
+        `${tariffPair(names)} geprüft: ${noSwitchVerdict(plan, reason, names)}`,
+    )
+  }
+  if (switchPlanStageOf(plan) !== 'hinweis') return null
+  return switchNotice(
+    id,
+    `Auf Basis der Hochrechnung würde ein Tarifwechsel zweimal im Jahr ` +
       `(${planText(plan.bestSwitch.blocks, names)}) rund ${savingText(plan)} im Jahr sparen. Dieser ` +
       'Vorteil liegt im Bereich normaler Preisschwankungen von Jahr zu Jahr; ein Wechsel allein ' +
       'deshalb ist nicht zu empfehlen.',
-    list: null,
-    hints: [],
-  }
+  )
 }
 
 /** Die Zeile für Zusammenfassung und Vorderseite, nur in Stufe 1: nie eine Empfehlung. */
