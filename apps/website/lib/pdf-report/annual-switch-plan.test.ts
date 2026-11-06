@@ -66,7 +66,7 @@ describe('Jahreskapitel', () => {
       'Jahreskosten mit Wechsel',
       expect.stringMatching(/^Ersparnis gegenüber /),
     ])
-    expect(plain(statement.body)).toMatch(
+    expect(plain(statement.body as string)).toMatch(
       new RegExp(
         '^Auf Basis Ihres hochgerechneten Jahresverbrauchs und der tatsächlichen Börsenpreise wäre ' +
           'ein Tarifwechsel zweimal im Jahr am günstigsten: April–September: .+ · Oktober–März: ' +
