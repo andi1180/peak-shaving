@@ -1,7 +1,9 @@
 import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
+  comparisonTariffSourceSchema,
   isCountry,
+  isIsoCalendarDate,
   PV_STAGES,
   parseNetzebeneDraftValue,
   readReportSectionSelection,
@@ -24,6 +26,7 @@ import {
 } from './derive'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
+  ComparisonTariffOrigin,
   PdfReportAnalysis,
   PdfReportInput,
   PdfReportInvoicePeriod,
@@ -72,6 +75,8 @@ export type ReportRenderMeta = {
   netzbetreiberName: string | null
   /** Das Land des Projekts. `null` = nicht übergeben (ältere Übergaben) oder unbekannt. */
   country: Country | null
+  /** Herkunft des Vergleichstarifs; `null` = keine erfasst oder eine ältere Übergabe. */
+  comparisonTariffOrigin: ComparisonTariffOrigin | null
   /** Die Netzebene aus dem Entwurf (3–7). `null` = keine brauchbare Angabe. */
   netzebene: number | null
   /**
@@ -210,6 +215,18 @@ export function readRenderRequest(result: { data: unknown; error: unknown }): Re
  * aus einer älteren Fassung trägt die Felder womöglich gar nicht, und ein Deckblatt mit
  * `[object Object]` statt einer Firma wäre schlimmer als eines ohne Firma.
  */
+/** Ein fremder Wert aus einem von Hand veränderten `jsonb` wird verworfen, nicht geraten. */
+function readComparisonTariffOrigin(value: unknown): ComparisonTariffOrigin | null {
+  if (!isRecord(value)) return null
+  const source = comparisonTariffSourceSchema.safeParse(value.source)
+  const origin: ComparisonTariffOrigin = {
+    ...(source.success ? { source: source.data } : {}),
+    ...(isIsoCalendarDate(value.offerDate) ? { offerDate: value.offerDate } : {}),
+    ...(value.enteredPriceBasis === 'gross' ? { enteredPriceBasis: 'gross' as const } : {}),
+  }
+  return Object.keys(origin).length > 0 ? origin : null
+}
+
 function readMeta(value: unknown): ReportRenderMeta {
   const meta = isRecord(value) ? value : {}
   const label = meta.customerLabel
@@ -225,6 +242,7 @@ function readMeta(value: unknown): ReportRenderMeta {
         ? meta.netzbetreiberName.trim()
         : null,
     country: isCountry(meta.country) ? meta.country : null,
+    comparisonTariffOrigin: readComparisonTariffOrigin(meta.comparisonTariffOrigin),
     netzebene: parseNetzebeneDraftValue(meta.netzebene),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
@@ -393,6 +411,7 @@ export function buildReportInputFromRenderRequest(
       : {}),
     netzebene: meta.netzebene ?? undefined,
     country: meta.country ?? undefined,
+    ...(meta.comparisonTariffOrigin ? { comparisonTariffOrigin: meta.comparisonTariffOrigin } : {}),
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
     ...(meta.priceFromInvoice ? { priceFromInvoice: true } : {}),
     ...(meta.baseFeeFromInvoice ? { baseFeeFromInvoice: true } : {}),

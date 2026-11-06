@@ -8,9 +8,11 @@ import {
   REPORT_OPTIONAL_SECTIONS,
   REPORT_OPTIONAL_SECTIONS_FIELD,
   REPORT_OPTIONAL_SECTIONS_MARKER,
+  comparisonTariffSourceSchema,
   displayPriceBasisFor,
   draftMinBillableKwDefaults,
   isCountry,
+  isIsoCalendarDate,
   levyGapYearBeyondCoverage,
   parseNetzebeneDraftValue,
   type GridTariffRowInput,
@@ -29,6 +31,11 @@ import { effectiveInvoiceExtraction, readStoredInvoiceExtractions } from './invo
 import { readMeteringPointList } from './metering-points'
 import { readPvArraysDraft } from './pv-array-draft'
 import { readPvDraft } from './pv-draft'
+import {
+  TARIFF_COMPARISON_OFFER_DATE_KEY,
+  TARIFF_COMPARISON_PRICE_BASIS_KEY,
+  TARIFF_COMPARISON_SOURCE_KEY,
+} from './tariff-draft'
 import { readAdminProject } from './projects'
 import {
   FORBIDDEN,
@@ -293,6 +300,8 @@ export async function createReportRenderRequestAction(
      * Flächen).
      */
     pvPeakPowerKwp: readPvPeakPowerKwp(point.draft),
+    // Quelle, Datum und Eingabeart stehen nicht im Ergebnis, der Report weist sie aber aus.
+    ...comparisonTariffOriginOf(point.draft),
     pvOutageMonths: run.pvOutageMonths,
     // Bestands-PV nur als gesenkter Bezug im Lastgang — nur `true` wird vermerkt (fehlt = bisheriges Verhalten).
     ...(run.gridProfileContainsPv ? { gridProfileContainsPv: true } : {}),
@@ -392,6 +401,20 @@ function levyMaintenanceNote(
  * über die vollständigen Flächen gebildete Zahl wäre kleiner als die Anlage und stünde trotzdem
  * als Angabe auf einem Kundendokument.
  */
+/** Ohne erfasste Angabe entfällt der Schlüssel: Bestandsübergaben bleiben objektgleich. */
+function comparisonTariffOriginOf(draft: Record<string, unknown>) {
+  const source = comparisonTariffSourceSchema.safeParse(draft[TARIFF_COMPARISON_SOURCE_KEY])
+  const offerDate = draft[TARIFF_COMPARISON_OFFER_DATE_KEY]
+  const origin = {
+    ...(source.success ? { source: source.data } : {}),
+    ...(isIsoCalendarDate(offerDate) ? { offerDate } : {}),
+    ...(draft[TARIFF_COMPARISON_PRICE_BASIS_KEY] === 'gross'
+      ? { enteredPriceBasis: 'gross' as const }
+      : {}),
+  }
+  return Object.keys(origin).length > 0 ? { comparisonTariffOrigin: origin } : {}
+}
+
 function readPvPeakPowerKwp(draft: Record<string, unknown>): number | null {
   const arrays = readPvArraysDraft(draft)
   if (arrays.length === 0) return null

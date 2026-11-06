@@ -239,6 +239,24 @@ describe('createReportRenderRequestAction', () => {
     expect(meta.netzbetreiber).toBe('wiener_netze')
   })
 
+  it('Quelle, Angebotsdatum und Brutto-Eingabe des Vergleichstarifs reisen in die Übergabe', async () => {
+    withWrappers({
+      ...DRAFT,
+      tariffComparisonSource: 'tarife_at',
+      tariffComparisonOfferDate: '2026-10-12',
+      tariffComparisonPriceBasis: 'gross',
+    })
+
+    await createReportRenderRequestAction({}, form())
+
+    const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')
+    expect(call![1].p_report_input_meta.comparisonTariffOrigin).toEqual({
+      source: 'tarife_at',
+      offerDate: '2026-10-12',
+      enteredPriceBasis: 'gross',
+    })
+  })
+
   it('ohne Grundgebühr im Entwurf steht `null` — nicht 0', async () => {
     const { supplierBaseFeeEurPerMonth: _weg, ...ohneGrundgebuehr } = DRAFT
     withWrappers(ohneGrundgebuehr)

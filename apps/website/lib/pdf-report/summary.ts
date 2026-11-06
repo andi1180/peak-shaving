@@ -41,6 +41,7 @@ import type { ExecutiveSummary } from './executive-summary'
 import { PROJECTED_BASIS_WORDS } from './executive-summary-copy'
 import { feedInCreditEur } from './feed-in-credit'
 import { hasPvValueChapter } from './pv-value'
+import { seasonalSwitchReviewOf, switchPlanStageOf } from './seasonal-switch'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { AnnualScenarioPvInput } from './annual-scenario'
@@ -106,6 +107,8 @@ export type SummaryKpi = {
 }
 
 export type ReportSummary = {
+  /** Nur in Stufe 1 — getrennt von den Wegen, keine Empfehlung (`seasonalSwitchReviewOf`). */
+  switchReview?: string
   /** Leer, wenn der Tarifvergleich nicht gerechnet werden konnte — dann gibt es keine der beiden. */
   kpis: SummaryKpi[]
   /** Die Hinweise, die die Datengrundlage der Zahlen darüber einschränken. */
@@ -716,7 +719,22 @@ function wayPhrase(way: SummaryWay, ways: SummaryWays, hasBattery: boolean): str
   return SWITCH_WAY
 }
 
-const COUNT_WORD = ['keinen', 'einen', 'zwei', 'drei'] as const
+const COUNT_WORD = ['keinen', 'einen', 'zwei', 'drei', 'vier'] as const
+
+const SEASONAL_SWITCH_WAY = 'ein zweimal jährlicher Wechsel zwischen den Tarifen'
+
+/**
+ * Zählt den Wechsel-Weg mit, wenn er gegenüber heute senkt. Er bleibt ausserhalb von `ways.ways`,
+ * damit Ersparnis-Spanne und Vorschlag ihn nie als Kandidaten sehen.
+ */
+function seasonalSwitchSaves(analysis: PdfReportAnalysis, ways: SummaryWays): boolean {
+  const plan = analysis.tariffSwitchPlan
+  return (
+    plan?.status === 'ok' &&
+    switchPlanStageOf(plan) === 'weg' &&
+    plan.bestSwitch.annualEur < ways.costTodayEur
+  )
+}
 
 /**
  * Welche Wege es gibt — und, wo einer nicht trägt, warum nicht.
@@ -729,13 +747,18 @@ const COUNT_WORD = ['keinen', 'einen', 'zwei', 'drei'] as const
  * D7-Revision können es bis zu drei sein (Weg 2 kommt dazu, wenn der Kunde einen Vergleichstarif
  * angegeben hat), und ein Literal liefe beim nächsten Weg still daneben.
  */
-function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
+function waysSentence(ways: SummaryWays, hasBattery: boolean, seasonalSaves = false): string {
   const positive = positiveWays(ways)
   const phrases = positive.map((way) => wayPhrase(way, ways, hasBattery))
+  if (seasonalSaves) {
+    // Dieselbe Reihenfolge wie im Kapitel: vor der Ladesteuerung.
+    const controlled = positive.findIndex((way) => way.id === 'controlled')
+    phrases.splice(controlled === -1 ? phrases.length : controlled, 0, SEASONAL_SWITCH_WAY)
+  }
 
-  if (positive.length >= 2) {
+  if (phrases.length >= 2) {
     return (
-      `Es gibt ${COUNT_WORD[positive.length] ?? String(positive.length)} unterschiedlich ` +
+      `Es gibt ${COUNT_WORD[phrases.length] ?? String(phrases.length)} unterschiedlich ` +
       `aufwändige Wege, Ihre Stromkosten zu senken: ${phrases.slice(0, -1).join(', ')} oder ` +
       `${phrases[phrases.length - 1]} — alle weiter hinten im Detail erklärt.`
     )
@@ -744,9 +767,10 @@ function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
      Sätze unten sprechen sonst über eine Ladesteuerung, zu der in diesem Report keine Zahl steht. */
   const hasControlled = ways.controlVariant !== null
   const only = positive[0]
-  if (only) {
-    const rest =
-      only.id === 'controlled'
+  if (phrases.length === 1) {
+    const rest = !only
+      ? ''
+      : only.id === 'controlled'
         ? ' Ein reiner Tarifwechsel ohne Steuerung käme Sie in Ihrem Fall teurer als Ihr heutiger Tarif.'
         : hasControlled
           ? ' Die zusätzliche Ladesteuerung bringt in Ihrem Fall nichts darüber hinaus.'
@@ -881,7 +905,7 @@ export function buildOverview(
         )}.`
       : ''
 
-  return t`${equipment} ${waysSentence(ways, existing != null)}${peakPart}${noRecommendation}`
+  return t`${equipment} ${waysSentence(ways, existing != null, seasonalSwitchSaves(analysis, ways))}${peakPart}${noRecommendation}`
 }
 
 /**
@@ -1227,7 +1251,10 @@ export function buildReportSummary(
   const annualTotal = summaryAnnualTotalOf(analysis, context?.executiveSummary)
   const costYear = summaryCostTodayYearOf(input, context?.executiveSummary)
 
+  const switchReview = seasonalSwitchReviewOf(analysis)
+
   return {
+    ...(switchReview ? { switchReview } : {}),
     kpis: ways
       ? buildSummaryKpis(
           analysis,

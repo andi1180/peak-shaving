@@ -194,6 +194,25 @@ describe('buildReportInputFromRenderRequest', () => {
    * prüft dieser Test, und nur er. Der zweite Halt ist der Rückgabetyp `Complete<…>`, der ein
    * weggelassenes Feld zum Typfehler macht.
    */
+  it('liest die Herkunft des Vergleichstarifs und verwirft fremde Werte', () => {
+    const inputWith = (comparisonTariffOrigin: unknown) => {
+      const readout = readRenderRequest({
+        data: [{ ...ROW, report_input_meta: { ...ROW.report_input_meta, comparisonTariffOrigin } }],
+        error: null,
+      })
+      if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+      return buildReportInputFromRenderRequest(readout.request, NOW)
+    }
+
+    expect(
+      inputWith({ source: 'angebot', offerDate: '2026-10-12', enteredPriceBasis: 'gross' })
+        .comparisonTariffOrigin,
+    ).toEqual({ source: 'angebot', offerDate: '2026-10-12', enteredPriceBasis: 'gross' })
+    expect(inputWith({ source: 'quatsch', offerDate: '2026-02-31' })).not.toHaveProperty(
+      'comparisonTariffOrigin',
+    )
+  })
+
   it('reicht die optionalen Felder unverändert durch', () => {
     const readout = readRenderRequest({
       data: [

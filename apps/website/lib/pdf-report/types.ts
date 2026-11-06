@@ -2,6 +2,7 @@ import type { PvOutageMonth } from 'engine'
 import type {
   AnalysisResult,
   BatteryCatalogMeta,
+  ComparisonTariffSource,
   Country,
   DisplayPriceBasis,
   EstimatedPvSummary,
@@ -139,6 +140,13 @@ import type {
  * `annualScenario` bereits passiert (#320); `Complete<…>` dort macht das Weglassen seither zu
  * einem Compile-Fehler.
  */
+export type ComparisonTariffOrigin = {
+  source?: ComparisonTariffSource
+  /** `JJJJ-MM-TT`. */
+  offerDate?: string
+  enteredPriceBasis?: 'gross'
+}
+
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
   | 'current'
@@ -362,6 +370,8 @@ export type PdfReportInput = {
   netzebene?: number
   /** Land des Projekts; `undefined` = Vorgabeland (alte Übergaben). Wählt Locale, Monatsnamen, Netzebene-Label und Kopf. */
   country?: Country
+  /** Woher der Vergleichstarif stammt, wie im Entwurf erfasst; fehlt bei Bestandsentwürfen. */
+  comparisonTariffOrigin?: ComparisonTariffOrigin
   /**
    * Die Mindestleistung fehlte im Entwurf und wurde mit 0 gerechnet (Annahme, Wizard-Pfad). Nur
    * `true` erzeugt eine Tabellenzeile; fehlt es, bleibt der Report wie zuvor.
