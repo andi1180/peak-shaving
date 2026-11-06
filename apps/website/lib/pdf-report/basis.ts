@@ -55,6 +55,7 @@ import {
 import type { ReportBuildContext } from './context'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { hasPvValueChapter } from './pv-value'
+import { comparisonTariffHintsOf } from './seasonal-switch'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type {
   ReportNotice,
@@ -1609,7 +1610,10 @@ function buildMethodPerMetric(
  * unbedingt stehen — eine Hochrechnung zu erwähnen, die der Report nicht zeigt, schickte den Leser
  * nach einer Zahl suchen, die es nicht gibt.
  */
-export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
+export function buildLimitations(
+  analysis: PdfReportAnalysis,
+  input?: Pick<PdfReportInput, 'comparisonTariffOrigin' | 'country'>,
+): ReportNotice {
   /*
    * ⚠ DER ERSTE SATZ HÄNGT AN DERSELBEN BEDINGUNG WIE DIE MONATSZAHLEN SELBST. Die Abgaben stecken
    * im kombinierten Intervallpreis und in den anteiligen Fixkosten — beides gibt es nur, wenn der
@@ -1665,6 +1669,7 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
       'verwendeten: einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die ' +
       'Mindestleistung etwa, die den abgerechneten Leistungswert nach unten begrenzt.',
   )
+  hints.push(...comparisonTariffHintsOf(analysis, input))
 
   return {
     id: 'limitations',
@@ -1750,7 +1755,7 @@ export function buildBasisChapter(
       input.gridProfileContainsPv === true,
       context?.executiveSummary ?? null,
     ),
-    limitations: buildLimitations(input.analysis),
+    limitations: buildLimitations(input.analysis, input),
     disclaimer: reportDisclaimer(input.origin),
   }
 }

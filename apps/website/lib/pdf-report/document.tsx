@@ -82,6 +82,8 @@ import {
   EXEC_DIVIDER_GAP_PT,
   EXEC_HERO,
   EXEC_SLOTS,
+  EXEC_SWITCH_REVIEW_PT,
+  EXEC_SWITCH_REVIEW_TEXT_PT,
   EXEC_STORAGE,
   EXEC_TEXT_PT,
   EXECUTIVE_SUMMARY_SECTION_ID,
@@ -836,6 +838,12 @@ const styles = StyleSheet.create({
     lineHeight: PDF_TYPE.lineHeight,
     color: PDF_COLORS.text,
   },
+  execReview: {
+    marginTop: 4,
+    fontSize: EXEC_SWITCH_REVIEW_TEXT_PT,
+    lineHeight: PDF_TYPE.lineHeight,
+    color: PDF_COLORS.text,
+  },
   /** Trennlinie mittig in der Fuge zwischen zwei Bereichen; die Überschrift danach ohne eigenen Abstand. */
   execDivider: {
     marginVertical: EXEC_DIVIDER_GAP_PT,
@@ -956,7 +964,14 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
         <>
           <View style={styles.execDivider} />
           <Text style={[styles.execSection, { marginTop: 0 }]}>Ihr Lastgang</Text>
-          <ExecLoadChart load={summary.load} slot={EXEC_SLOTS.load} />
+          <ExecLoadChart
+            load={summary.load}
+            slot={
+              summary.switchReview
+                ? { ...EXEC_SLOTS.load, height: EXEC_SLOTS.load.height - EXEC_SWITCH_REVIEW_PT }
+                : EXEC_SLOTS.load
+            }
+          />
           <Text style={styles.execText}>{copy.loadSentence}</Text>
         </>
       )}
@@ -965,6 +980,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
       <Text style={[styles.execSection, { marginTop: 0 }]}>Ihre Stromkosten pro Jahr</Text>
       <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
       <Text style={styles.execText}>{copy.waysSentence}</Text>
+      {summary.switchReview && <Text style={styles.execReview}>{summary.switchReview}</Text>}
 
       {(copy.storageVerdict || band) && <View style={styles.execDivider} />}
       {copy.storageVerdict && (
@@ -1911,6 +1927,9 @@ function ResultsChapter({
       {pvPointer.length > 0 && (
         <Text style={styles.summaryProse}>{pvPointer.map((segment) => segment.text)}</Text>
       )}
+
+      {/* Eigener Absatz: ein Rückblick, keine der Empfehlungen im Fliesstext darüber. */}
+      {summary.switchReview && <Text style={styles.summaryProse}>{summary.switchReview}</Text>}
 
       {/* Nur mit Weg 5 — s. `buildStorageSummary`. */}
       {storage && <Statement statement={storage} layout={layout} />}

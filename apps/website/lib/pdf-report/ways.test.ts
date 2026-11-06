@@ -302,6 +302,15 @@ describe('Tarifwechsel im Jahreslauf', () => {
     expect(loadControl.body).not.toContain('der Weg davor')
   })
 
+  it('Ladesteuerungs-Weg: in Stufe 1 aWATTar statt Tarifwechsel, sonst bitgleich', () => {
+    const body = (analysis: PdfReportAnalysis) =>
+      buildWaysChapter(analysis)!.statements.find((s) => s.id === 'ways_load_control')!.body
+
+    expect(body({ ...base, tariffSwitchPlan: switchPlan })).toContain('aWATTar und Ladesteuerung zusammen')
+    expect(body(base)).toContain('Tarifwechsel und Ladesteuerung zusammen')
+    expect(body({ ...base, tariffSwitchPlan: hintPlan })).toBe(body(base))
+  })
+
   it('Stufe 1 lässt Ersparnis-Spanne und Wegliste der Zusammenfassung unberührt', () => {
     expect(summaryWaysOf({ ...base, tariffSwitchPlan: switchPlan })).toEqual(summaryWaysOf(base))
   })

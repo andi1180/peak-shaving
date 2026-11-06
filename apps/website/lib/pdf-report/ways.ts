@@ -26,8 +26,8 @@ import { headlineStorageOf } from './headline-storage'
 import {
   seasonalSwitchNoticeOf,
   seasonalSwitchWayOf,
+  switchPlanNamesOf,
   switchPlanStageOf,
-  type SwitchPlanNames,
 } from './seasonal-switch'
 import type { PdfReportAnalysis } from './types'
 
@@ -317,13 +317,6 @@ function loadControlMethodOf(tariffName: string, seasonalShown: boolean): string
     : LOAD_CONTROL_METHOD
 }
 
-function switchPlanNamesOf(analysis: PdfReportAnalysis): SwitchPlanNames {
-  return {
-    spot: dynamicTariffOf(analysis).name,
-    comparisonSupplier: monthlyComparisonOf(analysis)?.comparisonSupplier ?? null,
-  }
-}
-
 /**
  * Der Zusatz, wenn Weg 4 die VORAUSSCHAUENDE Fassung trägt.
  *
@@ -548,7 +541,8 @@ export function buildWaysChapter(
         `Zusätzlich zum Tarifwechsel wird mit ${whose} gezielt geladen: in den günstigen ` +
         'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
         'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
-        'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
+        `Vorrang. Über denselben Zeitraum hätte das, ${seasonal ? tariffName : 'Tarifwechsel'} ` +
+        'und Ladesteuerung zusammen, ' +
         outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
         ` Der Wert der Ladesteuerung allein, der Abstand zu „${uncontrolledWayLabel(tariffName)}", beträgt ` +
         `${formatEur(switchWay.costEur - controlWay.costEur)}.` +

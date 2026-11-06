@@ -725,6 +725,9 @@ genommen nichts über die Anlage aussagt.
    Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
    einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
    abgerechneten Leistungswert nach unten begrenzt.
+   Vergleichstarif: gogreenenergy, ohne Bindung und ohne Neukundenbonus.
+   Für die Prüfung eines unterjährigen Tarifwechsels sind 12 vollständige Monate Lastgang nötig; der
+   Lastgang umfasst weniger als ein Jahr.
 
 
 

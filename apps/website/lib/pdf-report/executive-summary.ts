@@ -23,6 +23,7 @@ import type { LoadInput } from './executive-summary-load-chart'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
+import { seasonalSwitchReviewOf } from './seasonal-switch'
 import { tierChangesWithStorage } from './tier-change'
 import {
   ownTariffCostTodayOf,
@@ -99,6 +100,8 @@ export type ExecutiveSummaryStorage = {
 
 export type ExecutiveSummary = {
   variant: ExecutiveSummaryVariant
+  /** Nur in Stufe 1 — steht unter den Wegen und ist keine Empfehlung (`seasonalSwitchReviewOf`). */
+  switchReview?: string
   header: {
     customerName: string | null
     period: string | null
@@ -388,8 +391,11 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     ...new Set(input.loadProfile.readings.map((r) => localMonthIndex(Date.parse(r.ts), tz))),
   ].sort((a, b) => a - b)
 
+  const switchReview = seasonalSwitchReviewOf(analysis)
+
   return {
     variant,
+    ...(switchReview ? { switchReview } : {}),
     header: {
       customerName: input.customer?.company ?? input.customer?.name ?? null,
       period: input.period,

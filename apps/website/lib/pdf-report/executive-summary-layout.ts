@@ -21,6 +21,10 @@ export const EXEC_SLOTS = {
   donut: { width: innerOf(HALF_BOX_PT), height: 85 },
 } as const
 
+/** Was die Rückblick-Zeile der Vorderseite braucht; das Lastgang-Diagramm gibt es dafür her. */
+export const EXEC_SWITCH_REVIEW_PT = 34
+export const EXEC_SWITCH_REVIEW_TEXT_PT = 8.5
+
 /** Seitenanker der Vorderseite (ohne Agenda-Eintrag; gemessen wird nur ihre Länge). */
 export const EXECUTIVE_SUMMARY_SECTION_ID = 'executive_summary'
 

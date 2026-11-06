@@ -448,7 +448,7 @@ export function buildReportRegistry(
       context.pvOutage && input.pvOutageMonths ? pvOutageMethodItem(input.pvOutageMonths) : null,
     ),
     /* ⚠ ZULETZT, weil er im Dokument zuletzt steht — s. `entries` im Kopf dieser Datei. */
-    notice('limitations', () => buildLimitations(analysis)),
+    notice('limitations', () => buildLimitations(analysis, input)),
   ]
 
   /**

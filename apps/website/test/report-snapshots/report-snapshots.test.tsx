@@ -6,7 +6,12 @@ import { env } from 'node:process'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Font, renderToBuffer } from '@react-pdf/renderer'
-import { calculateRoi, mapDraftToExistingBatteryInput, mapDraftToTariffParams } from 'engine'
+import {
+  calculateRoi,
+  computeSwitchPlan,
+  mapDraftToExistingBatteryInput,
+  mapDraftToTariffParams,
+} from 'engine'
 import type { MeteringPointAnalysisPorts } from 'extractors'
 import {
   analysisForDisplay,
@@ -671,6 +676,23 @@ describe('Report-Snapshots der Referenzfälle', () => {
       }
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')
+    }
+  })
+
+  it('Vorderseite: die Rückblick-Zeile hält auch im dichtesten Fall die eine Seite', async () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
+    const monthly = (winterEur: number, summerEur: number) =>
+      Array.from({ length: 12 }, (_, m) => (m >= 3 && m <= 8 ? summerEur : winterEur))
+    const tariffSwitchPlan = computeSwitchPlan([
+      { id: 'comparison', monthlyEur: monthly(1500, 2000) },
+      { id: 'spot', monthlyEur: monthly(1700, 1650) },
+    ])
+    for (const name of ['Worst Case', 'tarif-unbekannt Worst Case']) {
+      const input = EXECUTIVE_SUMMARY_CASES[name]!
+      const withPlan = { ...input, analysis: { ...input.analysis, tariffSwitchPlan } }
+      const pages = (await renderPdfText(withPlan, path.join(tmp, 'vorderseite.pdf'))).split('\f')
+      expect(pages[1], name).toContain('Rückblick Tarifwechsel')
+      expect(pages[2], name).toContain('Inhalt')
     }
   })
 })
