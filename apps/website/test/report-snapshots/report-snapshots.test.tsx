@@ -695,4 +695,20 @@ describe('Report-Snapshots der Referenzfälle', () => {
       expect(pages[2], name).toContain('Inhalt')
     }
   })
+
+  it('Vorderseite: die Zeile zur Hochrechnung hält im dichtesten Fall die eine Seite', async () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
+    const monthly = (winterEur: number, summerEur: number) =>
+      Array.from({ length: 12 }, (_, m) => (m >= 3 && m <= 8 ? summerEur : winterEur))
+    const switchPlan = computeSwitchPlan([
+      { id: 'comparison', monthlyEur: monthly(1500, 2000) },
+      { id: 'spot', monthlyEur: monthly(1700, 1650) },
+    ])
+    const input = EXECUTIVE_SUMMARY_CASES['Worst Case']!
+    const scenario = { ...input.analysis.annualScenario!, switchPlan }
+    const withPlan = { ...input, analysis: { ...input.analysis, annualScenario: scenario } }
+    const pages = (await renderPdfText(withPlan, path.join(tmp, 'vorderseite.pdf'))).split('\f')
+    expect(pages[1]).toContain('Tarifwechsel (Hochrechnung)')
+    expect(pages[2]).toContain('Inhalt')
+  })
 })

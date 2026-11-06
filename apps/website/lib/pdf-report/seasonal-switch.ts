@@ -1,9 +1,12 @@
 import { DEFAULT_SWITCH_RULES } from 'engine'
 import {
+  annualBasisApplies,
   countryDisplay,
   displayedPriceBasis,
   vatFactor,
   vatRateFor,
+  type AnnualBasisPvInput,
+  type AnnualSwitchPlan,
   type ComparisonTariffSource,
   type SwitchPlanBlock,
   type SwitchPlanInsufficientReason,
@@ -31,9 +34,12 @@ export type SeasonalSwitchWay = {
   method: string
 }
 
+/** Der Plan der Hochrechnung samt seiner Datengrundlage. */
+export type AnnualSwitch = { plan: AnnualSwitchPlan; measuredDays: number }
+
 type OkPlan = Extract<TariffSwitchPlan, { status: 'ok' }>
 
-export function switchPlanStageOf(plan: TariffSwitchPlan | undefined): SwitchPlanStage {
+export function switchPlanStageOf(plan: AnnualSwitchPlan | undefined): SwitchPlanStage {
   if (plan?.status !== 'ok') return 'nichts'
   if (plan.result.kind === 'switch') return 'weg'
   // Die Schwelle gilt netto: die Brutto-Anzeige für Privatkunden darf die Stufe nicht verschieben.
@@ -75,6 +81,28 @@ function planText(blocks: readonly SwitchPlanBlock[], names: SwitchPlanNames): s
 const savingText = (plan: OkPlan): string =>
   `${formatEur(plan.savingVsBestSingleEur)} (${formatPercent((plan.savingShare ?? 0) * 100)})`
 
+function planCostRows(plan: OkPlan, names: SwitchPlanNames): ReportRow[] {
+  const annualCostRow = ({ tariffId, annualEur }: OkPlan['singles'][number]): ReportRow => ({
+    label: `Jahreskosten ${tariffLabel(tariffId, names)}`,
+    value: formatEur(annualEur),
+    tone: 'neutral',
+  })
+  return [
+    ...plan.singles.map(annualCostRow),
+    {
+      label: 'Jahreskosten mit Wechsel',
+      value: formatEur(plan.bestSwitch.annualEur),
+      tone: 'neutral',
+    },
+    {
+      label: `Ersparnis gegenüber ${tariffLabel(plan.bestSingle.tariffId, names)}`,
+      value: savingText(plan),
+      tone: 'neutral',
+      total: true,
+    },
+  ]
+}
+
 export function seasonalSwitchWayOf(
   plan: TariffSwitchPlan | undefined,
   names: SwitchPlanNames,
@@ -86,11 +114,6 @@ export function seasonalSwitchWayOf(
   const rate = names.comparisonSupplier
     ? `der Vergleichstarif ${names.comparisonSupplier}`
     : 'der Vergleichstarif'
-  const annualCostRow = ({ tariffId, annualEur }: OkPlan['singles'][number]): ReportRow => ({
-    label: `Jahreskosten ${tariffLabel(tariffId, names)}`,
-    value: formatEur(annualEur),
-    tone: 'neutral',
-  })
 
   return {
     bar: {
@@ -103,20 +126,7 @@ export function seasonalSwitchWayOf(
       id: 'ways_seasonal_switch',
       title: 'Tarifwechsel im Jahreslauf (Rückblick)',
       amount: null,
-      rows: [
-        ...plan.singles.map(annualCostRow),
-        {
-          label: 'Jahreskosten mit Wechsel',
-          value: formatEur(plan.bestSwitch.annualEur),
-          tone: 'neutral',
-        },
-        {
-          label: `Ersparnis gegenüber ${cheaperSingle}`,
-          value: savingText(plan),
-          tone: 'neutral',
-          total: true,
-        },
-      ],
+      rows: planCostRows(plan, names),
       body:
         'Statt das ganze Jahr bei einem Tarif zu bleiben, hätten Sie im betrachteten Zeitraum ' +
         `zweimal jährlich wechseln können: ${text}. Gegenüber dem günstigeren der beiden ` +
@@ -152,15 +162,83 @@ export function seasonalSwitchNoticeOf(
   }
 }
 
-/** Die Rückblick-Zeile für Zusammenfassung und Vorderseite, nur in Stufe 1: nie eine Empfehlung. */
-export function seasonalSwitchReviewOf(analysis: PdfReportAnalysis): string | null {
+/** Der Plan der Hochrechnung, nur wenn das Jahreskapitel steht: dieselbe Bedingung wie dort. */
+export function annualSwitchOf(
+  analysis: PdfReportAnalysis,
+  pv: AnnualBasisPvInput,
+): AnnualSwitch | null {
+  const scenario = analysis.annualScenario
+  const plan = scenario?.switchPlan
+  if (!plan || !annualBasisApplies(scenario, analysis.tariffOptimization?.monthlyComparison, pv)) {
+    return null
+  }
+  return { plan, measuredDays: scenario.measuredDays }
+}
+
+/** Stufe 1 im Jahreskapitel. Bleibt ausserhalb der Wege: die Beträge gelten für 365 Tage. */
+export function annualSwitchStatementOf(
+  { plan, measuredDays }: AnnualSwitch,
+  names: SwitchPlanNames,
+): ReportStatement | null {
+  if (plan.status !== 'ok' || switchPlanStageOf(plan) !== 'weg') return null
+  return {
+    id: 'annual_scenario_switch',
+    title: 'Tarifwechsel im Jahreslauf (Hochrechnung)',
+    amount: null,
+    rows: planCostRows(plan, names),
+    body:
+      'Auf Basis Ihres hochgerechneten Jahresverbrauchs und der tatsächlichen Börsenpreise wäre ein ' +
+      `Tarifwechsel zweimal im Jahr am günstigsten: ${planText(plan.bestSwitch.blocks, names)}. ` +
+      `Gegenüber dem günstigeren Einzeltarif (${tariffLabel(plan.bestSingle.tariffId, names)}) spart ` +
+      `das rund ${savingText(plan)} im Jahr. Gemessen sind ${measuredDays} Tage; die übrigen Tage ` +
+      'sind aus Ihren gemessenen Wochen hochgerechnet, die Börsenpreise sind die tatsächlichen ' +
+      'dieser Tage. Ob sich ein Wechsel künftig lohnt, hängt von der weiteren Preisentwicklung ab. ' +
+      'Speicher und Steuerung sind hier nicht eingerechnet.',
+  }
+}
+
+/** Stufe 2 im Jahreskapitel. */
+export function annualSwitchNoticeOf(
+  { plan }: AnnualSwitch,
+  names: SwitchPlanNames,
+): ReportNotice | null {
+  if (plan.status !== 'ok' || switchPlanStageOf(plan) !== 'hinweis') return null
+  return {
+    id: 'annual_scenario_switch_hint',
+    tone: 'neutral',
+    title: 'Wechsel im Jahreslauf',
+    body:
+      `Auf Basis der Hochrechnung würde ein Tarifwechsel zweimal im Jahr ` +
+      `(${planText(plan.bestSwitch.blocks, names)}) rund ${savingText(plan)} im Jahr sparen. Dieser ` +
+      'Vorteil liegt im Bereich normaler Preisschwankungen von Jahr zu Jahr; ein Wechsel allein ' +
+      'deshalb ist nicht zu empfehlen.',
+    list: null,
+    hints: [],
+  }
+}
+
+/** Die Zeile für Zusammenfassung und Vorderseite, nur in Stufe 1: nie eine Empfehlung. */
+export function seasonalSwitchReviewOf(
+  analysis: PdfReportAnalysis,
+  pv: AnnualBasisPvInput,
+): string | null {
+  const names = switchPlanNamesOf(analysis)
   const plan = analysis.tariffSwitchPlan
-  if (plan?.status !== 'ok' || switchPlanStageOf(plan) !== 'weg') return null
+  if (plan?.status === 'ok' && switchPlanStageOf(plan) === 'weg') {
+    return (
+      `Rückblick Tarifwechsel: Mit ${planText(plan.bestSwitch.blocks, names)} ` +
+      `hätten Sie im betrachteten Zeitraum ${savingText(plan)} gegenüber dem günstigeren Einzeltarif ` +
+      'gespart – keine Empfehlung, sondern ein Hinweis, wie stark die Tarife übers Jahr ' +
+      'auseinanderlaufen.'
+    )
+  }
+  const annual = annualSwitchOf(analysis, pv)?.plan
+  if (annual?.status !== 'ok' || switchPlanStageOf(annual) !== 'weg') return null
   return (
-    `Rückblick Tarifwechsel: Mit ${planText(plan.bestSwitch.blocks, switchPlanNamesOf(analysis))} ` +
-    `hätten Sie im betrachteten Zeitraum ${savingText(plan)} gegenüber dem günstigeren Einzeltarif ` +
-    'gespart – keine Empfehlung, sondern ein Hinweis, wie stark die Tarife übers Jahr ' +
-    'auseinanderlaufen.'
+    `Tarifwechsel (Hochrechnung): Mit ${planText(annual.bestSwitch.blocks, names)} würden Sie auf ` +
+    `Basis Ihres hochgerechneten Jahresverbrauchs rund ${savingText(annual)} im Jahr gegenüber dem ` +
+    'günstigeren Einzeltarif sparen – keine Empfehlung, sondern ein Hinweis, wie stark die Tarife ' +
+    'übers Jahr auseinanderlaufen.'
   )
 }
 
@@ -177,10 +255,14 @@ const INSUFFICIENT_REASON: Record<SwitchPlanInsufficientReason, string> = {
   missing_months: 'für einzelne Monate fehlen Werte',
 }
 
+/** Ohne `loadProfile` zählt die Hochrechnung nicht: die Bedingung des Jahreskapitels liest ihn. */
+export type ComparisonTariffHintsInput = Pick<PdfReportInput, 'comparisonTariffOrigin' | 'country'> &
+  Partial<Pick<PdfReportInput, 'hasPv' | 'estimatedPv' | 'loadProfile'>>
+
 /** Herkunft des Vergleichstarifs und Reichweite der Wechselprüfung — leer ohne Vergleichstarif. */
 export function comparisonTariffHintsOf(
   analysis: PdfReportAnalysis,
-  input?: Pick<PdfReportInput, 'comparisonTariffOrigin' | 'country'>,
+  input?: ComparisonTariffHintsInput,
 ): string[] {
   const supplier = comparisonSupplierOf(analysis)
   if (supplier === null) return []
@@ -200,10 +282,23 @@ export function comparisonTariffHintsOf(
 
   // „Geprüft" stimmt nur mit Plan: ohne genug Daten sagt der zweite Satz, warum es nicht ging.
   const plan = analysis.tariffSwitchPlan
+  const annual = input?.loadProfile
+    ? annualSwitchOf(analysis, { ...input, loadProfile: input.loadProfile })
+    : null
   if (plan?.status === 'ok') {
     hints.push(
       'Der unterjährige Tarifwechsel wurde ohne Speicher und Steuerung geprüft (höchstens zwei ' +
         'Wechsel pro Jahr, je 6 Monate).',
+    )
+  } else if (annual?.plan.status === 'ok') {
+    hints.push(
+      `Der unterjährige Tarifwechsel wurde auf Basis der Jahres-Hochrechnung geprüft (${annual.measuredDays} ` +
+        'gemessene Tage), ohne Speicher und Steuerung (höchstens zwei Wechsel pro Jahr, je 6 Monate).',
+    )
+  } else if (annual?.plan.status === 'insufficient_data' && annual.plan.reason === 'short_measurement') {
+    hints.push(
+      'Für die Prüfung eines unterjährigen Tarifwechsels sind mindestens 90 gemessene Tage nötig; ' +
+        `gemessen sind ${annual.measuredDays}.`,
     )
   } else if (plan) {
     hints.push(

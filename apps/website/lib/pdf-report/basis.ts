@@ -55,7 +55,7 @@ import {
 import type { ReportBuildContext } from './context'
 import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { hasPvValueChapter } from './pv-value'
-import { comparisonTariffHintsOf } from './seasonal-switch'
+import { comparisonTariffHintsOf, type ComparisonTariffHintsInput } from './seasonal-switch'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type {
   ReportNotice,
@@ -1612,7 +1612,7 @@ function buildMethodPerMetric(
  */
 export function buildLimitations(
   analysis: PdfReportAnalysis,
-  input?: Pick<PdfReportInput, 'comparisonTariffOrigin' | 'country'>,
+  input?: ComparisonTariffHintsInput,
 ): ReportNotice {
   /*
    * ⚠ DER ERSTE SATZ HÄNGT AN DERSELBEN BEDINGUNG WIE DIE MONATSZAHLEN SELBST. Die Abgaben stecken
