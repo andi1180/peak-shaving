@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useId, useState } from 'react'
+import { useActionState, useEffect, useId, useState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,9 +14,12 @@ import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import {
   TARIFF_COMPARISON_BASE_FEE_KEY,
   TARIFF_COMPARISON_ENERGY_PRICE_KEY,
+  TARIFF_COMPARISON_OFFER_DATE_KEY,
   TARIFF_COMPARISON_PRICE_BASES,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
+  TARIFF_COMPARISON_SOURCE_KEY,
+  comparisonFormValues,
   offerDateToday,
   type TariffComparisonPriceBasis,
 } from '@/lib/admin/tariff-draft'
@@ -24,6 +27,7 @@ import {
   comparisonTariffSourceSchema,
   DEFAULT_DYNAMIC_SUPPLIER_NAME,
   DYNAMIC_TARIFF_DRAFT_KEYS,
+  isIsoCalendarDate,
   readDraftDynamicTariff,
   type ComparisonTariffSource,
 } from 'shared'
@@ -111,6 +115,13 @@ type TariffComparison = {
   energyPriceCtPerKwh: number
   baseFeeEurPerMonth: number
   priceBasis: TariffComparisonPriceBasis
+  source: ComparisonTariffSource | null
+  offerDate: string | null
+}
+
+/** `JJJJ-MM-TT` als `TT.MM.JJJJ`, ohne `Date`: ein Kalendertag hat keine Zeitzone. */
+function formatOfferDate(iso: string): string {
+  return iso.split('-').reverse().join('.')
 }
 
 /**
@@ -137,11 +148,16 @@ function currentComparison(point: MeteringPointSummary): TariffComparison | null
   if (typeof baseFee !== 'number' || !Number.isFinite(baseFee)) return null
   if (priceBasis !== 'net' && priceBasis !== 'gross') return null
 
+  const source = comparisonTariffSourceSchema.safeParse(point.draft[TARIFF_COMPARISON_SOURCE_KEY])
+  const offerDate = point.draft[TARIFF_COMPARISON_OFFER_DATE_KEY]
+
   return {
     providerName,
     energyPriceCtPerKwh: energyPrice,
     baseFeeEurPerMonth: baseFee,
     priceBasis,
+    source: source.success ? source.data : null,
+    offerDate: isIsoCalendarDate(offerDate) ? offerDate : null,
   }
 }
 
@@ -236,6 +252,23 @@ export function DataEntryTarif({
    * Zusammenfassung steht dann unabhängig davon da.
    */
   const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [editingComparison, setEditingComparison] = useState(false)
+  // Antwort eines früheren Bearbeitens: sie darf das neu geöffnete Formular nicht vorbelegen.
+  const [staleComparisonState, setStaleComparisonState] = useState<typeof comparisonState | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (comparisonState.success) setEditingComparison(false)
+  }, [comparisonState])
+
+  const editing = editingComparison && comparison !== null
+  const comparisonFormState =
+    comparisonState === staleComparisonState ? ADMIN_INITIAL_STATE : comparisonState
+  const formValues = {
+    ...(comparison && editing ? comparisonFormValues(comparison) : {}),
+    ...comparisonFormState.values,
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -336,7 +369,22 @@ export function DataEntryTarif({
                   {AMOUNT.format(comparison.baseFeeEurPerMonth)} EUR/Monat
                 </span>{' '}
                 · {PRICE_BASIS_LABEL[comparison.priceBasis]}
+                {comparison.source && <> · {COMPARISON_SOURCE_LABEL[comparison.source]}</>}
+                {comparison.offerDate && (
+                  <>
+                    {' · '}
+                    <span className="tabular-nums">{formatOfferDate(comparison.offerDate)}</span>
+                  </>
+                )}
               </p>
+
+              {/* Kein Pflichtfeld: Bestandsentwürfe rechnen weiter, der Report nennt dann nur den Anbieter. */}
+              {(comparison.source === null || comparison.offerDate === null) && (
+                <p className="mt-3 max-w-prose rounded-md border border-warning-border bg-warning-subtle p-3 text-small text-ink">
+                  Quelle und Angebotsdatum fehlen – bitte über „Bearbeiten“ ergänzen. Der Report
+                  nennt sonst nur den Anbieter.
+                </p>
+              )}
 
               {/*
                 ⚠ RÜCKFRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG — die Autorisierung liegt in der
@@ -346,43 +394,60 @@ export function DataEntryTarif({
                 ⚠ `ghost`, klein, UNTER der Zusammenfassung: er ist der Ausweg, nicht der Weg —
                 dieselbe Zurückhaltung wie beim „Lastgang entfernen" der ersten Station.
               */}
-              <form
-                action={deleteComparisonAction}
-                onSubmit={(e) => {
-                  if (!window.confirm(`Vergleichstarif „${comparison.providerName}" löschen?`))
-                    e.preventDefault()
-                }}
-                className="mt-3"
-              >
-                <input type="hidden" name="projectId" value={projectId} />
-                <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
-                <Button type="submit" variant="ghost" size="sm" disabled={isDeletingComparison}>
-                  {isDeletingComparison && (
-                    <Loader2
-                      className="h-3.5 w-3.5 animate-spin"
-                      strokeWidth={2}
-                      aria-hidden="true"
-                    />
-                  )}
-                  Vergleichstarif löschen
-                </Button>
-              </form>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!editing && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setStaleComparisonState(comparisonState)
+                      setEditingComparison(true)
+                    }}
+                  >
+                    Bearbeiten
+                  </Button>
+                )}
+                <form
+                  action={deleteComparisonAction}
+                  onSubmit={(e) => {
+                    if (!window.confirm(`Vergleichstarif „${comparison.providerName}" löschen?`))
+                      e.preventDefault()
+                  }}
+                >
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+                  <Button type="submit" variant="ghost" size="sm" disabled={isDeletingComparison}>
+                    {isDeletingComparison && (
+                      <Loader2
+                        className="h-3.5 w-3.5 animate-spin"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      />
+                    )}
+                    Vergleichstarif löschen
+                  </Button>
+                </form>
+              </div>
               {deleteComparisonState.formError && (
                 <AdminError>{deleteComparisonState.formError}</AdminError>
               )}
             </>
           )}
 
-          {comparisonState.formError && <AdminError>{comparisonState.formError}</AdminError>}
-          {comparisonState.success && <AdminSuccess>{comparisonState.success}</AdminSuccess>}
+          {comparisonFormState.formError && (
+            <AdminError>{comparisonFormState.formError}</AdminError>
+          )}
+          {comparisonFormState.success && (
+            <AdminSuccess>{comparisonFormState.success}</AdminSuccess>
+          )}
 
           {/*
-            ⚠ LIEGT EIN VERGLEICH VOR, GIBT ES DAS FORMULAR NICHT — es entsteht GENAU EINER je
-            Zählpunkt (`currentComparison` liest genau einen Satz Felder). Danebenstehend lud es
-            dazu ein, einen zweiten einzutragen, der den ersten still ersetzt. Korrigiert wird über
-            löschen und neu eintragen — derselbe Weg wie bei einer PV-Modulfläche (PR #226).
+            ⚠ NEBEN EINEM GESPEICHERTEN VERGLEICH ERSCHEINT DAS FORMULAR NUR ÜBER „BEARBEITEN": es
+            gibt GENAU EINEN Satz je Zählpunkt, und ein immer offenes Formular lüde dazu ein, einen
+            zweiten einzutragen, der den ersten still ersetzt. Gespeichert wird über dieselbe Action.
           */}
-          {comparison === null && (
+          {(comparison === null || editing) && (
             <form action={comparisonAction} className="mt-4 flex flex-col gap-4">
               <input type="hidden" name="projectId" value={projectId} />
               <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
@@ -392,15 +457,8 @@ export function DataEntryTarif({
                 name="providerName"
                 label="Anbieter"
                 placeholder="Name des gefundenen Anbieters"
-                error={comparisonState.fieldErrors?.providerName}
-                /*
-                ⚠ KEINE VORBELEGUNG AUS DEM GESPEICHERTEN VERGLEICH MEHR — sie wäre ab jetzt toter
-                Code: das Formular erscheint ausschliesslich, wenn KEINER gespeichert ist
-                (TypeScript engt `comparison` hier auf `null` ein). Vorbelegt wird nur noch, was
-                der Absender selbst getippt hat und was die Action wegen eines Feldfehlers
-                zurückgegeben hat.
-              */
-                defaultValue={comparisonState.values?.providerName}
+                error={comparisonFormState.fieldErrors?.providerName}
+                defaultValue={formValues.providerName}
               />
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -410,8 +468,8 @@ export function DataEntryTarif({
                   label="Arbeitspreis (ct/kWh)"
                   inputMode="numeric"
                   placeholder={AMOUNT_PLACEHOLDER}
-                  defaultValue={comparisonState.values?.energyPriceCtPerKwh}
-                  error={comparisonState.fieldErrors?.energyPriceCtPerKwh}
+                  defaultValue={formValues.energyPriceCtPerKwh}
+                  error={comparisonFormState.fieldErrors?.energyPriceCtPerKwh}
                 />
                 <AdminField
                   id={`${formId}-baseFeeEurPerMonth`}
@@ -419,8 +477,8 @@ export function DataEntryTarif({
                   label="Grundgebühr (EUR/Monat)"
                   inputMode="numeric"
                   placeholder={AMOUNT_PLACEHOLDER}
-                  defaultValue={comparisonState.values?.baseFeeEurPerMonth}
-                  error={comparisonState.fieldErrors?.baseFeeEurPerMonth}
+                  defaultValue={formValues.baseFeeEurPerMonth}
+                  error={comparisonFormState.fieldErrors?.baseFeeEurPerMonth}
                 />
               </div>
 
@@ -434,12 +492,12 @@ export function DataEntryTarif({
             */}
               <AdminSelect
                 /* `key`: ein Select übersteht den Formular-Reset nach der Action sonst nicht. */
-                key={`priceBasis:${comparisonState.values?.priceBasis ?? ''}`}
+                key={`priceBasis:${formValues.priceBasis ?? ''}`}
                 id={`${formId}-priceBasis`}
                 name="priceBasis"
                 label="Preisbasis"
-                defaultValue={comparisonState.values?.priceBasis ?? ''}
-                error={comparisonState.fieldErrors?.priceBasis}
+                defaultValue={formValues.priceBasis ?? ''}
+                error={comparisonFormState.fieldErrors?.priceBasis}
               >
                 <option value="">— bitte wählen —</option>
                 {TARIFF_COMPARISON_PRICE_BASES.map((basis) => (
@@ -451,12 +509,12 @@ export function DataEntryTarif({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <AdminSelect
-                  key={`source:${comparisonState.values?.source ?? ''}`}
+                  key={`source:${formValues.source ?? ''}`}
                   id={`${formId}-source`}
                   name="source"
                   label="Quelle"
-                  defaultValue={comparisonState.values?.source ?? ''}
-                  error={comparisonState.fieldErrors?.source}
+                  defaultValue={formValues.source ?? ''}
+                  error={comparisonFormState.fieldErrors?.source}
                 >
                   <option value="">— bitte wählen —</option>
                   {comparisonTariffSourceSchema.options.map((source) => (
@@ -470,18 +528,31 @@ export function DataEntryTarif({
                   name="offerDate"
                   label="Angebotsdatum"
                   type="date"
-                  defaultValue={comparisonState.values?.offerDate ?? offerDateToday()}
-                  error={comparisonState.fieldErrors?.offerDate}
+                  defaultValue={formValues.offerDate ?? offerDateToday()}
+                  error={comparisonFormState.fieldErrors?.offerDate}
                 />
               </div>
 
-              <div>
+              <div className="flex flex-wrap gap-2">
                 <Button type="submit" variant="secondary" size="sm" disabled={isSavingComparison}>
                   {isSavingComparison && (
                     <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
                   )}
                   Vergleich speichern
                 </Button>
+                {editing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setStaleComparisonState(comparisonState)
+                      setEditingComparison(false)
+                    }}
+                  >
+                    Abbrechen
+                  </Button>
+                )}
               </div>
             </form>
           )}

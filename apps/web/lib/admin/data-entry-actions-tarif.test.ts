@@ -8,6 +8,7 @@ import {
   TARIFF_COMPARISON_OFFER_DATE_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
   TARIFF_COMPARISON_SOURCE_KEY,
+  comparisonFormValues,
   offerDateToday,
 } from './tariff-draft'
 
@@ -197,6 +198,55 @@ describe('Tarif-Station — Vergleichstarif', () => {
 
   it('das Datum „heute" gilt in Wiener Ortszeit, auch wenn in UTC noch gestern ist', () => {
     expect(offerDateToday(new Date('2026-11-05T23:30:00Z'))).toBe('2026-11-06')
+  })
+
+  it('Bearbeiten: alle sechs Werte vorbelegt, ungerundet und mit Komma', () => {
+    expect(
+      comparisonFormValues({
+        providerName: 'Beispiel Energie',
+        energyPriceCtPerKwh: 14.945,
+        baseFeeEurPerMonth: 3.9,
+        priceBasis: 'gross',
+        source: 'angebot',
+        offerDate: '2026-10-12',
+      }),
+    ).toEqual({
+      providerName: 'Beispiel Energie',
+      energyPriceCtPerKwh: '14,945',
+      baseFeeEurPerMonth: '3,9',
+      priceBasis: 'gross',
+      source: 'angebot',
+      offerDate: '2026-10-12',
+    })
+  })
+
+  it('Bearbeiten im Bestand: Quelle leer, Datum heute', () => {
+    const values = comparisonFormValues({
+      providerName: 'Beispiel Energie',
+      energyPriceCtPerKwh: 14.94,
+      baseFeeEurPerMonth: 3.9,
+      priceBasis: 'net',
+      source: null,
+      offerDate: null,
+    })
+    expect(values.source).toBe('')
+    expect(values.offerDate).toBe(offerDateToday())
+  })
+
+  it('Speichern nach dem Bearbeiten überschreibt den Satz, ein zweiter entsteht nicht', async () => {
+    await saveMeteringPointTariffComparisonAction({}, comparisonForm())
+    const keysBefore = Object.keys(draft).sort()
+
+    const state = await saveMeteringPointTariffComparisonAction(
+      {},
+      comparisonForm({ providerName: 'Anderer Anbieter', source: 'angebot', energyPriceCtPerKwh: '12,5' }),
+    )
+
+    expect(state.success).toContain('Anderer Anbieter')
+    expect(Object.keys(draft).sort()).toEqual(keysBefore)
+    expect(draft[TARIFF_COMPARISON_PROVIDER_NAME_KEY]).toBe('Anderer Anbieter')
+    expect(draft[TARIFF_COMPARISON_ENERGY_PRICE_KEY]).toBe(12.5)
+    expect(draft[TARIFF_COMPARISON_SOURCE_KEY]).toBe('angebot')
   })
 
   it('Löschen entfernt alle sechs Schlüssel, der Bestand bleibt', async () => {
