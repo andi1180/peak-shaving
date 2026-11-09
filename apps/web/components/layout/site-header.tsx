@@ -129,7 +129,7 @@ export async function SiteHeader() {
          */}
         <NavigationMenu className="hidden justify-self-center xl:flex" aria-label={t('mainLabel')}>
           <NavigationMenuList>
-            {MAIN_NAV.map((item) => {
+            {MAIN_NAV.filter((item) => !item.mobileOnly).map((item) => {
               const hasMenu = Boolean(item.groups || item.items)
 
               if (!hasMenu) {

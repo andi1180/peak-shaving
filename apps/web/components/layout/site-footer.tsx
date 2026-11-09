@@ -4,7 +4,14 @@ import { Container } from '@/components/ui/layout'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { SignatureRule } from '@/components/brand/signature'
-import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
+import {
+  LEISTUNGEN_FLAT,
+  BRANCHEN_FLAT,
+  PEAK_SHAVING_FLAT,
+  SOFTWARE_FLAT,
+  COMPANY,
+} from '@/lib/nav'
+import { SOFTWARE_HREF } from '@/lib/software'
 import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { cn } from '@/lib/utils'
 
@@ -82,21 +89,38 @@ export function SiteFooter() {
             </address>
           </div>
 
-          {/* Nav-Spalten */}
-          <FooterCol title={t('colLeistungen')}>
-            {LEISTUNGEN_FLAT.map((leaf) => (
-              <li key={leaf.href}>
-                <Link href={leaf.href} className={footerLink}>
-                  {tNav(leaf.labelKey)}
+          {/* Nav-Spalten — Software unter Leistungen gestapelt, das Raster bleibt fünfspaltig. */}
+          <div className="space-y-8">
+            <FooterCol title={t('colLeistungen')}>
+              {LEISTUNGEN_FLAT.map((leaf) => (
+                <li key={leaf.href}>
+                  <Link href={leaf.href} className={footerLink}>
+                    {tNav(leaf.labelKey)}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href="/leistungen" className={footerLink}>
+                  {tNav('leistungenAll')}
                 </Link>
               </li>
-            ))}
-            <li>
-              <Link href="/leistungen" className={footerLink}>
-                {tNav('leistungenAll')}
-              </Link>
-            </li>
-          </FooterCol>
+            </FooterCol>
+
+            <FooterCol title={tNav('software')}>
+              {SOFTWARE_FLAT.map((leaf) => (
+                <li key={leaf.href}>
+                  <Link href={leaf.href} className={footerLink}>
+                    {tNav(leaf.labelKey)}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href={SOFTWARE_HREF} className={footerLink}>
+                  {tNav('softwareAll')}
+                </Link>
+              </li>
+            </FooterCol>
+          </div>
 
           <div className="space-y-8">
             <FooterCol title={t('colPeakShaving')}>
