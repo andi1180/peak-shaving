@@ -156,11 +156,13 @@ export function MobileNav() {
                       ) : null}
                       {/* Kostenlose Quereinstiege als letzte Punkte (Strom-Monitor,
                           Vertragsende-Erinnerung) — keine Leistungen, s. lib/nav.ts. */}
-                      {(item.trailingLeaves ?? []).map((leaf) => (
-                        <DrawerLink key={leaf.href} href={leaf.href} className="mt-1">
-                          {t(leaf.labelKey)}
-                        </DrawerLink>
-                      ))}
+                      {(item.trailingLeaves ?? [])
+                        .filter((leaf) => !leaf.desktopOnly)
+                        .map((leaf) => (
+                          <DrawerLink key={leaf.href} href={leaf.href} className="mt-1">
+                            {t(leaf.labelKey)}
+                          </DrawerLink>
+                        ))}
                     </AccordionContent>
                   </AccordionItem>
                 )

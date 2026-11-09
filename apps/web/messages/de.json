@@ -40,7 +40,14 @@
     "hotellerieGastronomie": "Hotellerie & Gastronomie",
     "handwerk": "Handwerk",
     "industrie": "Industrie & Verarbeitendes Gewerbe",
-    "landForstwirtschaft": "Land- und Forstwirtschaft"
+    "landForstwirtschaft": "Land- und Forstwirtschaft",
+    "software": "Software",
+    "softwareAll": "Alle Module",
+    "softwareEnergieCockpit": "Energie-Cockpit",
+    "softwareLadesteuerung": "Smarte Ladesteuerung",
+    "softwareTarifWaechter": "Tarif-Wächter",
+    "softwarePeakWaechter": "Peak-Wächter",
+    "softwareWaermepumpenManager": "Wärmepumpen-Manager"
   },
   "Footer": {
     "navLabel": "Fußzeile",
@@ -3083,5 +3090,265 @@
     "askYes": "Ja, gerne anrufen",
     "askNo": "Nein, danke",
     "askThanks": "Danke! Wir rufen Sie innerhalb eines Werktags an."
+  },
+  "Software": {
+    "eyebrow": "Software",
+    "status": "In Entwicklung · Start Q1/2027",
+    "caption": "Vorschau mit Beispieldaten",
+    "otherModules": "Weitere Module",
+    "Overview": {
+      "title": "Energiemanagement, das mitdenkt",
+      "lead": "Ein Speicher, eine Wärmepumpe oder eine Wallbox sparen erst dann richtig, wenn sie zur richtigen Zeit laufen. Unsere Software-Module steuern genau das – automatisch, nachvollziehbar und abgestimmt auf Ihren Betrieb.",
+      "why": {
+        "title": "Ab 2027 kostet ungesteuerter Strom mehr",
+        "text": "In Österreich wird ab 2027 für alle Haushalte und Betriebe mit Smart Meter ein Leistungspreis eingeführt: Die höchste Viertelstunde im Monat bestimmt einen Teil der Netzkosten. Gleichzeitig gibt es günstigere Netz-Zeitfenster und Rabatte für steuerbare Geräte. In Deutschland gelten zeitvariable Netzentgelte für steuerbare Verbraucher bereits seit April 2025 (§ 14a EnWG). Wer seine Verbraucher steuert, zahlt weniger – von Hand ist das kaum machbar."
+      },
+      "modules": {
+        "title": "Fünf Module, eine Plattform",
+        "text": "Alle Module greifen auf dieselben Messdaten zu und arbeiten zusammen. Sie starten mit dem, was Ihr Betrieb braucht, und erweitern bei Bedarf."
+      }
+    },
+    "Closing": {
+      "title": "Welche Module passen zu Ihrem Betrieb?",
+      "text": "Wir sehen uns Ihren Lastgang und Ihre Anlagen an und sagen Ihnen, wo Steuerung bei Ihnen am meisten bringt.",
+      "button": "Gespräch vereinbaren"
+    },
+    "Modules": {
+      "energieCockpit": {
+        "title": "Energie-Cockpit",
+        "card": "Ihr Verbrauch live – und ob die geplante Ersparnis tatsächlich eintritt.",
+        "lead": "Sehen, was im Betrieb passiert: Verbrauch, Lastspitzen und PV-Anteil auf einen Blick – und die Kontrolle, ob die geplante Ersparnis auch tatsächlich eintritt.",
+        "features": {
+          "title": "Was das Cockpit zeigt",
+          "items": [
+            {
+              "label": "Live-Verbrauch",
+              "text": "aktuelle Leistung und Verbrauch des Tages, in Viertelstunden aufgelöst."
+            },
+            {
+              "label": "Monatsspitze",
+              "text": "die höchste Viertelstunde im Monat – der Wert, der Ihren Leistungspreis bestimmt."
+            },
+            {
+              "label": "Soll/Ist-Vergleich",
+              "text": "die Ersparnis aus unserer Analyse neben dem, was tatsächlich gespart wurde."
+            },
+            {
+              "label": "Alle Module an einem Ort",
+              "text": "Ladesteuerung, Peak-Wächter, Tarif-Wächter und Wärmepumpe mit ihrem aktuellen Status."
+            }
+          ]
+        },
+        "steps": {
+          "title": "So funktioniert's",
+          "items": [
+            {
+              "label": "Messen",
+              "text": "Wir binden Ihren Smart Meter oder ein Messgerät im Verteiler an."
+            },
+            {
+              "label": "Auswerten",
+              "text": "Die Daten laufen laufend in Ihr Cockpit, im Browser auf PC, Tablet und Handy."
+            },
+            {
+              "label": "Vergleichen",
+              "text": "Jeden Monat sehen Sie, ob Ihre Anlage hält, was die Analyse versprochen hat."
+            }
+          ]
+        },
+        "note": {
+          "title": "Für wen",
+          "text": "Für Betriebe, die ihren Verbrauch verstehen wollen – und für alle, die einen Speicher, eine PV-Anlage oder eines unserer Module nutzen. Das Cockpit ist die Basis für alle weiteren Module."
+        }
+      },
+      "ladesteuerung": {
+        "title": "Smarte Ladesteuerung",
+        "card": "Der Speicher lädt, wenn Strom günstig ist, und hält Reserve für Lastspitzen.",
+        "lead": "Ihr Batteriespeicher lädt, wenn Strom günstig ist oder die PV-Anlage Überschuss liefert, und gibt die Energie ab, wenn Strom teuer ist. Eine feste Reserve bleibt immer für Lastspitzen frei.",
+        "features": {
+          "title": "Was die Ladesteuerung macht",
+          "items": [
+            {
+              "label": "Plant den nächsten Tag",
+              "text": "Sobald die Börsenpreise für morgen feststehen, entsteht ein Fahrplan für jede Stunde."
+            },
+            {
+              "label": "Nutzt Ihre PV",
+              "text": "Erwarteter Überschuss wird eingeplant, statt ihn billig ins Netz zu speisen."
+            },
+            {
+              "label": "Schützt vor Spitzen",
+              "text": "Ein Teil der Kapazität ist für Lastspitzen reserviert und wird nie für Preisvorteile verbraucht."
+            },
+            {
+              "label": "Erklärt sich selbst",
+              "text": "Zu jedem Plan sehen Sie, warum geladen oder entladen wird."
+            }
+          ]
+        },
+        "steps": {
+          "title": "So funktioniert's",
+          "items": [
+            {
+              "label": "Preise",
+              "text": "Die Day-Ahead-Preise für den Folgetag sind ab ca. 14 Uhr bekannt."
+            },
+            {
+              "label": "Prognose",
+              "text": "Dazu kommen die PV-Prognose für Ihren Standort und Ihr eigenes Verbrauchsmuster."
+            },
+            {
+              "label": "Fahrplan",
+              "text": "Die Steuerung legt fest, wann der Speicher lädt, entlädt oder hält – und setzt das automatisch um."
+            }
+          ]
+        },
+        "note": {
+          "title": "Für wen",
+          "text": "Für Betriebe mit Batteriespeicher und Börsentarif (dynamischer Stromtarif), mit oder ohne PV-Anlage. Die Logik ist dieselbe, mit der wir in unseren Analysen die Wirtschaftlichkeit eines Speichers berechnen."
+        }
+      },
+      "tarifWaechter": {
+        "title": "Tarif-Wächter",
+        "card": "Meldet sich, wenn ein Wechsel zwischen Fixpreis und Börsentarif sich lohnt.",
+        "lead": "Fixpreis oder Börsentarif? Der Tarif-Wächter rechnet laufend mit Ihrem eigenen Lastgang und meldet sich, wenn ein Wechsel sich voraussichtlich lohnt.",
+        "features": {
+          "title": "Was der Tarif-Wächter macht",
+          "items": [
+            {
+              "label": "Rechnet mit Ihrem Verbrauch",
+              "text": "Was ein Börsentarif kostet, hängt davon ab, wann Sie Strom brauchen. Deshalb zählt Ihr Lastgang, nicht ein Durchschnittsprofil."
+            },
+            {
+              "label": "Schaut nach vorne",
+              "text": "Die Prognose stützt sich auf aktuelle Terminmarktpreise für die kommenden Monate."
+            },
+            {
+              "label": "Meldet sich nur, wenn es sich lohnt",
+              "text": "Sie legen fest, ab welchem Vorteil Sie einen Hinweis bekommen – per E-Mail."
+            },
+            {
+              "label": "Kein Hin und Her",
+              "text": "Zwischen zwei Wechseln liegen mindestens sechs Monate."
+            }
+          ]
+        },
+        "steps": {
+          "title": "So funktioniert's",
+          "items": [
+            {
+              "label": "Ausgangslage",
+              "text": "Wir hinterlegen Ihren aktuellen Tarif und Ihren Lastgang."
+            },
+            {
+              "label": "Laufender Vergleich",
+              "text": "Der Wächter vergleicht Ihren Fixpreis mit den erwarteten Kosten am Börsentarif."
+            },
+            {
+              "label": "Hinweis",
+              "text": "Übersteigt der erwartete Vorteil Ihre Schwelle, erhalten Sie eine Nachricht mit den Zahlen dazu."
+            }
+          ]
+        },
+        "note": {
+          "title": "Gut zu wissen",
+          "text": "Der Tarif-Wächter gibt Hinweise auf Basis von Prognosen, keine Beratung und keine Garantie. Die Entscheidung über einen Wechsel treffen Sie."
+        }
+      },
+      "peakWaechter": {
+        "title": "Peak-Wächter",
+        "card": "Erkennt eine neue Lastspitze, bevor die Viertelstunde vorbei ist.",
+        "lead": "Eine einzige teure Viertelstunde kann den Leistungspreis für den ganzen Monat bestimmen. Der Peak-Wächter erkennt eine neue Spitze, während sie entsteht, und greift ein, bevor die Viertelstunde vorbei ist.",
+        "features": {
+          "title": "Was der Peak-Wächter macht",
+          "items": [
+            {
+              "label": "Rechnet mit",
+              "text": "Er verfolgt den Mittelwert der laufenden Viertelstunde und rechnet hoch, wo er am Ende landet."
+            },
+            {
+              "label": "Greift kurz ein",
+              "text": "Droht die Grenze überschritten zu werden, drosselt er freigegebene Verbraucher für wenige Minuten – etwa eine Wallbox, eine Kühlung oder eine Lüftung."
+            },
+            {
+              "label": "Sie behalten die Kontrolle",
+              "text": "Sie legen die Grenze fest und bestimmen, welche Geräte eingreifen dürfen und welche nie."
+            },
+            {
+              "label": "Dokumentiert jeden Eingriff",
+              "text": "Sie sehen, wann eingegriffen wurde und was es gebracht hat."
+            }
+          ]
+        },
+        "steps": {
+          "title": "So funktioniert's",
+          "items": [
+            {
+              "label": "Messen",
+              "text": "Ihre Leistung wird laufend erfasst."
+            },
+            {
+              "label": "Hochrechnen",
+              "text": "Mehrmals pro Minute wird geprüft, ob die Viertelstunde über Ihrer Grenze enden würde."
+            },
+            {
+              "label": "Eingreifen",
+              "text": "Freigegebene Verbraucher werden kurz gedrosselt oder verschoben, danach läuft alles normal weiter."
+            }
+          ]
+        },
+        "note": {
+          "title": "Für wen",
+          "text": "Für Betriebe mit Leistungspreis – in Österreich ab 2027 auch für Kleinbetriebe mit Smart Meter. Besonders wirksam zusammen mit einem Batteriespeicher und der Smarten Ladesteuerung."
+        }
+      },
+      "waermepumpenManager": {
+        "title": "Wärmepumpen-Manager",
+        "card": "Heizt vor, wenn Strom günstig ist – ohne Komfortverlust.",
+        "lead": "Gebäude und Pufferspeicher halten Wärme über Stunden. Der Wärmepumpen-Manager nutzt das: Er heizt vor, wenn Strom günstig ist, und pausiert bei Preisspitzen – innerhalb der Komfortgrenzen, die Sie festlegen.",
+        "features": {
+          "title": "Was der Wärmepumpen-Manager macht",
+          "items": [
+            {
+              "label": "Heizt zur richtigen Zeit",
+              "text": "Börsenpreis, PV-Überschuss und günstige Netz-Zeitfenster bestimmen, wann die Wärmepumpe mehr arbeitet."
+            },
+            {
+              "label": "Pausiert bei Preisspitzen",
+              "text": "In teuren Stunden läuft sie mit gespeicherter Wärme weiter."
+            },
+            {
+              "label": "Komfort hat Vorrang",
+              "text": "Verlässt die Temperatur das festgelegte Band, kehrt die Wärmepumpe sofort in den Normalbetrieb zurück."
+            },
+            {
+              "label": "Bereit für steuerbare Netztarife",
+              "text": "Netzbetreiber gewähren Rabatte, wenn sie Geräte zeitweise drosseln dürfen – der Manager plant das ein."
+            }
+          ]
+        },
+        "steps": {
+          "title": "So funktioniert's",
+          "items": [
+            {
+              "label": "Anbinden",
+              "text": "Über die SG-Ready-Schnittstelle oder Modbus, die viele Wärmepumpen bereits mitbringen."
+            },
+            {
+              "label": "Planen",
+              "text": "Für den nächsten Tag entsteht ein Heizplan aus Preisen, Wetterprognose und Ihren Komfortgrenzen."
+            },
+            {
+              "label": "Steuern",
+              "text": "Die Wärmepumpe wird automatisch in die passende Betriebsart geschaltet."
+            }
+          ]
+        },
+        "note": {
+          "title": "Für wen",
+          "text": "Für Betriebe und Gebäude mit Wärmepumpe und Pufferspeicher, idealerweise mit Börsentarif oder eigener PV-Anlage."
+        }
+      }
+    }
   }
 }

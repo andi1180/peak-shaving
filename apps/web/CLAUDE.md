@@ -60,6 +60,9 @@ Next.js 15 (App Router), TypeScript, Tailwind 3, pnpm-Workspaces (Monorepo), sha
 
 > Lebendiger Handover-Anker. Neueste offene Punkte. Erledigtes wandert raus. Vollständige OP-Tabelle: Pflichtenheft §13.
 
+- **[GEBAUT: Bereich Software — /software + 5 Modulseiten (Vorschau, „In Entwicklung · Start Q1/2027")]** (09.11.2026). Texte wörtlich aus `docs/software-module/texte.md` (`messages/de.json` → `Software`), Bilder `public/software/<slug>.png`; Datenliste `lib/software.ts`, eine Vorlage `components/software/software-pages.tsx`, CTA → `/kontakt?thema=energiemanagement`. Alle 6 indexierbar, in der sitemap, Description = Lead an der Satzgrenze ≤ 160 Zeichen.
+  - **[NAV]** Mobil und Footer: eigener Punkt „Software" mit den 5 Modulen (`mobileOnly`). Desktop: nur Abschlusseintrag „Software" im Leistungen-Menü (`desktopOnly`) — sechs Top-Level-Punkte brauchen 635 px, der Header hat 548 px (gemessen, beide Punkte „Peak Shaving"/„Über uns" brachen um). Entscheidung Andreas.
+
 - **[GEBAUT: Basis-URL auf `https://www.coolin.at`, Fremd-Hosts `noindex`]** (04.11.2026). `PRODUCTION_ORIGIN` ist www; `resolveSiteUrl` (`lib/site.ts`) bildet ein gesetztes `NEXT_PUBLIC_SITE_URL=https://coolin.at` auf www ab, damit Canonicals, sitemap, robots, JSON-LD, Mail-Links und Auth-Redirects unabhängig vom Vercel-Wert stimmen und `IS_PRODUCTION_SITE` nicht kippt. Preview und lokal bleiben auf sich selbst. Die Middleware setzt `X-Robots-Tag: noindex` auf `partner.`, `access.` und `*.vercel.app` (`lib/noindex-host.ts`), nur auf Pfaden des Matchers.
   - **[OFFEN]** Vercel: `NEXT_PUBLIC_SITE_URL` (Production) auf `https://www.coolin.at` setzen (Klarheit, wirkt erst nach Redeploy), Supabase-Site-URL ebenso. `og:url` gibt die Seite nirgends aus.
 

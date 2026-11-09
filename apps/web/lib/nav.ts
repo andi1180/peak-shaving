@@ -1,3 +1,5 @@
+import { SOFTWARE_HREF, SOFTWARE_MODULES, softwareModuleHref, softwareNavKey } from './software'
+
 /**
  * Die Informationsarchitektur an EINER Stelle (Pflichtenheft §4.1/§4.3).
  * Header, Mobile-Menü und Footer lesen alle von hier — eine neue Seite wird
@@ -11,6 +13,8 @@ export type NavLeaf = {
   /** Schlüssel in der `Nav`-Namespace der Message-Datei. */
   labelKey: string
   href: string
+  /** Nur im Desktop-Header, nicht im Mobil-Menü (dort steht derselbe Punkt als eigener Eintrag). */
+  desktopOnly?: boolean
 }
 
 export type NavGroup = {
@@ -44,6 +48,11 @@ export type NavItem = {
    * der zweite Fall derselben Art, und zwei Sonderfelder für dieselbe Rolle wären eine Kopie.
    */
   trailingLeaves?: NavLeaf[]
+  /**
+   * Nur im Mobil-Menü (und über die `*_FLAT`-Listen im Footer), nicht als Top-Level-Punkt im
+   * Desktop-Header — dort reicht die Breite (feste 1152 px) für sechs Punkte neben den Aktionen nicht.
+   */
+  mobileOnly?: boolean
 }
 
 /**
@@ -88,7 +97,11 @@ export const PROFI_REPORT_HREF = '/profi-report'
 export const SCHNELLCHECK_ANCHOR_ID = 'schnellcheck'
 export const SCHNELLCHECK_HREF = `/#${SCHNELLCHECK_ANCHOR_ID}`
 
-/** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
+/**
+ * Die Top-Level-Punkte (§4.1). Der Desktop-Header zeigt fünf; „Software" (09.11.2026) ist
+ * `mobileOnly` und dort Abschlusseintrag des Leistungen-Menüs — sechs Punkte brachen bei 1152 px
+ * Headerbreite zweizeilig um (gemessen 635 px Bedarf, 548 px Platz).
+ */
 
 export const MAIN_NAV: NavItem[] = [
   {
@@ -102,6 +115,8 @@ export const MAIN_NAV: NavItem[] = [
       { labelKey: 'stromCheck', href: MONITOR_GRATIS_CHECK_HREF },
       { labelKey: 'vertragsendeErinnerung', href: VERTRAGSENDE_ERINNERUNG_HREF },
       { labelKey: 'warteliste', href: WARTELISTE_HREF },
+      // Desktop-Zugang zu /software; mobil steht „Software" als eigener Punkt (s. unten).
+      { labelKey: 'software', href: SOFTWARE_HREF, desktopOnly: true },
     ],
     groups: [
       {
@@ -146,6 +161,16 @@ export const MAIN_NAV: NavItem[] = [
       { labelKey: 'industrie', href: '/branchen/industrie-verarbeitendes-gewerbe' },
       { labelKey: 'landForstwirtschaft', href: '/branchen/land-forstwirtschaft' },
     ],
+  },
+  {
+    labelKey: 'software',
+    href: SOFTWARE_HREF,
+    overviewKey: 'softwareAll',
+    mobileOnly: true,
+    items: SOFTWARE_MODULES.map((mod) => ({
+      labelKey: softwareNavKey(mod),
+      href: softwareModuleHref(mod),
+    })),
   },
   { labelKey: 'wissen', href: '/wissen' },
   { labelKey: 'ueberUns', href: '/ueber-uns' },
@@ -212,6 +237,7 @@ export const LEISTUNGEN_FLAT: NavLeaf[] = (findNav('leistungen').groups ?? []).f
 )
 export const PEAK_SHAVING_FLAT: NavLeaf[] = findNav('peakShaving').items ?? []
 export const BRANCHEN_FLAT: NavLeaf[] = findNav('branchen').items ?? []
+export const SOFTWARE_FLAT: NavLeaf[] = findNav('software').items ?? []
 
 /**
  * Die Adresse in ihren EINZELTEILEN.
