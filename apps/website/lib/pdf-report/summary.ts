@@ -574,8 +574,7 @@ export function buildSummaryKpis(
       ? `pro Jahr, ${costYear.basis === 'projected' ? PROJECTED_BASIS_WORDS : 'hochgerechnet'} ` +
         `aus ${costYear.measuredDays} gemessenen Tagen, ${price}`
       : `über ${ways.coveredDays} gemessene Tage, ${price}`
-  // Nur mit Vorderseite, und die gibt es nur bei Netto-Anzeige (`buildExecutiveSummary`, `priceDisplay`):
-  // der Zusatz steht deshalb nie neben einem Betrag inkl. USt.
+  // Nur mit Vorderseite (netto wie brutto). Die Vergütung ist ohne USt angesetzt (`einspeiseverguetungCtPerKwh`: 'other').
   const feedIn =
     costYear && costYear.feedInCreditPerYearEur > 0
       ? `, nach Abzug Ihrer Einspeisevergütung (ca. ${formatEur(costYear.feedInCreditPerYearEur)} pro Jahr)`
