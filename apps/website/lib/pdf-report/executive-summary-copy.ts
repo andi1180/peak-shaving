@@ -257,7 +257,9 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     paybackBox: paybackBox(s),
     totalBox: totalBox(s),
     basisLine:
-      s.variant === 'tarif-unbekannt' ? `${basisText(s)} · ${UNKNOWN_TARIFF_NOTE}` : basisText(s),
+      s.variant === 'tarif-unbekannt'
+        ? `${withVat(s, basisText(s))} · ${UNKNOWN_TARIFF_NOTE}`
+        : withVat(s, basisText(s)),
     wayLabels: s.ways.map((way) => wayLabel(way, spotName(s))),
     loadSentence: loadSentence(s),
     waysSentence: waysSentence(s),
@@ -315,12 +317,19 @@ function simpleSavingBox(
   }
 }
 
+/** Bei Brutto-Anzeige die USt-Kennzeichnung an der Basiszeile (vor einem Schlusspunkt); netto unverändert. */
+function withVat(s: ExecutiveSummary, text: string): string {
+  if (s.priceBasis !== 'gross') return text
+  const label = priceBasisLabel(s.priceBasis)
+  return text.endsWith('.') ? `${text.slice(0, -1)}, ${label}.` : `${text}, ${label}`
+}
+
 function simpleBasisLine(s: ExecutiveSummary, simple: NonNullable<ExecutiveSummary['simple']>): string {
   const storage = s.storage ? `; Speicher-Ersparnis ${simple.storagePerYear ?? 'pro Jahr'}` : ''
   const base =
     s.header.basis === 'measured'
-      ? `Beträge ${amountBasis(s)}${measuredMonthsText(s)}, nicht hochgerechnet${storage}`
-      : basisText(s)
+      ? `${withVat(s, `Beträge ${amountBasis(s)}${measuredMonthsText(s)}, nicht hochgerechnet`)}${storage}`
+      : withVat(s, basisText(s))
   return s.variant === 'tarif-unbekannt-messzeitraum' ? `${base} · ${UNKNOWN_TARIFF_NOTE}` : base
 }
 

@@ -7,6 +7,7 @@ import {
   EXECUTIVE_SUMMARY_CASES as CASES,
   editRecommended,
   muster,
+  existingBattery,
   privatYear,
   SIMPLE_SUMMARY_CASES,
   unknownTariffYear,
@@ -32,6 +33,7 @@ import {
   summaryWaysOf,
   unknownTariffWaysOf,
 } from './summary'
+import { reportInputForDisplay } from './price-display'
 import { totalAmortizationOf } from './total-amortization'
 import { NO_DYNAMIC_TARIFF_TERMS_NOTE } from '@/lib/report-copy'
 
@@ -120,6 +122,18 @@ describe('buildExecutiveSummary', () => {
     const net = buildExecutiveSummary(muster(true))!
     expect('priceBasis' in net).toBe(false)
     expect(JSON.stringify(executiveSummaryCopy(net))).toContain('netto')
+  })
+
+  it('Basiszeile trägt bei Brutto die USt-Kennzeichnung, volle und einfachere Fassung; netto nicht', () => {
+    const full = executiveSummaryCopy(buildExecutiveSummary(privatYear()))
+    expect(full.basisLine).toBe(`gerechnet mit Ihren Messwerten von 365 Tagen, ${VAT_INCLUSIVE_LABEL}`)
+    const grossExisting = reportInputForDisplay({ ...existingBattery(), priceDisplay: 'gross' })
+    const simple = buildExecutiveSummary(grossExisting)
+    expect(simple.variant).toBe('bestandsspeicher')
+    expect(executiveSummaryCopy(simple).basisLine).toMatch(new RegExp(`, ${VAT_INCLUSIVE_LABEL}$`))
+    for (const s of [buildExecutiveSummary(existingBattery()), buildExecutiveSummary(muster(true))]) {
+      expect(executiveSummaryCopy(s).basisLine).not.toContain('USt')
+    }
   })
 
 })
