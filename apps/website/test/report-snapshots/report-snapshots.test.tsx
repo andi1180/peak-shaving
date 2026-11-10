@@ -71,8 +71,8 @@ type SnapshotCase = {
   pricingPatch?: Partial<TariffPricingInputs>
   /** Zusätzliche Prüfung am Ergebnis des Laufs (netto, wie gerechnet). */
   checkResult?: (result: AnalysisResult) => void
-  /** Variante der Vorderseite „Auf einen Blick"; fehlt = keine Vorderseite. */
-  executiveSummary?: ExecutiveSummaryVariant
+  /** Variante der Vorderseite „Auf einen Blick". */
+  executiveSummary: ExecutiveSummaryVariant
   /** Erwarteter Schalter `gridProfileContainsPv` aus dem Lauf (Vorgabe: false). */
   gridProfileContainsPv?: boolean
 }
@@ -89,6 +89,7 @@ const PRIVAT: SnapshotCase = {
   category: 'heim',
   priceDisplay: 'gross',
   catalogMetaFile: null,
+  executiveSummary: 'bestandsspeicher',
 }
 
 const GEWERBE: SnapshotCase = {
@@ -100,6 +101,7 @@ const GEWERBE: SnapshotCase = {
   category: 'gewerbe',
   priceDisplay: 'net',
   catalogMetaFile: 'battery-catalog-meta.json',
+  executiveSummary: 'tarif-unbekannt-ohne-speicher',
 }
 
 // Varianten mit den Annahmen der Tarif-Station: Förderung und Horizont reisen über den Entwurf.
@@ -562,9 +564,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
       const { pdfText, screenHtml, result, input } = await renderSnapshots(c)
       checkSnapshot(`${c.snapshot ?? c.name}.pdf.txt`, pdfText)
-      // Vorderseite „Auf einen Blick": Privat folgt später; Gewerbe mit unbekanntem Liefertarif nur,
-      // wenn sich der Speicher rechnet (`tarif-unbekannt`).
-      expect(buildExecutiveSummary(input)?.variant ?? null).toBe(c.executiveSummary ?? null)
+      // Vorderseite „Auf einen Blick": jeder Fall hat eine; die Variante ist je Fall festgehalten.
+      expect(buildExecutiveSummary(input).variant).toBe(c.executiveSummary)
       // Mit Förderung trägt das PDF mindestens einen Förderblock — ausser kein Zusatzspeicher rechnet sich.
       const blocks = checkSubsidyArithmetic(pdfText)
       if (/subsidy/i.test(Object.keys(c.draftPatch ?? {}).join(' '))) {
@@ -602,8 +603,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       const readout = readRenderRequest({ data: row, error: null })
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
       const input = buildReportInputFromRenderRequest(readout.request, new Date(c.runAt))
-      // Vorderseite nur mit Jahresbasis: das Teiljahr ohne Jahresszenario hat keine.
-      expect(buildExecutiveSummary(input) !== null).toBe(
+      // Die volle Vorderseite nur mit Jahresbasis: das Teiljahr ohne Jahresszenario hat die einfachere.
+      expect(buildExecutiveSummary(input).simple === undefined).toBe(
         c.executiveSummary ?? c.analysisResultFile !== undefined,
       )
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
@@ -660,7 +661,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       expect(page.match(REMOVED_BOX), name).toBeNull()
       const flat = page.replace(/\s+/g, ' ')
       const count = (needle: string) => flat.split(needle).length - 1
-      if (buildExecutiveSummary(input)!.variant === 'tarif-unbekannt') {
+      const summary = buildExecutiveSummary(input)
+      if (summary.variant.startsWith('tarif-unbekannt')) {
         // Ohne bekannten Tarif: weder Heute-Tarif noch Tarifwechsel, dafür einmal der Hinweis.
         expect(count('Ihren aktuellen Tarif kennen wir nicht'), name).toBe(1)
         expect(count('Ihr Tarif heute'), name).toBe(0)
@@ -668,11 +670,12 @@ describe('Report-Snapshots der Referenzfälle', () => {
       } else {
         expect(count('Ihr Tarif heute'), name).toBe(1)
         // Die Teilzahlen sind entfallen; ohne Speicherblock steht der Tarifwechsel in der Box
-        // (zugleich die Positivkontrolle des Musters).
+        // (zugleich die Positivkontrolle des Musters). Nur auf der vollen Seite: die einfachere
+        // Fassung nennt den Tarifwechsel je nach Variante anders oder gar nicht.
         expect(count('mit einem Speicher dazu'), name).toBe(0)
-        expect(count('Wechsel zu aWATTar, ohne Anschaffung'), name).toBe(
-          buildExecutiveSummary(input)!.storage ? 0 : 1,
-        )
+        if (!summary.simple) {
+          expect(count('Wechsel zu aWATTar, ohne Anschaffung'), name).toBe(summary.storage ? 0 : 1)
+        }
       }
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')

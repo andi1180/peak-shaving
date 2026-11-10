@@ -25,6 +25,8 @@ export type ExecutiveSummaryCopy = {
   /** Zeile unter den Boxen: Rechenbasis, bei unbekanntem Tarif mit dem Hinweis darauf. */
   basisLine: string
   wayLabels: string[]
+  /** Überschrift der Wege, nur wo sie nicht „pro Jahr" lautet (einfachere Fassung, gemessener Zeitraum). */
+  waysTitle?: string
   loadSentence: string
   waysSentence: string
   /** Zeile unter „Ihr Speicher" — entfällt, wo die Speicher-Ersparnis schon die grosse Zahl ist. */
@@ -86,6 +88,8 @@ function basisText(s: ExecutiveSummary): string {
       return `Jahreswerte linear hochgerechnet aus ${s.header.measuredDays} Tagen Messdaten.`
     case 'annual':
       return `gerechnet mit Ihren Messwerten von ${s.header.measuredDays} Tagen`
+    case 'measured':
+      return `Beträge über ${s.header.measuredDays} gemessene Tage${measuredMonthsText(s)}, nicht hochgerechnet`
   }
 }
 
@@ -246,13 +250,16 @@ function storageRuns(s: ExecutiveSummary): CopyRun[] | null {
 }
 
 export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy {
+  if (s.simple) return simpleCopy(s, s.simple)
   const st = s.storage
   return {
     savingBox: savingBox(s),
     paybackBox: paybackBox(s),
     totalBox: totalBox(s),
     basisLine:
-      s.variant === 'tarif-unbekannt' ? `${basisText(s)} · ${UNKNOWN_TARIFF_NOTE}` : basisText(s),
+      s.variant === 'tarif-unbekannt'
+        ? `${withVat(s, basisText(s))} · ${UNKNOWN_TARIFF_NOTE}`
+        : withVat(s, basisText(s)),
     wayLabels: s.ways.map((way) => wayLabel(way, spotName(s))),
     loadSentence: loadSentence(s),
     waysSentence: waysSentence(s),
@@ -264,5 +271,150 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     storageVerdict: s.storageVerdict
       ? `Ein neuer Speicher (${s.storageVerdict.name}) würde rund ${formatEur(s.storageVerdict.savingPerYearEur)} pro Jahr sparen. ${s.storageVerdict.judgement}`
       : null,
+  }
+}
+
+/** Bezug der Beträge der einfacheren Fassung: „pro Jahr" oder „über N gemessene Tage". */
+function amountBasis(s: ExecutiveSummary): string {
+  return s.header.basis === 'measured' ? `über ${s.header.measuredDays} gemessene Tage` : 'pro Jahr'
+}
+
+const isUnknownTariff = (s: ExecutiveSummary) =>
+  s.variant === 'tarif-unbekannt-messzeitraum' || s.variant === 'tarif-unbekannt-ohne-speicher'
+
+function simpleSavingBox(
+  s: ExecutiveSummary,
+  simple: NonNullable<ExecutiveSummary['simple']>,
+): ExecutiveSummaryCopy['savingBox'] {
+  const st = s.storage
+  if (st) {
+    const against = isUnknownTariff(s) ? `, gegenüber ${spotName(s)} ohne Speicher` : ''
+    return {
+      label: 'Ersparnis durch den Speicher',
+      qualifier: st.upperBound ? 'bis zu' : 'rund',
+      amount: formatEur(st.savingPerYearEur),
+      sub: `${simple.storagePerYear ?? 'pro Jahr'}${against}`,
+    }
+  }
+  const sentence = (sub: string) => ({ label: 'Ersparnis', qualifier: null, amount: null, sub })
+  if (s.variant === 'tarif-unbekannt-ohne-speicher') return sentence(UNKNOWN_TARIFF_NOTE)
+  if (s.variant === 'nur-kosten' || s.ways.length === 0) {
+    return sentence('Mit den vorliegenden Daten weisen wir keine Ersparnis aus.')
+  }
+  const saving = simple.switchSavingEur
+  const recommended = s.ways.find((way) => way.isRecommended)
+  if (saving === null || Math.round(saving) <= 0 || !recommended) {
+    return sentence('Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.')
+  }
+  return {
+    label: s.header.basis === 'measured' ? `Ersparnis ${amountBasis(s)}` : 'Ersparnis pro Jahr',
+    qualifier: 'rund',
+    amount: formatEur(saving),
+    sub:
+      recommended.id === 'spot-storage'
+        ? `mit ${spotName(s)} und Ihrem Speicher, der günstig lädt`
+        : `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`,
+  }
+}
+
+/** Bei Brutto-Anzeige die USt-Kennzeichnung an der Basiszeile (vor einem Schlusspunkt); netto unverändert. */
+function withVat(s: ExecutiveSummary, text: string): string {
+  if (s.priceBasis !== 'gross') return text
+  const label = priceBasisLabel(s.priceBasis)
+  return text.endsWith('.') ? `${text.slice(0, -1)}, ${label}.` : `${text}, ${label}`
+}
+
+function simpleBasisLine(s: ExecutiveSummary, simple: NonNullable<ExecutiveSummary['simple']>): string {
+  const storage = s.storage ? `; Speicher-Ersparnis ${simple.storagePerYear ?? 'pro Jahr'}` : ''
+  const base =
+    s.header.basis === 'measured'
+      ? `${withVat(s, `Beträge ${amountBasis(s)}${measuredMonthsText(s)}, nicht hochgerechnet`)}${storage}`
+      : withVat(s, basisText(s))
+  return s.variant === 'tarif-unbekannt-messzeitraum' ? `${base} · ${UNKNOWN_TARIFF_NOTE}` : base
+}
+
+/**
+ * Wege-Satz der einfacheren Fassung. Der Bezug der Balken steht in der Überschrift darüber (wie auf
+ * der vollen Seite); eigens genannt wird nur die Spitzenersparnis, wenn sie ein Jahreswert neben
+ * Zeitraum-Balken ist.
+ */
+function simpleWaysSentence(s: ExecutiveSummary): string {
+  const fee = s.hasLeistungspreis ? ' — ohne Spitzengebühr' : ''
+  const costs = s.header.basis === 'measured' ? 'diese Kosten' : 'Ihre Kosten'
+  const peak = s.storage?.upperBound
+    ? `; deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}${s.header.basis === 'measured' ? ' pro Jahr' : ''}) kommt hinzu`
+    : ''
+  const byId = (id: ExecutiveSummaryWay['id']) => s.ways.find((way) => way.id === id)
+  const today = byId('today')
+  const spot = byId('spot')
+  const withStorage = byId('spot-storage')
+  const recommended = s.ways.find((way) => way.isRecommended)
+  if (!today) {
+    if (!spot) return ''
+    if (recommended && withStorage && s.storage) {
+      return (
+        `Mit einem Speicher, der günstig lädt, sinken ${costs} bei ${spotName(s)} von rund ` +
+        `${formatEur(spot.costPerYearEur)} auf rund ${formatEur(withStorage.costPerYearEur)}${fee}${peak}.`
+      )
+    }
+    const storagePart = withStorage
+      ? `, mit einem Speicher, der günstig lädt, rund ${formatEur(withStorage.costPerYearEur)}`
+      : ''
+    return `Bei ${spotName(s)} kostet Ihr Strom rund ${formatEur(spot.costPerYearEur)}${storagePart}${fee}.`
+  }
+  const todayText = `Mit Ihrem heutigen Tarif kostet Ihr Strom rund ${formatEur(today.costPerYearEur)}${fee}`
+  if (!spot) return `${todayText}. ${NO_DYNAMIC_TARIFF_TERMS_NOTE}`
+  if (!recommended) return `${todayText}; keiner der geprüften Tarifwege ist günstiger.`
+  const subject =
+    recommended.id === 'spot-storage'
+      ? s.variant === 'bestandsspeicher'
+        ? `Mit ${spotName(s)} und Ihrem Speicher, der günstig lädt,`
+        : `Mit ${spotName(s)} und einem Speicher, der günstig lädt,`
+      : `Mit dem Wechsel zu ${tariffTarget(s)}`
+  return (
+    `${subject} sinken ${costs} von rund ${formatEur(today.costPerYearEur)} ` +
+    `auf rund ${formatEur(recommended.costPerYearEur)}${fee}${peak}.`
+  )
+}
+
+function simpleStorageVerdict(
+  s: ExecutiveSummary,
+  simple: NonNullable<ExecutiveSummary['simple']>,
+): string | null {
+  if (s.variant === 'bestandsspeicher') return 'Ihr bestehender Speicher ist in allen Zahlen berücksichtigt.'
+  if (s.storageVerdict) {
+    return (
+      `Ein neuer Speicher (${s.storageVerdict.name}) würde rund ${formatEur(s.storageVerdict.savingPerYearEur)} ` +
+      `${simple.storagePerYear ?? 'pro Jahr'} sparen. ${s.storageVerdict.judgement}`
+    )
+  }
+  return simple.noStorageNote
+}
+
+/**
+ * Die Texte der einfacheren Fassung (`simpleSummaryOf`): jede Zahl mit ihrem Bezug, Perioden- und
+ * Jahreswerte nie zusammengezählt; was es nicht ehrlich gibt, entfällt.
+ */
+function simpleCopy(
+  s: ExecutiveSummary,
+  simple: NonNullable<ExecutiveSummary['simple']>,
+): ExecutiveSummaryCopy {
+  const spot = spotName(s)
+  return {
+    savingBox: simpleSavingBox(s, simple),
+    paybackBox: paybackBox(s),
+    totalBox: null,
+    basisLine: simpleBasisLine(s, simple),
+    wayLabels: s.ways.map((way) =>
+      way.id === 'spot-storage' && s.variant === 'bestandsspeicher'
+        ? `${spot} mit Ihrem Speicher, der günstig lädt`
+        : wayLabel(way, spot),
+    ),
+    ...(s.header.basis === 'measured' ? { waysTitle: `Ihre Stromkosten ${amountBasis(s)}` } : {}),
+    loadSentence: loadSentence(s),
+    waysSentence: simpleWaysSentence(s),
+    storageSaving: null,
+    storage: storageRuns(s),
+    storageVerdict: simpleStorageVerdict(s, simple),
   }
 }

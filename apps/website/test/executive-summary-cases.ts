@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { EXISTING_BATTERY_ID } from 'shared'
+
 import {
   buildReportInputFromRenderRequest,
   readRenderRequest,
@@ -80,7 +82,68 @@ export function privatYear(): PdfReportInput {
   return reportInputForDisplay(input)
 }
 
-/** Alle Fälle, für die es eine Vorderseite gibt. */
+/** Nur „Ihr Tarif heute" (Konditionen des dynamischen Tarifs fehlen), kein Speicher im Katalog. */
+export function ownTariffOnly(): PdfReportInput {
+  const input = structuredClone(muster(false))
+  const a = input.analysis
+  if (a.tariffOptimization?.computable !== true) throw new Error('Fixture ohne Tarifvergleich')
+  a.tariffOptimization = {
+    computable: false,
+    side: 'dynamic_tariff',
+    kind: 'unavailable',
+    ranges: [],
+    monthlyComparison: a.tariffOptimization.monthlyComparison,
+  } as never
+  a.recommendation = null
+  a.perBattery = []
+  a.noRecommendationReason = 'no_candidates'
+  return input
+}
+
+/** Bestandsspeicher im Jahr-Fall: der Jahreslauf rechnet mit dem eigenen Gerät. */
+export function existingBattery(): PdfReportInput {
+  return variant(({ analysis }) => {
+    const primary = analysis.perBattery[0]!
+    analysis.existingBatteryAnalysis = {
+      entry: { ...primary, battery: { ...primary.battery, id: EXISTING_BATTERY_ID } },
+      addonScenarios: [],
+    } as never
+    analysis.annualScenario!.device = { batteryId: EXISTING_BATTERY_ID, name: 'Bestand' }
+  })
+}
+
+/** Teiljahr, Liefertarif unbekannt. */
+function unknownTariffPartial(): PdfReportInput {
+  const input = structuredClone(muster(false))
+  const optimization = input.analysis.tariffOptimization
+  if (optimization?.computable !== true) throw new Error('Fixture ohne Tarifvergleich')
+  optimization.monthlyComparison!.currentTariffEur = null
+  return input
+}
+
+/**
+ * Die einfacheren Fassungen, je eine je Grund (`SimpleVariant`). Getrennt geführt, damit die Prüfungen
+ * der vollen Seite unverändert über `EXECUTIVE_SUMMARY_CASES` laufen.
+ */
+export const SIMPLE_SUMMARY_CASES: Record<string, PdfReportInput> = {
+  messzeitraum: muster(false),
+  'messzeitraum-anderes-geraet': variant(({ analysis }) => {
+    analysis.annualScenario!.device = { batteryId: 'anderes-geraet', name: 'Anderes Gerät' }
+  }),
+  'tarif-unbekannt-messzeitraum': unknownTariffPartial(),
+  bestandsspeicher: existingBattery(),
+  'nur-kosten': ownTariffOnly(),
+  'tarif-unbekannt-ohne-speicher': unknownTariffYear((input) =>
+    editRecommended(input, (e) => {
+      e.totalInvestment = 50_000
+      e.netInvestment = 50_000
+      // Die lineare Kopfzahl liest den Netto-Betrag des Geräts direkt.
+      e.netSavingOverHorizon = 25_000 - 50_000
+    }),
+  ),
+}
+
+/** Alle Prüffälle der Vorderseite; die einfacheren Fassungen stehen am Ende. */
 export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
   'jahr (Müldür)': muster(true),
   'nur-tarif (Katalog leer)': variant(({ analysis }) => {
@@ -158,4 +221,5 @@ export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
         e.totalSavingPerYear * input.analysis.assumptions.horizonYears - e.netInvestment
     })
   }),
+  ...SIMPLE_SUMMARY_CASES,
 }

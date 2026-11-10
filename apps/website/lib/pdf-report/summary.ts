@@ -444,7 +444,8 @@ export function summaryAnnualTotalOf(
   executiveSummary: ExecutiveSummary | null | undefined,
 ): SummaryAnnualTotal | null {
   const s = executiveSummary
-  if (!s || s.header.savingPerYearEur <= 0) return null
+  // Die einfachere Fassung trägt keine Jahressumme — der Körper bleibt dort beim gemessenen Zeitraum.
+  if (!s || s.simple || s.header.savingPerYearEur <= 0) return null
   if (!summaryWaysOf(analysis) && !ownTariffCostTodayOf(analysis)) return null
   const shares: SummaryAnnualTotal['shares'] = [
     {
@@ -524,7 +525,7 @@ export function summaryCostTodayYearOf(
   executiveSummary: ExecutiveSummary | null | undefined,
 ): SummaryCostTodayYear | null {
   const front = executiveSummary
-  if (!front || front.todayCostPerYearEur === null) return null
+  if (!front || front.simple || front.todayCostPerYearEur === null) return null
   if (!summaryWaysOf(input.analysis) && !ownTariffCostTodayOf(input.analysis)) return null
   const { basis, measuredDays } = front.header
   const { readings, intervalMinutes } = input.loadProfile
