@@ -1,4 +1,4 @@
-import { EXISTING_BATTERY_ID } from 'shared'
+import { EXISTING_BATTERY_ID, VAT_INCLUSIVE_LABEL } from 'shared'
 import { describe, expect, it } from 'vitest'
 
 import { formatEur } from '@/lib/format'
@@ -7,6 +7,7 @@ import {
   EXECUTIVE_SUMMARY_CASES as CASES,
   editRecommended,
   muster,
+  privatYear,
   unknownTariffYear,
   variant,
 } from '@/test/executive-summary-cases'
@@ -108,9 +109,21 @@ describe('buildExecutiveSummary', () => {
     expect(buildExecutiveSummary(existing)).toBeNull()
   })
 
-  it('gibt es nicht ohne Jahresbasis, ohne bekannten Tarif und für Privat', () => {
+  it('gibt es für Privat (Brutto-Anzeige) mit Brutto-Kennzeichnung statt „netto"', () => {
+    const s = buildExecutiveSummary(privatYear())!
+    expect(s.priceBasis).toBe('gross')
+    expect(s.storage!.peakEur).toBeGreaterThan(0)
+    const text = JSON.stringify(executiveSummaryCopy(s))
+    expect(text).toContain(VAT_INCLUSIVE_LABEL)
+    expect(text).not.toMatch(/netto/i)
+    // Netto-Seite unverändert: kein zusätzliches Feld, Wortlaut „netto".
+    const net = buildExecutiveSummary(muster(true))!
+    expect('priceBasis' in net).toBe(false)
+    expect(JSON.stringify(executiveSummaryCopy(net))).toContain('netto')
+  })
+
+  it('gibt es nicht ohne Jahresbasis und ohne bekannten Tarif', () => {
     expect(buildExecutiveSummary(muster(false))).toBeNull()
-    expect(buildExecutiveSummary({ ...muster(true), priceDisplay: 'gross' })).toBeNull()
     const unknown = variant(({ analysis: a }) => {
       if (a.tariffOptimization?.computable === true)
         a.tariffOptimization.monthlyComparison!.currentTariffEur = null

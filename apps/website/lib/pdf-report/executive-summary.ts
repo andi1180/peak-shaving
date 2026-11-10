@@ -1,5 +1,6 @@
 import {
   annualScenarioInvolvesPv,
+  displayedPriceBasis,
   effectiveBillingModel,
   type BatteryRoiEntry,
   type BillingModel,
@@ -102,6 +103,8 @@ export type ExecutiveSummary = {
   variant: ExecutiveSummaryVariant
   /** Nur in Stufe 1 — steht unter den Wegen und ist keine Empfehlung (`seasonalSwitchReviewOf`). */
   switchReview?: string
+  /** Anzeigebasis der Beträge; fehlt = netto. */
+  priceBasis?: 'gross'
   header: {
     customerName: string | null
     period: string | null
@@ -307,8 +310,6 @@ function storageOf(
 }
 
 export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary | null {
-  // Privat (Anzeige inkl. USt, `displayPriceBasisFor('heim')`) folgt später.
-  if ((input.priceDisplay ?? 'net') !== 'net') return null
   const analysis = input.analysis
   const yearly = yearlyWaysOf(input)
   if (!yearly) return null
@@ -396,6 +397,8 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
   return {
     variant,
     ...(switchReview ? { switchReview } : {}),
+    // Abgelesen an den Zahlen selbst; nur bei Brutto gesetzt, damit die Netto-Seite bitgleich bleibt.
+    ...(displayedPriceBasis(analysis) === 'gross' ? { priceBasis: 'gross' as const } : {}),
     header: {
       customerName: input.customer?.company ?? input.customer?.name ?? null,
       period: input.period,

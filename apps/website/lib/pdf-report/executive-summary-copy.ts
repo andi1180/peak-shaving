@@ -1,4 +1,4 @@
-import { countryDisplay, type BillingModel } from 'shared'
+import { countryDisplay, priceBasisLabel, type BillingModel } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { FALLBACK_DYNAMIC_TARIFF, NO_DYNAMIC_TARIFF_TERMS_NOTE } from '@/lib/report-copy'
@@ -239,7 +239,7 @@ function storageRuns(s: ExecutiveSummary): CopyRun[] | null {
     ? ` Allein durch günstiges Laden rechnet sich der Speicher innerhalb von ${st.horizonYears} Jahren nicht.`
     : ''
   return runs(
-    `${st.name}, ${kwh} kWh nutzbar, Investition rund **${formatEur(st.investment.investmentEur)}** netto${subsidy}. ` +
+    `${st.name}, ${kwh} kWh nutzbar, Investition rund **${formatEur(st.investment.investmentEur)}** ${priceBasisLabel(s.priceBasis)}${subsidy}. ` +
       `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu' : 'rund'} ` +
       `**${formatEur(st.netSavingOverHorizonEur)}**.${beyond}`,
   )

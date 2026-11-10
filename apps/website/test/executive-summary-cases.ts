@@ -5,6 +5,7 @@ import {
   buildReportInputFromRenderRequest,
   readRenderRequest,
 } from '@/lib/pdf-report/build-report-input'
+import { reportInputForDisplay } from '@/lib/pdf-report/price-display'
 import type { PdfReportInput } from '@/lib/pdf-report/types'
 
 /**
@@ -61,6 +62,24 @@ export function unknownTariffYear(
   return input
 }
 
+/**
+ * Privat, synthetisch: ein ganzes Jahr mit Bestands-PV und Einspeisung im Lastgang (mittags
+ * negativ), Leistungspreis und empfohlenem Speicher mit Kappung — in Brutto-Anzeige wie im Render-Pfad.
+ */
+export function privatYear(): PdfReportInput {
+  const input = structuredClone(muster(false))
+  input.analysis.dataQuality.coveredDays = 365
+  input.hasPv = true
+  input.pvStage = 'existing'
+  input.loadProfile.source = 'net_signed'
+  input.loadProfile.readings = input.loadProfile.readings.map((r) => {
+    const hour = new Date(r.ts).getUTCHours()
+    return hour >= 10 && hour < 13 ? { ...r, gridPowerKw: -Math.abs(r.gridPowerKw) / 4 } : r
+  })
+  input.priceDisplay = 'gross'
+  return reportInputForDisplay(input)
+}
+
 /** Alle Fälle, für die es eine Vorderseite gibt. */
 export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
   'jahr (Müldür)': muster(true),
@@ -113,6 +132,7 @@ export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
       e.netInvestment = e.totalInvestment - 2_000
     })
   }),
+  'privat (brutto, Bestands-PV)': privatYear(),
   'tarif-unbekannt (konstruiert)': unknownTariffYear(),
   // Längste Texte der Variante: Namen und Förderung.
   'tarif-unbekannt Worst Case': unknownTariffYear((input) => {
