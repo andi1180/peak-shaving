@@ -976,10 +976,16 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
         </>
       )}
 
-      <View style={styles.execDivider} />
-      <Text style={[styles.execSection, { marginTop: 0 }]}>Ihre Stromkosten pro Jahr</Text>
-      <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
-      <Text style={styles.execText}>{copy.waysSentence}</Text>
+      {summary.ways.length > 0 && (
+        <>
+          <View style={styles.execDivider} />
+          <Text style={[styles.execSection, { marginTop: 0 }]}>
+            {copy.waysTitle ?? 'Ihre Stromkosten pro Jahr'}
+          </Text>
+          <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
+          <Text style={styles.execText}>{copy.waysSentence}</Text>
+        </>
+      )}
       {summary.switchReview && <Text style={styles.execReview}>{summary.switchReview}</Text>}
 
       {(copy.storageVerdict || band) && <View style={styles.execDivider} />}

@@ -12,7 +12,9 @@ import {
   hasDemandChargeComponent,
   displayedInvestmentOf,
   dynamicTariffHintKind,
+  dynamicTariffHintText,
   hasEnteredSubsidy,
+  perYearText,
   storageJudgementText,
   storagePaysOff,
   dynamicTariffOf,
@@ -37,10 +39,10 @@ import { buildWaysChapter } from './ways'
 
 /**
  * Die Vorderseite „Auf einen Blick" als Daten — sie rechnet nichts neu, jede Zahl kommt aus einer
- * bestehenden Funktion. Es gibt sie nur mit einer Jahresbasis (Jahresszenario oder ein ganzes
- * gemessenes Jahr) und bekanntem Liefertarif, und vorerst nur für Betriebe.
+ * bestehenden Funktion. Jeder Report hat eine; die volle Fassung braucht eine Jahresbasis, sonst
+ * steht eine einfachere (`measured`: Beträge über den gemessenen Zeitraum, nichts hochgerechnet).
  */
-export type ExecutiveSummaryBasis = 'projected' | 'annual' | 'linear'
+export type ExecutiveSummaryBasis = 'projected' | 'annual' | 'linear' | 'measured'
 
 /**
  * `tarif-unbekannt`: Liefertarif unbekannt, ein ganzes gemessenes Jahr, Speicher rechnet sich — die
@@ -54,6 +56,28 @@ export type ExecutiveSummaryVariant =
   | 'tarif-unbekannt'
   /** Ohne Konditionen des dynamischen Tarifs: kein Tarifwechsel, der Speicher rechnet sich im eigenen Tarif. */
   | 'nur-speicher'
+  | SimpleVariant
+
+/**
+ * Die einfacheren Fassungen (`simpleSummaryOf`), je eine für jeden Grund, aus dem die volle entfällt:
+ * kein Jahr (`messzeitraum`), Jahreslauf mit anderem Gerät (`messzeitraum-anderes-geraet`),
+ * unbekannter Tarif im Teiljahr, Bestandsspeicher, weder Börsenseite noch Speicher, unbekannter
+ * Tarif ohne lohnenden Speicher.
+ */
+export type SimpleVariant =
+  | 'messzeitraum'
+  | 'messzeitraum-anderes-geraet'
+  | 'tarif-unbekannt-messzeitraum'
+  | 'bestandsspeicher'
+  | 'nur-kosten'
+  | 'tarif-unbekannt-ohne-speicher'
+
+type SimpleReason =
+  | 'keine-jahresbasis'
+  | 'bestandsspeicher'
+  | 'anderes-geraet'
+  | 'nur-kosten'
+  | 'tarif-unbekannt-ohne-speicher'
 
 export type ExecutiveSummaryWayId = 'today' | 'comparison' | 'spot' | 'spot-storage'
 
@@ -61,7 +85,7 @@ export type ExecutiveSummaryWay = {
   id: ExecutiveSummaryWayId
   /** Name des Lieferanten, nur beim selbst gefundenen Vergleichstarif. */
   supplier: string | null
-  /** Stromkosten pro Jahr, ohne Leistungspreis — dieselbe Basis für alle Balken. */
+  /** Stromkosten pro Jahr (bei Basis `measured`: über den gemessenen Zeitraum), ohne Leistungspreis. */
   costPerYearEur: number
   isToday: boolean
   isRecommended: boolean
@@ -105,6 +129,15 @@ export type ExecutiveSummary = {
   switchReview?: string
   /** Anzeigebasis der Beträge; fehlt = netto. */
   priceBasis?: 'gross'
+  /** Nur bei einer einfacheren Fassung; ihre Leser im Report-Körper behandeln sie wie „keine Vorderseite". */
+  simple?: {
+    /** Tarifwechsel gegenüber heute in der Basis der Seite; `null` ohne Tarifvergleich. */
+    switchSavingEur: number | null
+    /** Bezug der Speicher-Ersparnis wie im Körper („pro Jahr (auf ein Jahr hochgerechnet)"). */
+    storagePerYear: string | null
+    /** Warum kein Speichervorschlag dasteht — nur bei `nur-kosten`. */
+    noStorageNote: string | null
+  }
   header: {
     customerName: string | null
     period: string | null
@@ -309,27 +342,34 @@ function storageOf(
   }
 }
 
-export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary | null {
+/** Jeder Report hat eine Vorderseite: die volle, sonst eine einfachere Fassung (`simpleSummaryOf`). */
+export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary {
+  const full = fullSummaryOf(input)
+  return typeof full === 'string' ? simpleSummaryOf(input, full) : full
+}
+
+/** Die volle Vorderseite mit Jahresbasis — oder der Grund, warum es nur die einfachere Fassung gibt. */
+function fullSummaryOf(input: PdfReportInput): ExecutiveSummary | SimpleReason {
   const analysis = input.analysis
   const yearly = yearlyWaysOf(input)
-  if (!yearly) return null
+  if (!yearly) return 'keine-jahresbasis'
 
-  // Mit Bestandsspeicher ist offen, wohin dessen Spitzenersparnis gehört — vorerst keine Vorderseite.
-  if (analysis.existingBatteryAnalysis != null) return null
+  // Mit Bestandsspeicher ist offen, wohin dessen Spitzenersparnis gehört — dafür die einfachere Fassung.
+  if (analysis.existingBatteryAnalysis != null) return 'bestandsspeicher'
   const entry = recommendedEntryOf(analysis)
   const catalogStorage =
     analysis.recommendation && entry && !dynamicTariffHintKind(analysis) ? entry : undefined
   const headline = catalogStorage ? headlineStorageOf(analysis, catalogStorage, input) : null
   // Rechnet das Jahresszenario mit einem anderen Gerät, stünden Jahres- und lineare Zahlen nebeneinander.
-  if (yearly.basis === 'projected' && headline && headline.basis !== 'annual') return null
+  if (yearly.basis === 'projected' && headline && headline.basis !== 'annual') return 'anderes-geraet'
   const paysOff =
     headline !== null && storagePaysOff({ netSavingOverHorizon: headline.netSavingOverHorizonEur })
 
   const tariffKnown = yearly.todayEur !== null
   // Ohne Börsenseite gibt es keinen Tarifwechsel; ohne Speicher dann auch nichts für diese Seite.
   const spotEur = yearly.spotEur
-  if (spotEur === null && !headline) return null
-  if (!tariffKnown && !(paysOff && yearly.spotStorageEur !== null)) return null
+  if (spotEur === null && !headline) return 'nur-kosten'
+  if (!tariffKnown && !(paysOff && yearly.spotStorageEur !== null)) return 'tarif-unbekannt-ohne-speicher'
   const variant: ExecutiveSummaryVariant = !tariffKnown
     ? 'tarif-unbekannt'
     : !headline
@@ -382,16 +422,6 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     ...(yearly.spotStorageEur !== null ? [way('spot-storage', yearly.spotStorageEur)] : []),
   ]
 
-  const capSegments =
-    storage && storage.peakEur > 0
-      ? (peakShavingChartData(analysis, input.loadProfile, buildWaysChapter(analysis, input))
-          ?.capSegments ?? null)
-      : null
-  const tz = input.loadProfile.timezoneMeta
-  const measuredMonths = [
-    ...new Set(input.loadProfile.readings.map((r) => localMonthIndex(Date.parse(r.ts), tz))),
-  ].sort((a, b) => a - b)
-
   const switchReview = seasonalSwitchReviewOf(analysis, input)
 
   return {
@@ -426,18 +456,232 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
             ),
           }
         : null,
-    load: {
-      dailyPeaks: dailyPeaksOf(input.loadProfile),
-      capSegments,
-      ...(input.country ? { country: input.country } : {}),
-    },
+    load: loadOf(input, storage),
     confidence: {
       measuredDays: yearly.measuredDays,
       projectedDays: yearly.projectedDays,
       isProjected: yearly.basis === 'projected',
       hasUpperBound: storage?.upperBound ?? false,
       spotTariffRecommended: recommendedWay === 'spot' || recommendedWay === 'spot-storage',
-      measuredMonths,
+      measuredMonths: measuredMonthsOf(input),
+    },
+  }
+}
+
+/** Lastgang-Block: Tagesspitzen, mit Kappung die Linie des Speichers. */
+function loadOf(input: PdfReportInput, storage: ExecutiveSummaryStorage | null): LoadInput {
+  const analysis = input.analysis
+  const capSegments =
+    storage && storage.peakEur > 0
+      ? (peakShavingChartData(analysis, input.loadProfile, buildWaysChapter(analysis, input))
+          ?.capSegments ?? null)
+      : null
+  return {
+    dailyPeaks: dailyPeaksOf(input.loadProfile),
+    capSegments,
+    ...(input.country ? { country: input.country } : {}),
+  }
+}
+
+/** Lokale Monate (0 = Jänner) mit Messwerten. */
+function measuredMonthsOf(input: PdfReportInput): number[] {
+  const tz = input.loadProfile.timezoneMeta
+  return [
+    ...new Set(input.loadProfile.readings.map((r) => localMonthIndex(Date.parse(r.ts), tz))),
+  ].sort((a, b) => a - b)
+}
+
+/** Die Wege über den gemessenen Zeitraum, nicht hochgerechnet; `null` ohne jeden Tarifvergleich. */
+function measuredWaysOf(analysis: PdfReportInput['analysis']): YearlyWays | null {
+  const measured = summaryWaysOf(analysis)
+  if (measured) return measuredYearlyWays(measured, 'measured', 1)
+  const blank = { basis: 'measured' as const, projectedDays: 0, comparison: null }
+  const own = ownTariffCostTodayOf(analysis)
+  if (own) {
+    const days = own.coveredDays
+    return { ...blank, measuredDays: days, todayEur: own.costTodayEur, spotEur: null, spotStorageEur: null }
+  }
+  const unknown = unknownTariffWaysOf(analysis)
+  if (unknown) {
+    return {
+      ...blank,
+      measuredDays: unknown.coveredDays,
+      todayEur: null,
+      spotEur: unknown.uncontrolledEur,
+      spotStorageEur: unknown.controlledEur,
+    }
+  }
+  return null
+}
+
+function simpleVariantOf(
+  analysis: PdfReportInput['analysis'],
+  reason: SimpleReason,
+  storagePays: boolean,
+  measured: YearlyWays | null,
+  hasStorage: boolean,
+): SimpleVariant {
+  // Vor „keine Jahresbasis": ein Bestandsspeicher bestimmt die Fassung auch im Teiljahr.
+  if (reason === 'bestandsspeicher' || analysis.existingBatteryAnalysis != null) {
+    return 'bestandsspeicher'
+  }
+  if (unknownTariffWaysOf(analysis)) {
+    return storagePays && measured?.spotStorageEur != null
+      ? 'tarif-unbekannt-messzeitraum'
+      : 'tarif-unbekannt-ohne-speicher'
+  }
+  if (reason === 'nur-kosten' || (measured?.spotEur == null && !hasStorage)) return 'nur-kosten'
+  if (reason === 'anderes-geraet') return 'messzeitraum-anderes-geraet'
+  return 'messzeitraum'
+}
+
+/** Warum bei `nur-kosten` kein Speicher dasteht — Wortlaut angelehnt an „Annahmen und Datengrundlage". */
+function noStorageNoteOf(analysis: PdfReportInput['analysis']): string | null {
+  const hint = dynamicTariffHintKind(analysis)
+  if (hint) return dynamicTariffHintText(hint)
+  return analysis.noRecommendationReason === 'no_candidates'
+    ? 'Ein Speichervorschlag ist nicht enthalten, weil für diese Kundenkategorie noch kein Speicher im Katalog freigegeben ist.'
+    : null
+}
+
+/**
+ * Die einfachere Vorderseite. Jahreswerte nur, wo die volle Seite sie ebenso hätte (Bestandsspeicher,
+ * nur Kosten, unbekannter Tarif ohne Speicher); die Messzeitraum-Fassungen zeigen die Wege über den
+ * gemessenen Zeitraum und den Speicher mit seinem Jahreswert aus dem Körper. Kein Tarifwechsel-Anteil
+ * in `stages`, damit nichts Perioden- und Jahreswert addiert.
+ */
+function simpleSummaryOf(input: PdfReportInput, reason: SimpleReason): ExecutiveSummary {
+  const analysis = input.analysis
+  const entry = recommendedEntryOf(analysis)
+  const catalogStorage =
+    analysis.existingBatteryAnalysis == null &&
+    analysis.recommendation &&
+    entry &&
+    !dynamicTariffHintKind(analysis)
+      ? entry
+      : undefined
+  const headline = catalogStorage ? headlineStorageOf(analysis, catalogStorage, input) : null
+  const paysOff =
+    headline !== null && storagePaysOff({ netSavingOverHorizon: headline.netSavingOverHorizonEur })
+  const measured = measuredWaysOf(analysis)
+  const variant = simpleVariantOf(analysis, reason, paysOff, measured, headline !== null)
+  const keepsYear =
+    variant === 'bestandsspeicher' ||
+    variant === 'nur-kosten' ||
+    variant === 'tarif-unbekannt-ohne-speicher'
+  const yearly = (keepsYear ? yearlyWaysOf(input) : null) ?? measured
+  const basis: ExecutiveSummaryBasis = yearly?.basis ?? 'measured'
+
+  const showsStorage =
+    variant === 'messzeitraum' ||
+    variant === 'messzeitraum-anderes-geraet' ||
+    variant === 'tarif-unbekannt-messzeitraum'
+  const storage =
+    showsStorage && paysOff && headline ? storageOf(input, catalogStorage!, headline) : null
+
+  const today = yearly?.todayEur ?? null
+  const spotEur = yearly?.spotEur ?? null
+  const candidates: { id: ExecutiveSummaryWayId; eur: number }[] = [
+    ...(yearly?.comparison ? [{ id: 'comparison' as const, eur: yearly.comparison.eur }] : []),
+    ...(spotEur !== null ? [{ id: 'spot' as const, eur: spotEur }] : []),
+    ...(yearly?.spotStorageEur != null ? [{ id: 'spot-storage' as const, eur: yearly.spotStorageEur }] : []),
+  ]
+  const cheapest = (ids: ExecutiveSummaryWayId[]) =>
+    candidates
+      .filter((c) => ids.includes(c.id))
+      .reduce<{ id: ExecutiveSummaryWayId; eur: number } | null>(
+        (best, c) => (best === null || c.eur < best.eur ? c : best),
+        null,
+      )
+  // Der Tarifweg ohne neuen Speicher; beim Bestandsspeicher zählt dessen Ladesteuerung dazu.
+  const tariffWay =
+    variant === 'nur-kosten' || variant === 'tarif-unbekannt-ohne-speicher'
+      ? null
+      : cheapest(
+          variant === 'bestandsspeicher'
+            ? ['comparison', 'spot', 'spot-storage']
+            : storage
+              ? ['spot']
+              : ['comparison', 'spot'],
+        )
+  const recommendedWay: ExecutiveSummaryWayId | null =
+    storage && yearly?.spotStorageEur != null
+      ? 'spot-storage'
+      : tariffWay && (today === null || tariffWay.eur < today)
+        ? tariffWay.id
+        : null
+  const switchSavingEur =
+    today !== null && tariffWay && variant !== 'tarif-unbekannt-messzeitraum'
+      ? today - tariffWay.eur
+      : null
+
+  const way = (id: ExecutiveSummaryWayId, cost: number, supplier: string | null = null) => ({
+    id,
+    supplier,
+    costPerYearEur: cost,
+    isToday: id === 'today',
+    isRecommended: id === recommendedWay,
+  })
+  const ways: ExecutiveSummaryWay[] = yearly
+    ? [
+        ...(today !== null ? [way('today', today)] : []),
+        ...(yearly.comparison
+          ? [way('comparison', yearly.comparison.eur, yearly.comparison.supplier)]
+          : []),
+        ...(spotEur !== null ? [way('spot', spotEur)] : []),
+        ...(yearly.spotStorageEur != null ? [way('spot-storage', yearly.spotStorageEur)] : []),
+      ]
+    : []
+
+  const storageVerdict =
+    headline && !paysOff && variant !== 'bestandsspeicher'
+      ? {
+          name: catalogStorage!.battery.name,
+          savingPerYearEur: headline.savingPerYearEur,
+          judgement: storageJudgementText(
+            { netSavingOverHorizon: headline.netSavingOverHorizonEur },
+            analysis.assumptions.horizonYears,
+          ),
+        }
+      : null
+
+  return {
+    variant,
+    ...(displayedPriceBasis(analysis) === 'gross' ? { priceBasis: 'gross' as const } : {}),
+    simple: {
+      switchSavingEur,
+      storagePerYear: headline
+        ? headline.basis === 'annual'
+          ? 'pro Jahr'
+          : perYearText(catalogStorage!)
+        : null,
+      noStorageNote: variant === 'nur-kosten' ? noStorageNoteOf(analysis) : null,
+    },
+    header: {
+      customerName: input.customer?.company ?? input.customer?.name ?? null,
+      period: input.period,
+      printedAt: input.printedAt,
+      savingPerYearEur: storage?.savingPerYearEur ?? switchSavingEur ?? 0,
+      basis,
+      measuredDays: yearly?.measuredDays ?? analysis.dataQuality.coveredDays,
+      projectedDays: yearly?.projectedDays ?? 0,
+    },
+    stages: [],
+    ways,
+    todayCostPerYearEur: today,
+    hasLeistungspreis: hasDemandChargeComponent(analysis.current),
+    billingModel: effectiveBillingModel(analysis.assumptions.billingModel),
+    tariffName: dynamicTariffOf(analysis).name,
+    storage,
+    storageVerdict,
+    load: loadOf(input, storage),
+    confidence: {
+      measuredDays: yearly?.measuredDays ?? analysis.dataQuality.coveredDays,
+      projectedDays: yearly?.projectedDays ?? 0,
+      isProjected: basis === 'projected',
+      hasUpperBound: storage?.upperBound ?? false,
+      spotTariffRecommended: recommendedWay === 'spot' || recommendedWay === 'spot-storage',
+      measuredMonths: measuredMonthsOf(input),
     },
   }
 }

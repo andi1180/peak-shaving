@@ -37,8 +37,10 @@ describe('Vorderseite: lineare Jahreshochrechnung bei PV-Lastgang', () => {
     )
   })
 
-  it('PV, 300 Tage: unter der Untergrenze keine Vorderseite', () => {
-    expect(buildExecutiveSummary(partialYear(300, true))).toBeNull()
+  it('PV, 300 Tage: unter der Untergrenze die Fassung über den gemessenen Zeitraum', () => {
+    const s = buildExecutiveSummary(partialYear(300, true))
+    expect(s.variant).toBe('messzeitraum')
+    expect(s.header.basis).toBe('measured')
   })
 
   it('PV, 365 Tage: bisheriger Weg über das gemessene Jahr, unskaliert', () => {
@@ -48,7 +50,9 @@ describe('Vorderseite: lineare Jahreshochrechnung bei PV-Lastgang', () => {
     expect(s.ways.map((w) => w.costPerYearEur)).toEqual(measuredWayCosts(input))
   })
 
-  it('ohne PV, 352 Tage: wie vor der Änderung keine Vorderseite', () => {
-    expect(buildExecutiveSummary(partialYear(352, false))).toBeNull()
+  it('ohne PV, 352 Tage: keine lineare Hochrechnung, sondern der gemessene Zeitraum', () => {
+    const s = buildExecutiveSummary(partialYear(352, false))
+    expect(s.variant).toBe('messzeitraum')
+    expect(s.header.basis).toBe('measured')
   })
 })

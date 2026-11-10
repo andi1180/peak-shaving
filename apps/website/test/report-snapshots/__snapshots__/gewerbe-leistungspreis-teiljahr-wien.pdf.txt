@@ -18,6 +18,73 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             28.03.2026 – 31.08.2026
 Erstellt am                        30.09.2026
+     COOLiN ENERGY         Muster Gastro GmbH
+
+
+
+
+Muster Gastro GmbH · Zeitraum 28.03.2026 – 31.08.2026 · Erstellt am 30.09.2026
+
+Auf einen Blick
+   Ersparnis durch den Speicher                                      Rückzahlzeit des Speichers
+   bis zu                                                            frühestens
+
+   € 2.495                                                           ca. 3,4 Jahre
+   pro Jahr (auf ein Jahr hochgerechnet)                             bei € 8.550 Investition
+
+Beträge über 157 gemessene Tage (März bis August), nicht hochgerechnet; Speicher-Ersparnis pro Jahr (auf ein
+Jahr hochgerechnet)
+
+
+Ihr Lastgang
+  Höchste Leistung pro Tag          Spitzen, die der Speicher abfängt          Begrenzung mit Speicher (Höchstwert)
+50 kW
+
+
+    25
+
+
+       0
+           Mär       Apr                     Mai                    Jun                   Jul                    Aug
+
+Die Balken zeigen Ihre höchste Leistung pro Tag. Der höchste Balken im Monat bestimmt die
+Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
+
+Ihre Stromkosten über 157 gemessene Tage
+Ihr Tarif heute
+                                                                                                                    € 14.864
+
+aWATTar (Börsenpreis)
+                                                                                   € 10.681
+
+aWATTar mit Speicher, der günstig lädt
+                                                                               € 10.107
+
+
+Mit aWATTar und einem Speicher, der günstig lädt, sinken diese Kosten von rund € 14.864 auf rund
+€ 10.107 — ohne Spitzengebühr; deren Einsparung (bis zu € 1.160 pro Jahr) kommt hinzu.
+
+
+   Ihr Speicher
+       Mit Stromspitzen (Höchstwert)         Nur günstiges Laden
+
+
+
+
+    Investition € 8.550      ca. 3,4 Jahre
+                                                                                 ca. 6,4 Jahre
+
+   0                                                            5                                                  10 Jahre
+
+
+Kostal & Dyness Retrofit S, 29,2 kWh nutzbar, Investition rund € 8.550 netto. Nach 10 Jahren
+bleiben unterm Strich bis zu € 16.398.
+Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                    www.coolin.at · Seite 2 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -28,27 +95,27 @@ Was in diesem Dokument steht — und auf welcher Seite es beginnt.
 
 
 
-Zusammenfassung                                                                                3
+Zusammenfassung                                                                                4
 
-Voraussetzungen                                                                                4
+Voraussetzungen                                                                                5
 
-Ihr Lastgang                                                                                   5
+Ihr Lastgang                                                                                   6
 
-Vier Wege zu weniger Stromkosten                                                               6
+Vier Wege zu weniger Stromkosten                                                               7
 
-Empfehlung und Wirtschaftlichkeit                                                              7
+Empfehlung und Wirtschaftlichkeit                                                              8
 
-Kostenverlauf und ein Tag im Detail                                                            9
+Kostenverlauf und ein Tag im Detail                                                           10
 
-Ihr Stromtarif im Monatsvergleich                                                             10
+Ihr Stromtarif im Monatsvergleich                                                             11
 
-Das Ladeverhalten Ihres Speichers                                                             11
+Das Ladeverhalten Ihres Speichers                                                             12
 
-Speichergrösse und Gerätewahl                                                                 12
+Speichergrösse und Gerätewahl                                                                 13
 
-Unser Vorschlag                                                                               13
+Unser Vorschlag                                                                               14
 
-Methodik & Vorbehalte                                                                         14
+Methodik & Vorbehalte                                                                         15
 
    Grundlage ist Ihr echter Lastgang
    Ein Fahrplan, keine addierten Einzelrechnungen
@@ -56,7 +123,7 @@ Methodik & Vorbehalte                                                           
    Wie der Fahrplan entsteht
    Konstante Batterieeigenschaften über den Betrachtungszeitraum
 
-Annahmen und Datengrundlage                                                                   15
+Annahmen und Datengrundlage                                                                   16
 
    Annahmen & Rechenweise — Stand dieser Berechnung
    Datenqualität
@@ -72,7 +139,7 @@ Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 3 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -129,7 +196,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 4 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -167,7 +234,7 @@ Ihr Verbrauch heute
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 4 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 5 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -198,7 +265,7 @@ steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über de
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -263,7 +330,7 @@ entscheiden, hinzu.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 7 von 19
       COOLiN ENERGY        Muster Gastro GmbH
 
 
@@ -286,7 +353,7 @@ Unsere Empfehlung: Kostal & Dyness Retrofit S
 
     Kapp-Schwelle                                       zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)
 
-    Ø Monatsspitze heute                                                                                42,6 kW
+    Ø Monatsspitze heute                                                                                 42,6 kW
 
     Ø Monatsspitze mit dem Speicher                                                                      30,3 kW
 
@@ -319,7 +386,7 @@ Unsere Empfehlung: Kostal & Dyness Retrofit S
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 7 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 8 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -341,7 +408,7 @@ Jahr hochgerechnet.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 8 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 9 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -363,7 +430,7 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 9 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 10 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -395,7 +462,7 @@ Aufteilungsregel, die es nicht gibt. Hier stehen die drei Summen absolut.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 10 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 11 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -413,7 +480,7 @@ Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
 Wann lädt und entlädt Kostal & Dyness Retrofit S?
  Stärkste Zelle                                                                                       378,2 kWh
 
- Am meisten geladen um                                                                                  13:00 Uhr
+ Am meisten geladen um                                                                                 13:00 Uhr
 
  Zellen ohne Messwert                                            144 von 288 (6 von 12 Monaten gemessen)
 
@@ -446,7 +513,7 @@ Abstand zum Durchschnitt ist, was dieser Plan erreicht hat.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 11 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 12 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -492,7 +559,7 @@ beim empfohlenen Gerät.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 12 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 13 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -520,7 +587,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 13 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -567,7 +634,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 15 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -637,7 +704,7 @@ Datenquellen
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 15 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 16 von 19
     COOLiN ENERGY           Muster Gastro GmbH
 
 
@@ -704,7 +771,7 @@ und den EAG-Förderbeitrag Leistung, der am selben abgerechneten Wert hängt.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 16 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 17 von 19
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -727,7 +794,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 18 von 19
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

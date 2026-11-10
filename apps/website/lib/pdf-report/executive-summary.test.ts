@@ -1,4 +1,4 @@
-import { EXISTING_BATTERY_ID, VAT_INCLUSIVE_LABEL } from 'shared'
+import { VAT_INCLUSIVE_LABEL } from 'shared'
 import { describe, expect, it } from 'vitest'
 
 import { formatEur } from '@/lib/format'
@@ -8,6 +8,7 @@ import {
   editRecommended,
   muster,
   privatYear,
+  SIMPLE_SUMMARY_CASES,
   unknownTariffYear,
   variant,
 } from '@/test/executive-summary-cases'
@@ -24,7 +25,15 @@ import { fitFontSize } from './executive-summary-charts'
 import { execDonutOf } from './executive-summary-donut'
 import { EXEC_HERO, EXEC_SLOTS, EXEC_STORAGE, EXEC_TEXT_PT } from './executive-summary-layout'
 import { headlineStorageOf } from './headline-storage'
-import { recommendedEntryOf, unknownTariffWaysOf } from './summary'
+import {
+  recommendedEntryOf,
+  summaryAnnualTotalOf,
+  summaryCostTodayYearOf,
+  summaryWaysOf,
+  unknownTariffWaysOf,
+} from './summary'
+import { totalAmortizationOf } from './total-amortization'
+import { NO_DYNAMIC_TARIFF_TERMS_NOTE } from '@/lib/report-copy'
 
 const FORBIDDEN =
   /Kappung|Amortisation|Ladesteuerung|Leistungspreis|Dispatch|Hindsight|Lastspitzenkappung/i
@@ -65,7 +74,8 @@ describe('buildExecutiveSummary', () => {
     expect(s.load.capSegments!.length).toBeGreaterThan(0)
   })
 
-  it.each(Object.keys(CASES))('%s: Stufen summieren sich, Speicher = Hauptzahl', (name) => {
+  const fullNames = Object.keys(CASES).filter((name) => !summaries[name]!.simple)
+  it.each(fullNames)('%s: Stufen summieren sich, Speicher = Hauptzahl', (name) => {
     const s = summaries[name]!
     const input = CASES[name]!
     expect(s.header.savingPerYearEur).toBe(
@@ -98,16 +108,6 @@ describe('buildExecutiveSummary', () => {
     expect(summaries['volles Jahr (konstruiert)']!.header.basis).toBe('annual')
   })
 
-  it('gibt es nicht mit Bestandsspeicher: wohin dessen Spitzenersparnis gehört, ist offen', () => {
-    const existing = variant(({ analysis }) => {
-      const primary = analysis.perBattery[0]!
-      analysis.existingBatteryAnalysis = {
-        entry: { ...primary, battery: { ...primary.battery, id: EXISTING_BATTERY_ID } },
-      } as never
-      analysis.annualScenario!.device = { batteryId: EXISTING_BATTERY_ID, name: 'Bestand' }
-    })
-    expect(buildExecutiveSummary(existing)).toBeNull()
-  })
 
   it('gibt es für Privat (Brutto-Anzeige) mit Brutto-Kennzeichnung statt „netto"', () => {
     const s = buildExecutiveSummary(privatYear())!
@@ -122,13 +122,118 @@ describe('buildExecutiveSummary', () => {
     expect(JSON.stringify(executiveSummaryCopy(net))).toContain('netto')
   })
 
-  it('gibt es nicht ohne Jahresbasis und ohne bekannten Tarif', () => {
-    expect(buildExecutiveSummary(muster(false))).toBeNull()
-    const unknown = variant(({ analysis: a }) => {
-      if (a.tariffOptimization?.computable === true)
-        a.tariffOptimization.monthlyComparison!.currentTariffEur = null
-    })
-    expect(buildExecutiveSummary(unknown)).toBeNull()
+})
+
+describe('einfachere Fassungen (statt keiner Vorderseite)', () => {
+  const simple = Object.fromEntries(
+    Object.entries(SIMPLE_SUMMARY_CASES).map(([name, input]) => {
+      const s = buildExecutiveSummary(input)
+      return [name, { s, copy: executiveSummaryCopy(s) }]
+    }),
+  )
+  const visible = (copy: ExecutiveSummaryCopy) =>
+    [
+      copy.savingBox.label,
+      copy.savingBox.amount ? `${copy.savingBox.amount} ${copy.savingBox.sub}` : copy.savingBox.sub,
+      copy.paybackBox?.value,
+      copy.basisLine,
+      copy.waysTitle,
+      copy.waysSentence,
+      copy.storageVerdict,
+      copy.storage?.map((r) => r.text).join(''),
+    ]
+      .filter(Boolean)
+      .join(' | ')
+
+  it.each(Object.keys(SIMPLE_SUMMARY_CASES))(
+    '%s: Variante, Lastgang, Hero-Zahl oder Urteilssatz, Bezug genannt',
+    (name) => {
+      const { s, copy } = simple[name]!
+      expect(s.variant).toBe(name)
+      expect(s.simple).toBeDefined()
+      expect(s.load.dailyPeaks.length).toBeGreaterThan(0)
+      expect(copy.savingBox.amount !== null || copy.savingBox.sub.length > 0).toBe(true)
+      // Kein Tarifwechsel-Anteil in den Stufen: nichts addiert Zeitraum- und Jahreswert.
+      expect(s.stages).toEqual([])
+      if (s.header.basis === 'measured') {
+        expect(copy.basisLine).toContain(`über ${s.header.measuredDays} gemessene Tage`)
+        if (s.ways.length > 0) {
+          expect(copy.waysTitle).toBe(`Ihre Stromkosten über ${s.header.measuredDays} gemessene Tage`)
+        }
+      } else {
+        expect(copy.waysTitle).toBeUndefined()
+      }
+      // Ein Speicher-Jahreswert trägt seinen Bezug wie im Körper.
+      if (s.storage) {
+        expect(copy.savingBox.sub).toMatch(/^pro Jahr/)
+        const input = SIMPLE_SUMMARY_CASES[name]!
+        const headline = headlineStorageOf(input.analysis, recommendedEntryOf(input.analysis)!, input)
+        expect(s.storage.savingPerYearEur).toBe(headline.savingPerYearEur)
+      }
+      // Ein Jahreswert neben Zeitraum-Balken nennt „pro Jahr" (Spitzenersparnis).
+      if (s.header.basis === 'measured' && s.storage?.upperBound) {
+        expect(copy.waysSentence).toContain(`${formatEur(s.storage.peakEur)} pro Jahr`)
+      }
+      expect(visible(copy).match(/€/g)?.length ?? 0, name).toBeGreaterThan(0)
+    },
+  )
+
+  it('Positivkontrolle: die vollen Fassungen tragen kein `simple`', () => {
+    for (const [name, s] of Object.entries(summaries)) {
+      if (name in SIMPLE_SUMMARY_CASES) continue
+      expect(s.simple, name).toBeUndefined()
+    }
+  })
+
+  it('Messzeitraum: Balken = gemessene Wege, unskaliert', () => {
+    const { s } = simple['messzeitraum']!
+    const measured = summaryWaysOf(SIMPLE_SUMMARY_CASES['messzeitraum']!.analysis)!
+    expect(s.header.basis).toBe('measured')
+    expect(s.ways.find((w) => w.id === 'today')!.costPerYearEur).toBe(measured.costTodayEur)
+    expect(s.confidence.isProjected).toBe(false)
+  })
+
+  it('anderes Gerät im Jahreslauf: zurück auf den gemessenen Zeitraum, nicht die Jahreswege', () => {
+    expect(simple['messzeitraum-anderes-geraet']!.s.header.basis).toBe('measured')
+  })
+
+  it('Bestandsspeicher: kein neuer Speicher, Hinweissatz, Hero aus den Tarifwegen', () => {
+    const { s, copy } = simple['bestandsspeicher']!
+    expect(s.storage).toBeNull()
+    expect(s.storageVerdict).toBeNull()
+    expect(copy.paybackBox).toBeNull()
+    expect(copy.storageVerdict).toBe('Ihr bestehender Speicher ist in allen Zahlen berücksichtigt.')
+    const today = s.ways.find((w) => w.isToday)!.costPerYearEur
+    const best = s.ways.find((w) => w.isRecommended)!.costPerYearEur
+    expect(s.simple!.switchSavingEur).toBe(today - best)
+    expect(copy.savingBox.amount).toBe(formatEur(today - best))
+  })
+
+  it('nur Kosten: keine Ersparnis-Zahl, Urteilssatz, warum kein Vergleich und kein Speicher', () => {
+    const { s, copy } = simple['nur-kosten']!
+    expect(copy.savingBox.amount).toBeNull()
+    expect(s.ways.map((w) => w.id)).toEqual(['today'])
+    expect(copy.waysSentence).toContain(NO_DYNAMIC_TARIFF_TERMS_NOTE)
+    expect(copy.storageVerdict).toContain('kein Speicher im Katalog freigegeben')
+  })
+
+  it('Tarif unbekannt: kein „Ihr Tarif heute"; ohne lohnenden Speicher nur das Urteil', () => {
+    for (const name of ['tarif-unbekannt-messzeitraum', 'tarif-unbekannt-ohne-speicher']) {
+      expect(simple[name]!.s.ways.some((w) => w.isToday), name).toBe(false)
+    }
+    const { s, copy } = simple['tarif-unbekannt-ohne-speicher']!
+    expect(s.storage).toBeNull()
+    expect(copy.savingBox.amount).toBeNull()
+    expect(copy.storageVerdict).toMatch(/^Ein neuer Speicher .* rechnet er sich damit nicht\.$/)
+  })
+
+  it('die Leser im Körper behandeln die einfachere Fassung wie keine Vorderseite', () => {
+    for (const [name, { s }] of Object.entries(simple)) {
+      const input = SIMPLE_SUMMARY_CASES[name]!
+      expect(summaryAnnualTotalOf(input.analysis, s), name).toBeNull()
+      expect(summaryCostTodayYearOf(input, s), name).toBeNull()
+      expect(totalAmortizationOf(s), name).toBeNull()
+    }
   })
 })
 
@@ -456,7 +561,7 @@ describe('Variante „tarif-unbekannt"', () => {
     }
   })
 
-  it('keine Vorderseite bei Teiljahr oder ohne Speicher, der sich rechnet', () => {
+  it('einfachere Fassung bei Teiljahr oder ohne Speicher, der sich rechnet', () => {
     const partYear = (withAnnualScenario: boolean) => {
       const input = structuredClone(muster(withAnnualScenario))
       const optimization = input.analysis.tariffOptimization
@@ -464,19 +569,19 @@ describe('Variante „tarif-unbekannt"', () => {
       optimization.monthlyComparison!.currentTariffEur = null
       return input
     }
-    expect(buildExecutiveSummary(partYear(false))).toBeNull()
-    expect(buildExecutiveSummary(partYear(true))).toBeNull()
+    expect(buildExecutiveSummary(partYear(false)).variant).toBe('tarif-unbekannt-messzeitraum')
+    expect(buildExecutiveSummary(partYear(true)).variant).toBe('tarif-unbekannt-messzeitraum')
     const noCatalog = unknownTariffYear(({ analysis }) => {
       analysis.recommendation = null
       analysis.perBattery = []
     })
-    expect(buildExecutiveSummary(noCatalog)).toBeNull()
+    expect(buildExecutiveSummary(noCatalog).variant).toBe('tarif-unbekannt-ohne-speicher')
     const notWorth = unknownTariffYear((input) =>
       editRecommended(input, (e) => {
         e.netSavingOverHorizon = -1
       }),
     )
-    expect(buildExecutiveSummary(notWorth)).toBeNull()
+    expect(buildExecutiveSummary(notWorth).variant).toBe('tarif-unbekannt-ohne-speicher')
   })
 })
 
